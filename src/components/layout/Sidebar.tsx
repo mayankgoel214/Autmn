@@ -26,7 +26,6 @@ const founderBottomNav = [
 ]
 
 const caBottomNav = [
-  { name: 'Team', href: '/settings/team', icon: TeamIcon },
   { name: 'Pricing', href: '/pricing', icon: PricingIcon },
   { name: 'Settings', href: '/settings', icon: GearIcon },
 ]

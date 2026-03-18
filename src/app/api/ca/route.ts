@@ -134,5 +134,26 @@ export async function POST(request: Request) {
     })
   }
 
+  // Auto-map obligations and generate calendar for the new client
+  try {
+    const { mapObligationsForCompany } = await import('@/lib/services/obligations/obligation-mapper')
+    const { generateCalendar } = await import('@/lib/services/calendar/calendar.service')
+
+    // Check if obligations are already mapped
+    const existingObs = await prisma.companyObligation.count({ where: { companyId: company.id } })
+    if (existingObs === 0) {
+      await mapObligationsForCompany(company.id)
+    }
+
+    // Check if calendar is already generated
+    const existingFilings = await prisma.filingInstance.count({ where: { companyId: company.id } })
+    if (existingFilings === 0) {
+      await generateCalendar(company.id)
+    }
+  } catch (e) {
+    console.error('Auto-mapping failed for client:', e)
+    // Don't fail the add-client operation — mapping can be done manually
+  }
+
   return NextResponse.json({ success: true, companyName: company.companyName })
 }
