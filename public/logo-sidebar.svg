@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="40" viewBox="0 0 160 40">
+  <!-- Icon -->
+  <g transform="translate(4, 6)">
+    <circle cx="6" cy="12" r="2.8" fill="#111111"/>
+    <circle cx="18" cy="4.8" r="2.8" fill="#111111"/>
+    <circle cx="18" cy="19.2" r="2.8" fill="#111111"/>
+    <circle cx="30" cy="12" r="3.6" fill="#111111"/>
+    <line x1="8.8" y1="10.8" x2="15.6" y2="6" stroke="#111111" stroke-width="1.2"/>
+    <line x1="8.8" y1="13.2" x2="15.6" y2="18" stroke="#111111" stroke-width="1.2"/>
+    <line x1="20.4" y1="6" x2="27" y2="10.8" stroke="#111111" stroke-width="1.2"/>
+    <line x1="20.4" y1="18" x2="27" y2="13.2" stroke="#111111" stroke-width="1.2"/>
+  </g>
+  <!-- Text: Autmn -->
+  <text x="46" y="27" font-family="'Inter', 'Manrope', Arial, sans-serif" font-weight="700" font-size="20" fill="#111111" letter-spacing="-0.5">Autmn</text>
+</svg>

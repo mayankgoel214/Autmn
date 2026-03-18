@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH MODELS
+// ============================================================
+
+model User {
+  id                  String    @id @default(uuid()) @db.Uuid
+  email               String    @unique @db.VarChar(255)
+  name                String?   @db.VarChar(255)
+  passwordHash        String?   @map("password_hash")
+  role                UserRole  @default(FOUNDER)
+  companyId           String?   @map("company_id") @db.Uuid
+  emailVerified       Boolean   @default(false) @map("email_verified")
+  verifyToken         String?   @unique @map("verify_token")
+  verifyTokenExpiry   DateTime? @map("verify_token_expiry") @db.Timestamptz
+  resetToken          String?   @unique @map("reset_token")
+  resetTokenExpiry    DateTime? @map("reset_token_expiry") @db.Timestamptz
+  image               String?
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  company       Company?       @relation(fields: [companyId], references: [id])
+  accounts      Account[]
+  sessions      Session[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  FOUNDER
+  CA_ADVISOR
+  TEAM_MEMBER
+  ADMIN
+}
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================
+// COMPANY MODELS
+// ============================================================
+
+model Company {
+  id                    String    @id @default(uuid()) @db.Uuid
+  cin                   String?   @unique @db.VarChar(21)
+  companyName           String    @map("company_name") @db.VarChar(255)
+  entityType            String    @map("entity_type") @db.VarChar(20)
+  dateOfIncorporation   DateTime? @map("date_of_incorporation") @db.Date
+  registeredState       String?   @map("registered_state") @db.VarChar(50)
+  registeredAddress     String?   @map("registered_address")
+  authorizedCapital     BigInt?   @map("authorized_capital")
+  paidUpCapital         BigInt?   @map("paid_up_capital")
+  industrySector        String?   @map("industry_sector") @db.VarChar(100)
+  gstNumber             String?   @map("gst_number") @db.VarChar(15)
+  panNumber             String?   @map("pan_number") @db.VarChar(10)
+  tanNumber             String?   @map("tan_number") @db.VarChar(10)
+  employeeCount         Int       @default(0) @map("employee_count")
+  operatingStates       Json      @default("[]") @map("operating_states")
+  annualTurnover        BigInt?   @map("annual_turnover")
+  hasForeignInvestment  Boolean   @default(false) @map("has_foreign_investment")
+  dpiitRecognized       Boolean   @default(false) @map("dpiit_recognized")
+  mcaStatus             String?   @map("mca_status") @db.VarChar(50)
+  gstRegistered         Boolean   @default(false) @map("gst_registered")
+  gstScheme             String?   @map("gst_scheme") @db.VarChar(20) // regular, composition, qrmp
+  pfRegistered          Boolean   @default(false) @map("pf_registered")
+  esiRegistered         Boolean   @default(false) @map("esi_registered")
+  onboardingComplete    Boolean   @default(false) @map("onboarding_complete")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  users              User[]
+  directors          Director[]
+  companyObligations CompanyObligation[]
+  filingInstances    FilingInstance[]
+  integrationTokens  IntegrationToken[]
+  financialData      FinancialData[]
+
+  @@map("companies")
+}
+
+model Director {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @map("company_id") @db.Uuid
+  din               String?   @db.VarChar(8)
+  name              String    @db.VarChar(255)
+  designation       String?   @db.VarChar(100)
+  dateOfAppointment DateTime? @map("date_of_appointment") @db.Date
+  dir3KycStatus     String    @default("pending") @map("dir3_kyc_status") @db.VarChar(20)
+  dir3KycDueDate    DateTime? @map("dir3_kyc_due_date") @db.Date
+  dinStatus         String    @default("active") @map("din_status") @db.VarChar(20)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("directors")
+}
+
+// ============================================================
+// COMPLIANCE MODELS
+// ============================================================
+
+model ComplianceObligation {
+  id                    String  @id @default(uuid()) @db.Uuid
+  obligationCode        String  @unique @map("obligation_code") @db.VarChar(50)
+  obligationName        String  @map("obligation_name") @db.VarChar(255)
+  category              String  @db.VarChar(20) // gst, income_tax, tds, mca, labour, state
+  frequency             String  @db.VarChar(20) // monthly, quarterly, annual, event_based, one_time
+  baseDueDateRule       Json    @map("base_due_date_rule")
+  applicableConditions  Json    @map("applicable_conditions")
+  penaltyDescription    String? @map("penalty_description")
+  penaltyCalculationRule Json?  @map("penalty_calculation_rule")
+  filingPortal          String? @map("filing_portal") @db.VarChar(100)
+  requiresDsc           Boolean @default(false) @map("requires_dsc")
+  canFileViaApi         Boolean @default(false) @map("can_file_via_api")
+  dataSources           Json?   @map("data_sources")
+  legalReference        String? @map("legal_reference") @db.VarChar(255)
+  effectiveFrom         DateTime? @map("effective_from") @db.Date
+  version               Int     @default(1)
+
+  companyObligations CompanyObligation[]
+  filingInstances    FilingInstance[]
+
+  @@map("compliance_obligations")
+}
+
+model CompanyObligation {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  obligationId    String    @map("obligation_id") @db.Uuid
+  isActive        Boolean   @default(true) @map("is_active")
+  activatedDate   DateTime? @map("activated_date") @db.Date
+  deactivatedDate DateTime? @map("deactivated_date") @db.Date
+  notes           String?
+
+  company    Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  obligation ComplianceObligation @relation(fields: [obligationId], references: [id])
+
+  @@unique([companyId, obligationId])
+  @@map("company_obligations")
+}
+
+model FilingInstance {
+  id                  String    @id @default(uuid()) @db.Uuid
+  companyId           String    @map("company_id") @db.Uuid
+  obligationId        String    @map("obligation_id") @db.Uuid
+  period              String    @db.VarChar(20) // e.g., "Mar-2026", "Q4-2026", "FY-2025-26"
+  dueDate             DateTime  @map("due_date") @db.Date
+  status              String    @default("upcoming") @db.VarChar(20) // upcoming, prepared, filed, overdue
+  preparedData        Json?     @map("prepared_data")
+  filedDate           DateTime? @map("filed_date") @db.Date
+  acknowledgmentNumber String?  @map("acknowledgment_number") @db.VarChar(50)
+  penaltyAccrued      Decimal   @default(0) @map("penalty_accrued") @db.Decimal(12, 2)
+  filedBy             String?   @map("filed_by") @db.VarChar(20)
+  notes               String?
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  company    Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  obligation ComplianceObligation @relation(fields: [obligationId], references: [id])
+
+  @@index([companyId, dueDate])
+  @@index([companyId, status])
+  @@map("filing_instances")
+}
+
+// ============================================================
+// NOTIFICATION MODEL
+// ============================================================
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @db.VarChar(50) // deadline, regulatory, system
+  title     String   @db.VarChar(255)
+  body      String
+  link      String?  @db.VarChar(500)
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+// ============================================================
+// INTEGRATION TOKENS
+// ============================================================
+
+model IntegrationToken {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  provider     String   @db.VarChar(50) // zoho_books, gsp
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, provider])
+  @@map("integration_tokens")
+}
+
+// ============================================================
+// FINANCIAL DATA (from accounting software)
+// ============================================================
+
+model FinancialData {
+  id                String   @id @default(uuid()) @db.Uuid
+  companyId         String   @map("company_id") @db.Uuid
+  source            String   @db.VarChar(20) // zoho_books, tally, manual
+  dataType          String   @map("data_type") @db.VarChar(20) // invoice, bill, expense, payment, credit_note
+  referenceNumber   String?  @map("reference_number") @db.VarChar(100)
+  date              DateTime @db.Date
+  amount            Decimal  @db.Decimal(15, 2)
+  taxAmount         Decimal  @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  gstRate           Decimal  @default(0) @map("gst_rate") @db.Decimal(5, 2)
+  hsnSacCode        String?  @map("hsn_sac_code") @db.VarChar(10)
+  counterpartyGstin String?  @map("counterparty_gstin") @db.VarChar(15)
+  counterpartyName  String?  @map("counterparty_name") @db.VarChar(255)
+  placeOfSupply     String?  @map("place_of_supply") @db.VarChar(5)
+  isReverseCharge   Boolean  @default(false) @map("is_reverse_charge")
+  rawData           Json?    @map("raw_data")
+  syncedAt          DateTime @default(now()) @map("synced_at") @db.Timestamptz
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, date])
+  @@index([companyId, dataType])
+  @@map("financial_data")
+}
