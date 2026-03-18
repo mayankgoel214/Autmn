@@ -31,6 +31,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   notifications Notification[]
+  caClients     CAClient[]     // Companies this CA manages
 
   @@map("users")
 }
@@ -120,6 +121,7 @@ model Company {
   filingInstances    FilingInstance[]
   integrationTokens  IntegrationToken[]
   financialData      FinancialData[]
+  caClients          CAClient[]
 
   @@map("companies")
 }
@@ -276,4 +278,22 @@ model FinancialData {
   @@index([companyId, date])
   @@index([companyId, dataType])
   @@map("financial_data")
+}
+
+// ============================================================
+// CA CLIENT MANAGEMENT
+// ============================================================
+
+model CAClient {
+  id          String   @id @default(uuid()) @db.Uuid
+  caUserId    String   @map("ca_user_id") @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  addedAt     DateTime @default(now()) @map("added_at") @db.Timestamptz
+  notes       String?
+
+  caUser  User    @relation(fields: [caUserId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([caUserId, companyId])
+  @@map("ca_clients")
 }
