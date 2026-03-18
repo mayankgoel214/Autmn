@@ -25,9 +25,14 @@ export async function updateCompanyProfile(
       break
     }
     case 'gst_number': {
-      const gstin = value.trim().toUpperCase()
-      if (gstin.length === 15) {
-        updates.gstNumber = gstin
+      const upper = value.toUpperCase()
+      // Extract 15-character GSTIN pattern from anywhere in the text
+      const gstinMatch = upper.match(/\d{2}[A-Z]{5}\d{4}[A-Z]\d[A-Z]\d/)
+      if (gstinMatch) {
+        updates.gstNumber = gstinMatch[0]
+        updates.gstRegistered = true
+      } else if (value.toLowerCase().includes('yes') && !gstinMatch) {
+        // They said yes but didn't provide GSTIN — still mark as registered
         updates.gstRegistered = true
       } else if (value.toLowerCase().includes('no') || value.toLowerCase().includes('not')) {
         updates.gstRegistered = false
@@ -52,7 +57,13 @@ export async function updateCompanyProfile(
     }
     case 'foreign_investment': {
       const lower = value.toLowerCase()
-      updates.hasForeignInvestment = lower.includes('yes') || lower.includes('have') || lower.includes('received')
+      const isYes = lower.includes('yes') || lower.includes('have') || lower.includes('received') ||
+        lower.includes('from') || lower.includes('foreign') || lower.includes('nri') ||
+        lower.includes('singapore') || lower.includes('us ') || lower.includes('china') ||
+        lower.includes('investor')
+      const isNo = lower.includes('no') || lower === 'n' || lower.includes('domestic only') ||
+        lower.includes('not yet') || lower.includes('haven\'t')
+      updates.hasForeignInvestment = isNo ? false : isYes
       break
     }
     case 'dpiit': {

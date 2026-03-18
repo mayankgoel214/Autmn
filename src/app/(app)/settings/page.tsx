@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
+import { ChangeCompanyButton } from '@/components/settings/ChangeCompanyButton'
 
 export default async function SettingsPage() {
   const session = await auth()
@@ -52,6 +53,7 @@ export default async function SettingsPage() {
                   <p className="text-sm font-medium text-[var(--color-text)]">Company</p>
                   <p className="text-sm text-[var(--color-text-secondary)]">{user.company.companyName}</p>
                 </div>
+                <ChangeCompanyButton />
               </div>
             )}
           </div>
