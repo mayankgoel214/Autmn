@@ -5,25 +5,43 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
-const navigation = [
+const founderNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Calendar', href: '/calendar', icon: CalendarIcon },
   { name: 'Filings', href: '/filings', icon: FileIcon },
   { name: 'Taxes', href: '/taxes', icon: CalculatorIcon },
   { name: 'Health Score', href: '/health', icon: HeartIcon },
   { name: 'Regulatory', href: '/regulatory', icon: BellIcon },
-  { name: 'CA Portal', href: '/ca-portal', icon: CAPortalIcon },
 ]
 
-const bottomNav = [
+const caNavigation = [
+  { name: 'Clients', href: '/ca-portal', icon: CAPortalIcon },
+  { name: 'Calendar', href: '/calendar', icon: CalendarIcon },
+  { name: 'Regulatory', href: '/regulatory', icon: BellIcon },
+]
+
+const founderBottomNav = [
+  { name: 'Pricing', href: '/pricing', icon: PricingIcon },
+  { name: 'Settings', href: '/settings', icon: GearIcon },
+]
+
+const caBottomNav = [
   { name: 'Team', href: '/settings/team', icon: TeamIcon },
   { name: 'Pricing', href: '/pricing', icon: PricingIcon },
   { name: 'Settings', href: '/settings', icon: GearIcon },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  userRole?: string
+}
+
+export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const isCA = userRole === 'CA_ADVISOR'
+  const navigation = isCA ? caNavigation : founderNavigation
+  const bottomNav = isCA ? caBottomNav : founderBottomNav
 
   return (
     <>

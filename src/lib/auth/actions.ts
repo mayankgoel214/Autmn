@@ -17,6 +17,8 @@ export async function signup(formData: FormData) {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
   }
+  const selectedRole = (formData.get('role') as string) || 'FOUNDER'
+  const role = selectedRole === 'CA_ADVISOR' ? 'CA_ADVISOR' : 'FOUNDER'
 
   const parsed = signupSchema.safeParse(raw)
   if (!parsed.success) {
@@ -42,9 +44,9 @@ export async function signup(formData: FormData) {
       name,
       email: normalizedEmail,
       passwordHash,
-      role: 'FOUNDER',
+      role: role as 'FOUNDER' | 'CA_ADVISOR',
       verifyToken,
-      verifyTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      verifyTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
     },
   })
 
@@ -56,10 +58,11 @@ export async function signup(formData: FormData) {
   }
 
   // Auto sign in after signup
+  const redirectTo = role === 'CA_ADVISOR' ? '/ca-portal' : '/dashboard'
   await signIn('credentials', {
     email: normalizedEmail,
     password,
-    redirectTo: '/dashboard',
+    redirectTo,
   })
 }
 
@@ -67,11 +70,18 @@ export async function login(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
+  // Check user role for redirect
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { role: true },
+  })
+  const redirectTo = user?.role === 'CA_ADVISOR' ? '/ca-portal' : '/dashboard'
+
   try {
     await signIn('credentials', {
       email,
       password,
-      redirectTo: '/dashboard',
+      redirectTo,
     })
   } catch (error) {
     if ((error as { digest?: string })?.digest?.startsWith('NEXT_REDIRECT')) {
