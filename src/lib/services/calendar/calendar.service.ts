@@ -41,6 +41,9 @@ export async function generateCalendar(companyId: string, fyStartYear?: number) 
     },
   })
 
+  // Get company creation date for new-user detection
+  const company = await prisma.company.findUnique({ where: { id: companyId } })
+
   const instances: Array<{
     companyId: string
     obligationId: string
@@ -60,7 +63,24 @@ export async function generateCalendar(companyId: string, fyStartYear?: number) 
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      const status = deadline.dueDate < today ? 'overdue' : 'upcoming'
+      // For past deadlines: if user said they've been filing on time, mark as 'filed'
+      // Otherwise mark as 'overdue'. For new companies, assume they're current.
+      let status: string
+      if (deadline.dueDate < today) {
+        // Check if company was recently onboarded (within last 7 days)
+        const companyCreated = new Date(company?.createdAt || Date.now())
+        const daysSinceCreation = Math.ceil((Date.now() - companyCreated.getTime()) / (1000 * 60 * 60 * 24))
+
+        if (daysSinceCreation <= 7) {
+          // New user — assume past filings were handled, only show recent overdue (last 30 days)
+          const daysPast = Math.ceil((today.getTime() - deadline.dueDate.getTime()) / (1000 * 60 * 60 * 24))
+          status = daysPast <= 30 ? 'overdue' : 'filed'
+        } else {
+          status = 'overdue'
+        }
+      } else {
+        status = 'upcoming'
+      }
 
       instances.push({
         companyId,

@@ -13,11 +13,13 @@ const QUESTION_FIELD_MAP: Record<number, string> = {
   1: 'employee_count',
   2: 'annual_turnover',
   3: 'gst_number',
-  4: 'operating_states',
-  5: 'foreign_investment',
-  6: 'dpiit',
-  7: 'industry_sector',
-  8: 'pf_registered',
+  4: 'gst_scheme',
+  5: 'operating_states',
+  6: 'foreign_investment',
+  7: 'dpiit',
+  8: 'industry_sector',
+  9: 'pf_registered',
+  10: 'esi_registered',
 }
 
 export default function OnboardingProfilePage() {
@@ -100,10 +102,12 @@ export default function OnboardingProfilePage() {
               }
               if (data.done) {
                 setQuestionCount(prev => prev + 1)
-                // Check if onboarding is complete
-                if (aiText.toLowerCase().includes('profile is complete') ||
-                    aiText.toLowerCase().includes('identified') ||
-                    questionCount >= 7) {
+                // Check if onboarding is complete — require at least 8 questions answered
+                // and the AI must say "profile is now complete" or "proceed to your dashboard"
+                if ((aiText.toLowerCase().includes('profile is now complete') ||
+                    aiText.toLowerCase().includes('proceed to your dashboard') ||
+                    aiText.toLowerCase().includes('compliance calendar')) &&
+                    questionCount >= 8) {
                   setComplete(true)
                 }
               }
