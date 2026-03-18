@@ -67,17 +67,10 @@ export async function generateCalendar(companyId: string, fyStartYear?: number) 
       // Otherwise mark as 'overdue'. For new companies, assume they're current.
       let status: string
       if (deadline.dueDate < today) {
-        // Check if company was recently onboarded (within last 7 days)
-        const companyCreated = new Date(company?.createdAt || Date.now())
-        const daysSinceCreation = Math.ceil((Date.now() - companyCreated.getTime()) / (1000 * 60 * 60 * 24))
-
-        if (daysSinceCreation <= 7) {
-          // New user — assume past filings were handled, only show recent overdue (last 30 days)
-          const daysPast = Math.ceil((today.getTime() - deadline.dueDate.getTime()) / (1000 * 60 * 60 * 24))
-          status = daysPast <= 30 ? 'overdue' : 'filed'
-        } else {
-          status = 'overdue'
-        }
+        // For past deadlines: only show last 30 days as overdue
+        // Older items assumed to be filed (user was presumably compliant before joining AUTMN)
+        const daysPast = Math.ceil((today.getTime() - deadline.dueDate.getTime()) / (1000 * 60 * 60 * 24))
+        status = daysPast <= 30 ? 'overdue' : 'filed'
       } else {
         status = 'upcoming'
       }
