@@ -61,8 +61,8 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      {/* Integrations Section */}
-      <div className="mt-8">
+      {/* Integrations Section — only for founders, not CAs */}
+      {user?.role !== 'CA_ADVISOR' && (<div className="mt-8">
         <h2 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-4">Integrations</h2>
         <div className="rounded-lg border border-[var(--color-border)] bg-white p-6">
           <div className="flex items-center justify-between">
@@ -118,7 +118,7 @@ export default async function SettingsPage() {
             </ol>
           </div>
         </div>
-      </div>
+      </div>)}
 
       {/* Quick Links */}
       <div className="mt-8">
@@ -133,15 +133,17 @@ export default async function SettingsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
           </a>
-          <a href="/settings/team" className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-6 py-4 hover:bg-[var(--color-bg-secondary)] transition-colors">
-            <div>
-              <p className="text-sm font-medium text-[var(--color-text)]">Team Management</p>
-              <p className="text-xs text-[var(--color-text-secondary)]">Invite your CA or team members</p>
-            </div>
-            <svg className="h-4 w-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-          </a>
+          {user?.role !== 'CA_ADVISOR' && (
+            <a href="/settings/team" className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-6 py-4 hover:bg-[var(--color-bg-secondary)] transition-colors">
+              <div>
+                <p className="text-sm font-medium text-[var(--color-text)]">Team Management</p>
+                <p className="text-xs text-[var(--color-text-secondary)]">Invite your CA or team members</p>
+              </div>
+              <svg className="h-4 w-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </a>
+          )}
         </div>
       </div>
     </div>
