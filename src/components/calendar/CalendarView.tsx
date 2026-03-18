@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface Filing {
   id: string
@@ -210,6 +211,7 @@ function FilingRow({ filing }: { filing: Filing }) {
 }
 
 function MarkAsFiledButton({ filingId, obligationName }: { filingId: string; obligationName: string }) {
+  const router = useRouter()
   const [showForm, setShowForm] = useState(false)
   const [arn, setArn] = useState('')
   const [loading, setLoading] = useState(false)
@@ -224,6 +226,8 @@ function MarkAsFiledButton({ filingId, obligationName }: { filingId: string; obl
     })
     if (res.ok) {
       setDone(true)
+      // Refresh the page data so the filing shows as filed everywhere
+      router.refresh()
     }
     setLoading(false)
   }
