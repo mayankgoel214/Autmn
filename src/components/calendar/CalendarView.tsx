@@ -194,8 +194,77 @@ function FilingRow({ filing }: { filing: Filing }) {
               </div>
             )}
           </div>
+          {/* Mark as Filed button */}
+          {filing.status !== 'filed' && (
+            <MarkAsFiledButton filingId={filing.id} obligationName={filing.obligationName} />
+          )}
+          {filing.status === 'filed' && filing.filedDate && (
+            <p className="mt-3 text-xs text-[var(--color-success)]">
+              Filed on {filing.filedDate} {filing.acknowledgmentNumber ? `· ARN: ${filing.acknowledgmentNumber}` : ''}
+            </p>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+function MarkAsFiledButton({ filingId, obligationName }: { filingId: string; obligationName: string }) {
+  const [showForm, setShowForm] = useState(false)
+  const [arn, setArn] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)
+
+  async function handleMarkFiled() {
+    setLoading(true)
+    const res = await fetch('/api/filings/mark-filed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filingId, acknowledgmentNumber: arn || undefined }),
+    })
+    if (res.ok) {
+      setDone(true)
+    }
+    setLoading(false)
+  }
+
+  if (done) {
+    return <p className="mt-3 text-xs text-[var(--color-success)] font-medium">Marked as filed</p>
+  }
+
+  if (!showForm) {
+    return (
+      <button
+        onClick={() => setShowForm(true)}
+        className="mt-3 rounded-lg border border-[var(--color-success)] px-3 py-1.5 text-xs font-medium text-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-colors"
+      >
+        Mark as Filed
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <input
+        type="text"
+        value={arn}
+        onChange={e => setArn(e.target.value)}
+        placeholder="ARN / Acknowledgment # (optional)"
+        className="flex-1 rounded-lg border border-[var(--color-border)] px-2 py-1.5 text-xs focus:border-[var(--color-primary)] focus:outline-none"
+      />
+      <button
+        onClick={handleMarkFiled}
+        disabled={loading}
+        className="rounded-lg bg-[var(--color-success)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+      >
+        {loading ? '...' : 'Confirm'}
+      </button>
+      <button
+        onClick={() => setShowForm(false)}
+        className="text-xs text-[var(--color-text-muted)] hover:underline"
+      >
+        Cancel
+      </button>
     </div>
   )
 }
