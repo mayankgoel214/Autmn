@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
 import { ChangeCompanyButton } from '@/components/settings/ChangeCompanyButton'
+import { TallyConnectButton } from '@/components/settings/TallyConnectButton'
 
 export default async function SettingsPage() {
   const session = await auth()
@@ -93,8 +94,8 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        {/* Tally — Coming Soon */}
-        <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-white p-6 opacity-50">
+        {/* TallyPrime Integration */}
+        <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-white p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-bg-secondary)]">
@@ -102,10 +103,19 @@ export default async function SettingsPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-[var(--color-text)]">TallyPrime</p>
-                <p className="text-xs text-[var(--color-text-secondary)]">Coming soon</p>
+                <p className="text-xs text-[var(--color-text-secondary)]">Connect via API2Books plugin to sync invoices and ledgers</p>
               </div>
             </div>
-            <span className="text-xs text-[var(--color-text-muted)]">Planned</span>
+            <TallyConnectButton />
+          </div>
+          <div className="mt-4 rounded-lg bg-[var(--color-bg-secondary)] p-4">
+            <p className="text-xs font-medium text-[var(--color-text)] mb-2">How TallyPrime integration works:</p>
+            <ol className="text-xs text-[var(--color-text-secondary)] space-y-1.5 list-decimal list-inside">
+              <li>Install the API2Books plugin in your TallyPrime</li>
+              <li>Enter your AUTMN API key in the plugin settings</li>
+              <li>The plugin automatically syncs your invoices, bills, and ledgers</li>
+              <li>AUTMN computes your GST, TDS, and PF/ESI from the synced data</li>
+            </ol>
           </div>
         </div>
       </div>
