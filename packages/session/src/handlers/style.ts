@@ -12,7 +12,8 @@ import { prisma } from '@autmn/db';
 import { getImageQueue } from '@autmn/queue';
 import { transitionTo } from '../db-helpers.js';
 import { styleDisplayName, msgRevisionLimitReached, msgStylePicked, msgAllStylesReady, msgSendProductPhotos, msgStylePackReady } from '../messages.js';
-import { ListIds, ButtonIds, FREE_REDOS_PER_STYLE, OUTPUT_STYLES_PER_ORDER } from '../types.js';
+import { ListIds, ButtonIds, FREE_REDOS_PER_STYLE, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
+import { selectStylesForOrder } from '../auto-styles.js';
 import type { Language } from '../types.js';
 import type { MessageContext } from '../types.js';
 import { logger } from '../logger.js';
@@ -134,7 +135,7 @@ export async function handleSetupStyle(
       // Style-change edit: reuse existing photos, enqueue reprocessing immediately
       await wa.sendText(
         phoneNumber,
-        lang === 'hinglish'
+        isHindi(lang)
           ? `*${styleName}* mein bana rahe hain — bas thoda wait karein!`
           : `Reprocessing in *${styleName}* — just a moment!`,
       );
@@ -150,7 +151,7 @@ export async function handleSetupStyle(
         ?? '';
 
       if (!primaryUrl) {
-        await wa.sendText(phoneNumber, lang === 'hinglish' ? 'Photo nahi mili.' : 'Could not find the original photo.');
+        await wa.sendText(phoneNumber, isHindi(lang) ? 'Photo nahi mili.' : 'Could not find the original photo.');
         await transitionTo(phoneNumber, 'DELIVERED');
         return;
       }
@@ -304,7 +305,7 @@ function packDisplayName(packId: string, lang: Language): string {
     action_pack: { hinglish: 'Action Pack \ud83d\udcaa', en: 'Action Pack \ud83d\udcaa' },
     custom_pack: { hinglish: 'Custom \ud83c\udfa8', en: 'Custom \ud83c\udfa8' },
   };
-  const key = lang === 'hinglish' ? 'hinglish' : 'en';
+  const key = isHindi(lang) ? 'hinglish' : 'en';
   return names[packId]?.[key] ?? packId;
 }
 
@@ -312,16 +313,7 @@ function packDisplayName(packId: string, lang: Language): string {
  * Resolves Smart Pack to the 3 best concrete styles for the given product category.
  */
 function resolveSmartPack(category: string | null): string[] {
-  const mapping: Record<string, string[]> = {
-    cat_jewellery: ['style_autmn_special', 'style_gradient', 'style_lifestyle'],
-    cat_food: ['style_autmn_special', 'style_lifestyle', 'style_festive'],
-    cat_garment: ['style_autmn_special', 'style_lifestyle', 'style_with_model'],
-    cat_skincare: ['style_autmn_special', 'style_clean_white', 'style_gradient'],
-    cat_candle: ['style_autmn_special', 'style_gradient', 'style_festive'],
-    cat_bag: ['style_autmn_special', 'style_lifestyle', 'style_gradient'],
-    cat_electronics: ['style_autmn_special', 'style_gradient', 'style_studio'],
-  };
-  return mapping[category ?? ''] ?? ['style_autmn_special', 'style_lifestyle', 'style_gradient'];
+  return selectStylesForOrder(category, OUTPUT_STYLES_PER_ORDER);
 }
 
 function resolveStyleFromText(text: string): string | null {

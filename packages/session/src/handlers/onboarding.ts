@@ -18,7 +18,6 @@ import {
   styleDisplayName,
   msgAllStylesReady,
   msgSendProductPhotos,
-  msgPickStylePack,
 } from '../messages.js';
 import { ListIds, ButtonIds, CATEGORY_STYLE_RECOMMENDATION, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
 import { selectStylesForOrder } from '../auto-styles.js';
@@ -78,7 +77,7 @@ export async function handleIdle(
         },
       });
       if (claimed.count === 0) return;
-      await sendStylePackList(session.phoneNumber, lang, wa, user.businessType ?? undefined);
+      await sendStyleList(session.phoneNumber, lang, wa, user.businessType ?? undefined, []);
       return;
     }
 
@@ -299,7 +298,7 @@ export async function handleSetupName(
       voiceInstructions: null,
       earlyPhotoMediaId: null,
     });
-    await sendStylePackList(session.phoneNumber, lang, wa, categoryId);
+    await sendStyleList(session.phoneNumber, lang, wa, categoryId, []);
   } else if (user.businessType) {
     // Returning user updating brand name only — already has category, pick style pack for this order
     await transitionTo(session.phoneNumber, 'SETUP_STYLE', {
@@ -312,7 +311,7 @@ export async function handleSetupName(
       voiceInstructions: null,
       earlyPhotoMediaId: null,
     });
-    await sendStylePackList(session.phoneNumber, lang, wa, user.businessType ?? undefined);
+    await sendStyleList(session.phoneNumber, lang, wa, user.businessType ?? undefined, []);
   } else {
     await transitionTo(session.phoneNumber, 'SETUP_CATEGORY');
     await sendCategoryList(session.phoneNumber, lang, wa, brandName);
@@ -354,7 +353,7 @@ export async function handleSetupCategory(
     voiceInstructions: null,
     earlyPhotoMediaId: null,
   });
-  await sendStylePackList(session.phoneNumber, lang, wa, categoryId);
+  await sendStyleList(session.phoneNumber, lang, wa, categoryId, []);
 }
 
 // ---------------------------------------------------------------------------
@@ -393,75 +392,10 @@ export async function sendCategoryList(
 }
 
 /**
- * Sends the style PACK picker — a single WhatsApp list where each row is a
- * pre-made 3-style bundle. Selecting one pack resolves all 3 styles at once.
- * "Custom" triggers the sequential 3-step individual style picker.
- *
- * Called from SETUP_STYLE state (after photos are already collected).
- */
-export async function sendStylePackList(
-  phoneNumber: string,
-  lang: Language,
-  wa: WhatsAppClient,
-  categoryId?: string,
-): Promise<void> {
-  if (lang === 'hi') {
-    await wa.sendText(
-      phoneNumber,
-      'कितने ऐड वर्ज़न चाहिए?\n\n• 1 ऐड — ₹30\n• 2 ऐड — ₹60\n• 3 ऐड — ₹90\n\nहर वर्ज़न का स्टाइल अलग होगा ताकि आप टेस्ट कर सकें।',
-    );
-  }
-  const headerText = msgPickStylePack(lang);
-
-  const rows = [
-    {
-      id: ListIds.SMART_PACK,
-      title: isHindi(lang) ? 'Smart Pack \u2728' : 'Smart Pack \u2728',
-      description: isHindi(lang)
-        ? 'AI aapke product ke liye 3 best styles chunega'
-        : 'AI picks the best 3 styles for your product',
-    },
-    {
-      id: ListIds.BESTSELLER_PACK,
-      title: isHindi(lang) ? 'Best Seller Pack \ud83c\udfc6' : 'Best Seller Pack \ud83c\udfc6',
-      description: isHindi(lang)
-        ? 'Lifestyle + Studio + Dark Luxury'
-        : 'Lifestyle + Studio + Dark Luxury',
-    },
-    {
-      id: ListIds.FESTIVAL_PACK,
-      title: isHindi(lang) ? 'Festival Pack \ud83c\udf89' : 'Festival Pack \ud83c\udf89',
-      description: isHindi(lang)
-        ? 'Tyohar + Lifestyle + Clean White'
-        : 'Festive + Lifestyle + Clean White',
-    },
-    {
-      id: ListIds.ACTION_PACK,
-      title: isHindi(lang) ? 'Action Pack \ud83d\udcaa' : 'Action Pack \ud83d\udcaa',
-      description: isHindi(lang)
-        ? 'Model + Outdoor + Lifestyle'
-        : 'With Model + Outdoor + Lifestyle',
-    },
-    {
-      id: ListIds.CUSTOM_PACK,
-      title: isHindi(lang) ? 'Custom \ud83c\udfa8' : 'Custom \ud83c\udfa8',
-      description: isHindi(lang)
-        ? 'Khud 3 styles chuniye'
-        : 'Pick 3 styles yourself',
-    },
-  ];
-
-  await wa.sendList(
-    phoneNumber,
-    headerText,
-    isHindi(lang) ? 'Pack chuniye' : 'Choose pack',
-    [{ title: isHindi(lang) ? 'Style Packs' : 'Style Packs', rows }],
-  );
-}
-
-/**
- * Sends the individual style list for a specific step in the custom 3-step picker.
- * Only called when the user selects Custom pack.
+ * Sends the style picker.
+ * Step 1: two sections — "Let AI choose" (Smart Pack + Autumn Special) and
+ *         "Pick your own (choose up to 3)" (7 individual styles).
+ * Steps 2-3: Section 2 only, with already-picked styles filtered out.
  */
 export async function sendStyleList(
   phoneNumber: string,
@@ -471,16 +405,14 @@ export async function sendStyleList(
   alreadyPicked: string[] = [],
 ): Promise<void> {
   const recStyleId = categoryId ? (CATEGORY_STYLE_RECOMMENDATION[categoryId] ?? null) : null;
-  const pickNumber = alreadyPicked.length + 1; // 1, 2, or 3
+  const pickNumber = alreadyPicked.length + 1;
   const isFirstPick = pickNumber === 1;
 
-  const makeDesc = (id: string, desc: string) => {
-    return id === recStyleId ? `${desc} -- Recommended` : desc;
-  };
+  const makeDesc = (id: string, desc: string) =>
+    id === recStyleId ? `${desc} -- Recommended` : desc;
 
-  // All individual style rows (excluding already-picked styles)
-  const individualRows = [
-    { id: ListIds.STYLE_AUTMN_SPECIAL, title: styleDisplayName(ListIds.STYLE_AUTMN_SPECIAL, lang), description: makeDesc(ListIds.STYLE_AUTMN_SPECIAL, 'AI picks the best creative direction') },
+  const section2Rows = [
+    { id: ListIds.STYLE_AUTMN_SPECIAL, title: styleDisplayName(ListIds.STYLE_AUTMN_SPECIAL, lang), description: makeDesc(ListIds.STYLE_AUTMN_SPECIAL, isHindi(lang) ? 'AI best creative direction chunega' : 'AI picks the best creative direction') },
     { id: ListIds.STYLE_CLEAN_WHITE, title: styleDisplayName(ListIds.STYLE_CLEAN_WHITE, lang), description: makeDesc(ListIds.STYLE_CLEAN_WHITE, 'Pure white background') },
     { id: ListIds.STYLE_STUDIO, title: styleDisplayName(ListIds.STYLE_STUDIO, lang), description: makeDesc(ListIds.STYLE_STUDIO, 'Colored backdrop studio') },
     { id: ListIds.STYLE_LIFESTYLE, title: styleDisplayName(ListIds.STYLE_LIFESTYLE, lang), description: makeDesc(ListIds.STYLE_LIFESTYLE, 'Real-life setting') },
@@ -490,30 +422,45 @@ export async function sendStyleList(
     { id: ListIds.STYLE_WITH_MODEL, title: styleDisplayName(ListIds.STYLE_WITH_MODEL, lang), description: makeDesc(ListIds.STYLE_WITH_MODEL, 'AI person with product') },
   ].filter(row => !alreadyPicked.includes(row.id));
 
-  // Smart Pack is shown as the first option on step 1 — tapping it picks all 3 at once
-  const allStyleRows = isFirstPick
-    ? [
-        {
-          id: ListIds.SMART_PACK,
-          title: isHindi(lang) ? 'Smart Pack \u2728' : 'Smart Pack \u2728',
-          description: isHindi(lang)
-            ? 'AI aapke product ke liye 3 best styles chunega'
-            : 'AI picks the best 3 styles for your product',
-        },
-        ...individualRows,
-      ]
-    : individualRows;
+  if (isFirstPick) {
+    if (lang === 'hi') {
+      await wa.sendText(
+        phoneNumber,
+        'कितने ऐड वर्ज़न चाहिए?\n\n• 1 ऐड — ₹30\n• 2 ऐड — ₹60\n• 3 ऐड — ₹90\n\nहर वर्ज़न का स्टाइल अलग होगा ताकि आप टेस्ट कर सकें।',
+      );
+    }
 
-  const headerText = isHindi(lang)
-    ? `Style ${pickNumber} of ${OUTPUT_STYLES_PER_ORDER} chuniye:`
-    : `Pick style ${pickNumber} of ${OUTPUT_STYLES_PER_ORDER}:`;
+    const section1Rows = [
+      {
+        id: ListIds.SMART_PACK,
+        title: isHindi(lang) ? 'Smart Pack ✨' : 'Smart Pack ✨',
+        description: isHindi(lang)
+          ? 'AI aapke product ke liye 3 best styles chunega'
+          : 'AI picks the best 3 styles for your product',
+      },
+    ];
 
-  await wa.sendList(
-    phoneNumber,
-    headerText,
-    isHindi(lang) ? 'Chuniye' : 'Choose',
-    [{ title: 'Styles', rows: allStyleRows }],
-  );
+    await wa.sendList(
+      phoneNumber,
+      isHindi(lang) ? 'Style chuniye:' : 'Pick your style:',
+      isHindi(lang) ? 'Chuniye' : 'Choose',
+      [
+        { title: 'Let AI choose', rows: section1Rows },
+        { title: 'Pick your own (choose up to 3)', rows: section2Rows },
+      ],
+    );
+  } else {
+    const headerText = isHindi(lang)
+      ? `Style ${pickNumber} of ${OUTPUT_STYLES_PER_ORDER} chuniye:`
+      : `Pick style ${pickNumber} of ${OUTPUT_STYLES_PER_ORDER}:`;
+
+    await wa.sendList(
+      phoneNumber,
+      headerText,
+      isHindi(lang) ? 'Chuniye' : 'Choose',
+      [{ title: 'Pick your own (choose up to 3)', rows: section2Rows }],
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
