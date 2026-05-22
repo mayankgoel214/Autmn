@@ -195,7 +195,25 @@ export async function handleIdle(
   }
 
   // ── New user: auto-detect language from first message, skip picker ───────────────
-  const firstMessageText = message.text ?? message.caption ?? '';
+  let firstMessageText = message.text ?? message.caption ?? '';
+
+  // Voice note as first message — transcribe to extract text for language detection
+  if (message.messageType === 'audio' && message.mediaId && !firstMessageText) {
+    try {
+      const accessToken = process.env.WHATSAPP_ACCESS_TOKEN ?? '';
+      const { downloadMedia } = await import('@autmn/whatsapp');
+      const { buffer, mimeType } = await downloadMedia(message.mediaId, accessToken);
+      const { transcribeVoiceNote } = await import('@autmn/ai');
+      const transcript = await transcribeVoiceNote(buffer, mimeType);
+      if (transcript.text) firstMessageText = transcript.text;
+    } catch (err) {
+      logger.error('Failed to transcribe first-message voice note for language detection', {
+        phoneNumber: session.phoneNumber,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   const detectedLang: Language = await detectLanguage(firstMessageText).catch(() => 'en' as Language);
 
   await updateUser(session.phoneNumber, { language: detectedLang });

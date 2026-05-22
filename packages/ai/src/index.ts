@@ -109,7 +109,7 @@ export {
 // Language detection
 // ---------------------------------------------------------------------------
 
-export { detectLanguage } from './language/detect.js';
+export { detectLanguage, normalizeTranscriptionLang } from './language/detect.js';
 
 // ---------------------------------------------------------------------------
 // Voice interpretation

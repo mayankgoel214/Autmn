@@ -271,12 +271,12 @@ export async function handleAwaitingPhoto(
         const { buffer, mimeType } = await downloadMedia(message.mediaId, accessToken);
         const { uploadFile: upload, Buckets: B } = await import('@autmn/storage');
         await upload(B.VOICE_NOTES, `${phoneNumber}/${Date.now()}.ogg`, buffer, mimeType);
-        const { transcribeVoiceNote, interpretVoiceNote } = await import('@autmn/ai');
+        const { transcribeVoiceNote, interpretVoiceNote, normalizeTranscriptionLang } = await import('@autmn/ai');
         const transcript = await transcribeVoiceNote(buffer, mimeType);
         if (transcript.text) {
           const interpreted = await interpretVoiceNote({
             rawTranscription: transcript.text,
-            language: user.language,
+            language: normalizeTranscriptionLang(transcript.language),
             currentStep: 'instructions',
           });
           if (!interpreted) {

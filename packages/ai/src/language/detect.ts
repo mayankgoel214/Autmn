@@ -1,6 +1,16 @@
 import { getProviderKey } from '@autmn/keypool';
 
 /**
+ * Maps provider-specific language codes to our Language type.
+ * Groq returns ISO 639-1 ("hi", "en"); Sarvam returns BCP-47 ("hi-IN", "en-IN").
+ * Hinglish cannot be detected from transcription codes — providers label it "hi".
+ */
+export function normalizeTranscriptionLang(code: string): 'en' | 'hi' {
+  if (code.toLowerCase().startsWith('hi')) return 'hi';
+  return 'en';
+}
+
+/**
  * Detects the language of a user's first message.
  *
  * Returns:
