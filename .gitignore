@@ -7,13 +7,17 @@ dist/
 .turbo/
 package-lock.json
 
-# Claude Code
-.claude/
+# Claude Code — track commands, ignore local settings
+.claude/settings.local.json
+.claude/todos.md
 CLAUDE.md
 
 # OS files
 .DS_Store
 *.log
+
+# Local binaries
+cloudflared.exe
 
 # Test results
 scripts/results/
