@@ -319,16 +319,19 @@ export async function runDeterministicChecks(
       return result;
     }
 
-    // Expect portrait 9:16. Reject if the actual ratio deviates >15% from 9/16.
-    // (Previous check tested squareness — incorrectly rejected all portrait images.)
+    // Log aspect ratio as a warning only — not a fatal rejection.
+    // Gemini Pro consistently outputs non-square/non-portrait images regardless of prompt;
+    // rejecting on ratio causes 100% Tier 2 fallback at 80s extra latency + ₹21 cost.
     const aspectRatio = w / h;
-    const expectedRatio = 9 / 16;
-    const ratioDiff = Math.abs(aspectRatio - expectedRatio) / expectedRatio;
-    if (ratioDiff > 0.15) {
+    if (aspectRatio < 0.3 || aspectRatio > 3.5) {
+      // Only fail on truly extreme dimensions (e.g. a 1-pixel-wide strip)
       result.pass = false;
       result.failReason = `wrong_aspect_ratio:${w}x${h}`;
       result.isValid = false;
       return result;
+    }
+    if (Math.abs(aspectRatio - 1.0) > 0.3) {
+      result.warnings.push(`Unexpected aspect ratio ${w}x${h} — prompt asked for square.`);
     }
 
     // Blank detection

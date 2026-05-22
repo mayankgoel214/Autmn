@@ -59,12 +59,12 @@ export async function handleIdle(
   if (message.messageType === 'interactive' && message.buttonReplyId) {
     const buttonId = message.buttonReplyId;
 
-    // Profile confirmation: continue with saved profile → SETUP_STYLE (pick pack for this order)
+    // Profile confirmation: continue with saved profile → AWAITING_PHOTO (photo first)
     if (buttonId === ButtonIds.PROFILE_CONTINUE) {
       const claimed = await prisma.session.updateMany({
         where: { phoneNumber: session.phoneNumber, state: 'IDLE' },
         data: {
-          state: 'SETUP_STYLE',
+          state: 'AWAITING_PHOTO',
           stateEnteredAt: new Date(),
           styleSelection: null,
           styleSelections: [],
@@ -77,7 +77,7 @@ export async function handleIdle(
         },
       });
       if (claimed.count === 0) return;
-      await sendStyleList(session.phoneNumber, lang, wa, user.businessType ?? undefined, []);
+      await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
       return;
     }
 
@@ -306,7 +306,7 @@ export async function handleSetupName(
 
   if (categoryId) {
     await updateUser(session.phoneNumber, { businessType: categoryId });
-    await transitionTo(session.phoneNumber, 'SETUP_STYLE', {
+    await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
       currentOrderId: null,
       styleSelection: null,
       styleSelections: [],
@@ -316,10 +316,10 @@ export async function handleSetupName(
       voiceInstructions: null,
       earlyPhotoMediaId: null,
     });
-    await sendStyleList(session.phoneNumber, lang, wa, categoryId, []);
+    await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
   } else if (user.businessType) {
-    // Returning user updating brand name only — already has category, pick style pack for this order
-    await transitionTo(session.phoneNumber, 'SETUP_STYLE', {
+    // Returning user updating brand name only — already has category, go to photo
+    await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
       currentOrderId: null,
       styleSelection: null,
       styleSelections: [],
@@ -329,7 +329,7 @@ export async function handleSetupName(
       voiceInstructions: null,
       earlyPhotoMediaId: null,
     });
-    await sendStyleList(session.phoneNumber, lang, wa, user.businessType ?? undefined, []);
+    await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
   } else {
     await transitionTo(session.phoneNumber, 'SETUP_CATEGORY');
     await sendCategoryList(session.phoneNumber, lang, wa, brandName);
@@ -361,7 +361,7 @@ export async function handleSetupCategory(
 
   await updateUser(session.phoneNumber, { businessType: categoryId });
 
-  await transitionTo(session.phoneNumber, 'SETUP_STYLE', {
+  await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
     currentOrderId: null,
     styleSelection: null,
     styleSelections: [],
@@ -371,7 +371,7 @@ export async function handleSetupCategory(
     voiceInstructions: null,
     earlyPhotoMediaId: null,
   });
-  await sendStyleList(session.phoneNumber, lang, wa, categoryId, []);
+  await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
 }
 
 // ---------------------------------------------------------------------------
@@ -411,9 +411,13 @@ export async function sendCategoryList(
 
 /**
  * Sends the style picker.
- * Step 1: two sections — "Let AI choose" (Smart Pack) and
- *         "Pick your own (choose up to 3)" (8 individual styles).
- * Steps 2-3: checkbox state text + list with "Done" row + remaining styles.
+ *
+ * customMode=false (default, initial):
+ *   Two rows only — Smart Pack ✨ and Custom 🎨.
+ *
+ * customMode=true (after Custom is tapped):
+ *   First pick: all 8 individual styles.
+ *   Picks 2-3: checkbox state text + Done row + remaining styles.
  */
 export async function sendStyleList(
   phoneNumber: string,
@@ -421,10 +425,10 @@ export async function sendStyleList(
   wa: WhatsAppClient,
   categoryId?: string,
   alreadyPicked: string[] = [],
+  customMode: boolean = false,
 ): Promise<void> {
   const recStyleId = categoryId ? (CATEGORY_STYLE_RECOMMENDATION[categoryId] ?? null) : null;
   const pickNumber = alreadyPicked.length + 1;
-  const isFirstPick = pickNumber === 1;
 
   const makeDesc = (id: string, desc: string) =>
     id === recStyleId ? `${desc} — Recommended` : desc;
@@ -440,41 +444,51 @@ export async function sendStyleList(
     { id: ListIds.STYLE_WITH_MODEL, title: styleDisplayName(ListIds.STYLE_WITH_MODEL, lang), description: makeDesc(ListIds.STYLE_WITH_MODEL, 'AI person with product') },
   ].filter(row => !alreadyPicked.includes(row.id));
 
-  if (isFirstPick) {
-    if (lang === 'hi') {
-      await wa.sendText(
-        phoneNumber,
-        'कितने एड वर्ज़न चाहिए?\n\n• 1 एड — ₹30\n• 2 एड — ₹60\n• 3 एड — ₹90\n\nहर वर्ज़न का स्टाइल अलग होगा ताकि आप टेस्ट कर सकें।',
-      );
-    }
-
-    const section1Rows = [
-      {
-        id: ListIds.SMART_PACK,
-        title: 'Smart Pack ✨',
-        description: isHindi(lang)
-          ? 'AI aapke product ke liye 3 best styles chunega'
-          : 'AI picks the best 3 styles for your product',
-      },
-    ];
-
+  if (alreadyPicked.length === 0 && !customMode) {
+    // Initial 2-option list: Smart Pack or Custom
     await wa.sendList(
       phoneNumber,
       isHindi(lang) ? 'Style chuniye:' : 'Pick your style:',
       isHindi(lang) ? 'Chuniye' : 'Choose',
       [
-        { title: 'Let AI choose', rows: section1Rows },
-        { title: 'Pick your own (choose up to 3)', rows: styleRows },
+        {
+          title: 'Let AI choose',
+          rows: [{
+            id: ListIds.SMART_PACK,
+            title: 'Smart Pack ✨',
+            description: isHindi(lang)
+              ? 'AI aapke product ke liye 3 best styles chunega'
+              : 'AI picks the best 3 styles for your product',
+          }],
+        },
+        {
+          title: isHindi(lang) ? 'Khud chuniye' : 'Choose yourself',
+          rows: [{
+            id: ListIds.CUSTOM_PACK,
+            title: isHindi(lang) ? 'Custom 🎨' : 'Custom 🎨',
+            description: isHindi(lang)
+              ? '1, 2 ya 3 styles khud chuniye'
+              : 'Pick 1, 2 or 3 styles yourself',
+          }],
+        },
       ],
     );
+  } else if (alreadyPicked.length === 0 && customMode) {
+    // Custom mode, first pick: show all 8 individual styles
+    await wa.sendList(
+      phoneNumber,
+      isHindi(lang) ? 'Koi bhi style chuniye:' : 'Pick a style:',
+      isHindi(lang) ? 'Chuniye' : 'Choose',
+      [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: styleRows }],
+    );
   } else {
-    // Show visual checkbox state before the list
+    // Picks 2-3: checkbox state + Done + remaining styles
     await wa.sendText(phoneNumber, buildCheckboxState(alreadyPicked, lang));
 
     const n = alreadyPicked.length;
     const doneRow = {
       id: ListIds.STYLE_DONE,
-      title: isHindi(lang) ? `Done — ${n} style${n > 1 ? 's' : ''}` : `Done — ${n} style${n > 1 ? 's' : ''}`,
+      title: `Done — ${n} style${n > 1 ? 's' : ''}`,
       description: isHindi(lang) ? 'In styles ke saath aage badhein' : 'Proceed with current selection',
     };
 

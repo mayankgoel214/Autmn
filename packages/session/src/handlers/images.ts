@@ -558,13 +558,24 @@ async function advanceToPayment(
   const fresh = await prisma.session.findUnique({ where: { phoneNumber } });
   if (!fresh || (fresh.imageStorageUrls as string[]).length === 0) {
     console.warn(JSON.stringify({ event: 'advance_to_payment_no_images', phoneNumber }));
-    // Reset the flag so session can recover
     await prisma.session.update({ where: { phoneNumber }, data: { earlyPhotoMediaId: null } });
     return;
   }
 
-  // V2: use all 3 selected styles; fall back to single styleSelection for legacy sessions
+  // Photo-first flow: if no styles picked yet, redirect to style picker
   const sessionStyleSelections = (fresh.styleSelections as string[]) ?? [];
+  if (sessionStyleSelections.length === 0 && !fresh.styleSelection) {
+    await prisma.session.update({ where: { phoneNumber }, data: { earlyPhotoMediaId: null } });
+    await transitionTo(phoneNumber, 'SETUP_STYLE', {
+      styleSelections: [],
+      stylePickStep: 0,
+      styleSelection: null,
+    });
+    const { sendStyleList } = await import('./onboarding.js');
+    await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, []);
+    return;
+  }
+
   const styleSelections =
     sessionStyleSelections.length > 0
       ? sessionStyleSelections

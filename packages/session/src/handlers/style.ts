@@ -12,6 +12,7 @@ import { prisma } from '@autmn/db';
 import { getImageQueue } from '@autmn/queue';
 import { transitionTo } from '../db-helpers.js';
 import { styleDisplayName, msgRevisionLimitReached, msgAllStylesReady, msgSendProductPhotos, msgStylePackReady } from '../messages.js';
+import { createOrderAndSendPayment } from './instructions.js';
 import { ListIds, ButtonIds, FREE_REDOS_PER_STYLE, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
 import { selectStylesForOrder } from '../auto-styles.js';
 import type { Language } from '../types.js';
@@ -38,17 +39,7 @@ export async function handleSetupStyle(
         const styleNames = currentPicked.map(s => styleDisplayName(s, lang));
         await wa.sendText(phoneNumber, msgAllStylesReady(lang, styleNames));
         logger.info('Early style exit via Done tap', { phoneNumber, styles: currentPicked });
-        await transitionTo(phoneNumber, 'AWAITING_PHOTO', {
-          styleSelection: currentPicked[0],
-          styleSelections: currentPicked,
-          stylePickStep: 0,
-          imageMediaIds: [],
-          imageStorageUrls: [],
-          voiceInstructions: null,
-          currentOrderId: null,
-          earlyPhotoMediaId: null,
-        });
-        await wa.sendText(phoneNumber, msgSendProductPhotos(lang));
+        await finishStylePicking(phoneNumber, currentPicked, session, user, lang, wa);
         return;
       }
       // No styles yet — re-show the first list
@@ -96,17 +87,7 @@ export async function handleSetupStyle(
         const styleNames = currentPicked.map(s => styleDisplayName(s, lang));
         await wa.sendText(phoneNumber, msgAllStylesReady(lang, styleNames));
         logger.info('Early style exit via "done" intent', { phoneNumber, styles: currentPicked });
-        await transitionTo(phoneNumber, 'AWAITING_PHOTO', {
-          styleSelection: currentPicked[0],
-          styleSelections: currentPicked,
-          stylePickStep: 0,
-          imageMediaIds: [],
-          imageStorageUrls: [],
-          voiceInstructions: null,
-          currentOrderId: null,
-          earlyPhotoMediaId: null,
-        });
-        await wa.sendText(phoneNumber, msgSendProductPhotos(lang));
+        await finishStylePicking(phoneNumber, currentPicked, session, user, lang, wa);
         return;
       }
     }
@@ -120,7 +101,7 @@ export async function handleSetupStyle(
   // --- Pack selections: resolve to 3 concrete styles and go to AWAITING_PHOTO ---
   const packStyles = resolvePackStyles(styleId, user.businessType ?? null);
   if (packStyles) {
-    // Custom pack: start the 3-step individual picker instead
+    // Custom pack: start the individual style picker (customMode=true)
     if (styleId === ListIds.CUSTOM_PACK) {
       await prisma.session.update({
         where: { phoneNumber },
@@ -132,7 +113,7 @@ export async function handleSetupStyle(
       });
       logger.info(JSON.stringify({ event: 'custom_pack_selected', phoneNumber }));
       const { sendStyleList } = await import('./onboarding.js');
-      await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, []);
+      await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, [], true);
       return;
     }
 
@@ -273,23 +254,12 @@ export async function handleSetupStyle(
     return;
   }
 
-  // All 3 custom styles picked — now go to AWAITING_PHOTO (photos come after styles)
+  // All 3 custom styles picked
   const styleNames = cappedSelections.map(s => styleDisplayName(s, lang));
   await wa.sendText(phoneNumber, msgAllStylesReady(lang, styleNames));
 
-  logger.info('Custom 3-step style pick complete, transitioning to AWAITING_PHOTO', { phoneNumber, styles: cappedSelections });
-
-  await transitionTo(phoneNumber, 'AWAITING_PHOTO', {
-    styleSelection: cappedSelections[0],
-    styleSelections: cappedSelections,
-    stylePickStep: 0,
-    imageMediaIds: [],
-    imageStorageUrls: [],
-    voiceInstructions: null,
-    currentOrderId: null,
-    earlyPhotoMediaId: null,
-  });
-  await wa.sendText(phoneNumber, msgSendProductPhotos(lang));
+  logger.info('Custom 3-step style pick complete', { phoneNumber, styles: cappedSelections });
+  await finishStylePicking(phoneNumber, cappedSelections, session, user, lang, wa);
 }
 
 // ---------------------------------------------------------------------------
@@ -353,6 +323,55 @@ function packDisplayName(packId: string, lang: Language): string {
  */
 function resolveSmartPack(category: string | null): string[] {
   return selectStylesForOrder(category, OUTPUT_STYLES_PER_ORDER);
+}
+
+/**
+ * Called when style picking is complete (all 3 picked or early exit).
+ * If photos are already in the session (photo-first flow), creates the order immediately.
+ * Otherwise transitions to AWAITING_PHOTO so the user can send photos.
+ */
+async function finishStylePicking(
+  phoneNumber: string,
+  styles: string[],
+  session: Session,
+  user: User,
+  lang: Language,
+  wa: WhatsAppClient,
+): Promise<void> {
+  const imageUrls = (session.imageStorageUrls as string[]) ?? [];
+  const imageIds = (session.imageMediaIds as string[]) ?? [];
+
+  if (imageUrls.length > 0) {
+    // Photo-first flow: photos already collected — save styles then create order
+    const updatedSession = await prisma.session.update({
+      where: { phoneNumber },
+      data: { styleSelection: styles[0] ?? null, styleSelections: styles, stylePickStep: 0 },
+    });
+    await createOrderAndSendPayment({
+      session: updatedSession,
+      user,
+      lang,
+      wa,
+      imageStorageUrls: imageUrls,
+      imageMediaIds: imageIds,
+      imageCount: imageUrls.length,
+      styleSelections: styles,
+      voiceInstructions: session.voiceInstructions ?? null,
+    });
+  } else {
+    // No photos yet — ask user to send photos
+    await transitionTo(phoneNumber, 'AWAITING_PHOTO', {
+      styleSelection: styles[0],
+      styleSelections: styles,
+      stylePickStep: 0,
+      imageMediaIds: [],
+      imageStorageUrls: [],
+      voiceInstructions: null,
+      currentOrderId: null,
+      earlyPhotoMediaId: null,
+    });
+    await wa.sendText(phoneNumber, msgSendProductPhotos(lang));
+  }
 }
 
 function resolveStyleFromText(text: string): string | null {
