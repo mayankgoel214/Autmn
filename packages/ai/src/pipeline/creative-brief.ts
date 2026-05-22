@@ -101,6 +101,7 @@ function buildBriefPrompt(
   productCategory: string | undefined,
   perStyleInstructions: Record<string, string | null> | undefined,
   globalInstruction: string | null | undefined,
+  brandName?: string,
 ): string {
   const stylesWithIntent = styles
     .map(s => `- ${s}: ${STYLE_INTENT[s] ?? 'professional ad campaign'}`)
@@ -109,6 +110,7 @@ function buildBriefPrompt(
   const categoryHint = productCategory
     ? `\nThe seller categorized this as: ${productCategory}`
     : '';
+  const brandHint = brandName ? `\nBrand name: ${brandName}` : '';
 
   // V1.2.1 — surface parsed customer instructions so brief LLM weaves them
   // into per-style direction instead of letting them conflict with the brief.
@@ -123,7 +125,7 @@ ${hasPerStyle ? Object.entries(perStyleInstructions!).filter(([_, v]) => v && v.
 When integrating: keep your professional photographer's eye. The customer's words are intent, not exact wording. E.g. if they say "green color", you decide what shade, where, how — sage green linen backdrop / emerald cyclorama / pistachio gradient — pick what flatters the product.`
     : '';
 
-  return `You are an Indian D2C ad creative director. Look at the product photo(s) and write a creative brief for an ad photographer.${categoryHint}${instructionBlock}
+  return `You are an Indian D2C ad creative director. Look at the product photo(s) and write a creative brief for an ad photographer.${categoryHint}${brandHint}${instructionBlock}
 
 🛑 STRICT RULES (violations = wrong output):
 
@@ -181,9 +183,9 @@ Return ONLY the JSON. No commentary.`;
 // Timeout
 // ---------------------------------------------------------------------------
 
-const BASE_TIMEOUT_MS = 12_000;
+const BASE_TIMEOUT_MS = 20_000;
 const PER_EXTRA_PHOTO_MS = 3_000;
-const MAX_TIMEOUT_MS = 25_000;
+const MAX_TIMEOUT_MS = 35_000;
 
 function computeTimeoutMs(bufferCount: number): number {
   if (bufferCount <= 1) return BASE_TIMEOUT_MS;
@@ -208,10 +210,11 @@ export async function generateCreativeBrief(params: {
   buffers: Buffer[];
   styles: string[];
   productCategory?: string;
+  brandName?: string;
   perStyleInstructions?: Record<string, string | null>;
   globalInstruction?: string | null;
 }): Promise<CreativeBrief | null> {
-  const { buffers, styles, productCategory, perStyleInstructions, globalInstruction } = params;
+  const { buffers, styles, productCategory, brandName, perStyleInstructions, globalInstruction } = params;
 
   if (buffers.length === 0 || styles.length === 0) return null;
 
@@ -233,7 +236,7 @@ export async function generateCreativeBrief(params: {
       { inlineData: { mimeType: 'image/jpeg' as const, data: buf.toString('base64') } },
     ]);
 
-    const briefPrompt = buildBriefPrompt(styles, productCategory, perStyleInstructions, globalInstruction);
+    const briefPrompt = buildBriefPrompt(styles, productCategory, perStyleInstructions, globalInstruction, brandName);
 
     const response = await Promise.race([
       genai.models.generateContent({

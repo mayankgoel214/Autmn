@@ -11,7 +11,9 @@ export const ImageProcessingJobDataSchema = z.object({
   inputImageUrl: z.string().url(),
   style: z.string().optional(),
   voiceInstructions: z.string().optional(),
+  originalVoiceInstructions: z.string().optional(),
   productCategory: z.string().optional(),
+  brandName: z.string().optional(),
   pipeline: z.enum(["primary", "fallback", "nano_banana", "segmentation", "bria", "composite"]).default("composite"),
 });
 

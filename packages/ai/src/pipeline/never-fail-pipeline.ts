@@ -125,6 +125,7 @@ export async function processImageNeverFail(
     buffers: allBuffers,
     styles: [style],
     productCategory: params.productCategory,
+    brandName: params.brandName,
   });
 
   // ---- Route to V1.1 production chain ---------------------------------------
@@ -134,7 +135,10 @@ export async function processImageNeverFail(
     referenceBuffers: params.referenceImageBuffers ?? [],
     productCategory: params.productCategory,
     userInstructions: params.voiceInstructions,
+    originalVoiceInstructions: params.originalVoiceInstructions,
     artDirection: brief?.directions[style],
+    productDescription: brief?.profile.productType,
+    brandName: params.brandName,
   });
 
   // ---- Map to NeverFailResult ------------------------------------------------

@@ -7,7 +7,10 @@ export interface ProcessImageParams {
   imageUrl: string;
   style?: string;
   productCategory?: string;
+  brandName?: string;
   voiceInstructions?: string;
+  /** Original order voice instructions — set on revision jobs to preserve first-generation constraints. */
+  originalVoiceInstructions?: string;
   maxAttempts?: number;
   /** Pre-computed multi-angle product profile. Passed from worker when the order has
    *  multiple input images. The V3 pipeline uses this to skip redundant analysis and

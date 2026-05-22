@@ -31,7 +31,7 @@ import { geminiGenerateImage } from './gemini-generate.js';
 import { openaiGenerateImage } from './openai-generate.js';
 import { postProcessFinal, addAILabel, downloadBuffer, uploadToStorage } from './fallback.js';
 import { runDeterministicChecks } from '../qa/deterministic-checks.js';
-import { buildBetaPrompt, type StyleArtDirection } from './style-prompts-v5.js';
+import { buildBetaPrompt, buildRevisionPrompt, type StyleArtDirection } from './style-prompts-v5.js';
 import { preprocessImage } from './preprocess.js';
 import { generateCreativeBrief, type CreativeBrief } from './creative-brief.js';
 import {
@@ -162,9 +162,10 @@ async function finalize(buffer: Buffer, style: string): Promise<Buffer> {
 async function checkOutputForDefects(
   inputBuffer: Buffer,
   outputBuffer: Buffer,
+  style?: string,
 ): Promise<{ catastrophic: boolean; reason: string | null }> {
   try {
-    const result = await runDeterministicChecks(inputBuffer, outputBuffer);
+    const result = await runDeterministicChecks(inputBuffer, outputBuffer, style);
     if (!result.pass) {
       return { catastrophic: true, reason: result.failReason };
     }
@@ -188,11 +189,14 @@ async function processStyleWithChain(
   productCategory: string | undefined,
   orderId: string,
   artDirection?: StyleArtDirection,
+  productDescription?: string,
+  brandName?: string,
+  originalVoiceInstructions?: string,
 ): Promise<StyleResult> {
   const styleStart = Date.now();
-  // Beta ignores productName — pass empty string. Category drives the nudge.
-  // artDirection (V1.1) splices in per-product scene + mood when present.
-  const prompt = buildBetaPrompt(style, '', userInstructions, productCategory, artDirection);
+  const prompt = originalVoiceInstructions && userInstructions
+    ? buildRevisionPrompt(style, userInstructions, originalVoiceInstructions, productCategory, artDirection, productDescription, brandName)
+    : buildBetaPrompt(style, '', userInstructions, productCategory, artDirection, productDescription, brandName);
   let accumulatedCost = 0;
   let tier1DefectReason: string | null = null;
 
@@ -225,7 +229,7 @@ async function processStyleWithChain(
 
     // Defect check on RAW Pro output (before post-processing). Post-processing
     // adds the "AI Generated" label which would skew an input/output NCC.
-    const defect = await checkOutputForDefects(primaryBuffer, gen.imageBuffer);
+    const defect = await checkOutputForDefects(primaryBuffer, gen.imageBuffer, style);
 
     if (!defect.catastrophic) {
       const finalized = await finalize(gen.imageBuffer, style);
@@ -391,8 +395,11 @@ export async function processStyleProduction(params: {
   productName?: string;
   productCategory?: string;
   userInstructions?: string;
+  originalVoiceInstructions?: string;
   orderId?: string;
   artDirection?: StyleArtDirection;
+  productDescription?: string;
+  brandName?: string;
 }): Promise<StyleResult> {
   const orderId = params.orderId ?? randomBytes(4).toString('hex');
   return processStyleWithChain(
@@ -403,6 +410,9 @@ export async function processStyleProduction(params: {
     params.productCategory,
     orderId,
     params.artDirection,
+    params.productDescription,
+    params.brandName,
+    params.originalVoiceInstructions,
   );
 }
 
@@ -526,6 +536,8 @@ export async function processOrderProduction(
         params.productCategory,
         orderId,
         creativeBrief?.directions[style],
+        creativeBrief?.profile.productType,
+        params.brandName,
       ),
     ),
   );

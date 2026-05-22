@@ -157,7 +157,9 @@ export async function processImageJob(job: Job): Promise<void> {
         imageUrl: data.inputImageUrl,
         style: effectiveStyle,
         productCategory: data.productCategory,
+        brandName: data.brandName,
         voiceInstructions: data.voiceInstructions,
+        originalVoiceInstructions: data.originalVoiceInstructions,
         referenceImageBuffers: referenceImageBuffers.length > 0 ? referenceImageBuffers : undefined,
       });
 
@@ -431,12 +433,20 @@ export async function processImageJob(job: Job): Promise<void> {
           data.phoneNumber,
           finalOutputUrls,
           (user?.language as 'hi' | 'en') || 'hi',
-          user?.name ?? undefined,
+          (user as any)?.brandName ?? user?.name ?? undefined,
           wa,
           [],
           [],
           finalStyleLabels.length > 0 ? finalStyleLabels : undefined,
         );
+
+        // Persist the styles used in this order as savedStyles on the user
+        if (user && finalStyleLabels.length > 0) {
+          await prisma.user.update({
+            where: { phoneNumber: data.phoneNumber },
+            data: { savedStyles: finalStyleLabels },
+          }).catch(() => { /* non-critical */ });
+        }
 
         // Transition session to DELIVERED from PROCESSING, EDIT_PROCESSING, IDLE, or
         // AWAITING_REVISION_PAYMENT. The last case covers a race where the user paid for
