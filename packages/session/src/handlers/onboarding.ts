@@ -19,7 +19,7 @@ import {
   msgAllStylesReady,
   msgSendProductPhotos,
 } from '../messages.js';
-import { ListIds, ButtonIds, CATEGORY_STYLE_RECOMMENDATION, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
+import { ListIds, ButtonIds, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
 import { selectStylesForOrder } from '../auto-styles.js';
 import type { Language } from '../types.js';
 import type { MessageContext } from '../types.js';
@@ -427,21 +427,17 @@ export async function sendStyleList(
   alreadyPicked: string[] = [],
   customMode: boolean = false,
 ): Promise<void> {
-  const recStyleId = categoryId ? (CATEGORY_STYLE_RECOMMENDATION[categoryId] ?? null) : null;
   const pickNumber = alreadyPicked.length + 1;
 
-  const makeDesc = (id: string, desc: string) =>
-    id === recStyleId ? `${desc} — Recommended` : desc;
-
   const styleRows = [
-    { id: ListIds.STYLE_AUTMN_SPECIAL, title: styleDisplayName(ListIds.STYLE_AUTMN_SPECIAL, lang), description: makeDesc(ListIds.STYLE_AUTMN_SPECIAL, isHindi(lang) ? 'AI best creative direction chunega' : 'AI picks the best creative direction') },
-    { id: ListIds.STYLE_CLEAN_WHITE, title: styleDisplayName(ListIds.STYLE_CLEAN_WHITE, lang), description: makeDesc(ListIds.STYLE_CLEAN_WHITE, 'Pure white background') },
-    { id: ListIds.STYLE_STUDIO, title: styleDisplayName(ListIds.STYLE_STUDIO, lang), description: makeDesc(ListIds.STYLE_STUDIO, 'Colored backdrop studio') },
-    { id: ListIds.STYLE_LIFESTYLE, title: styleDisplayName(ListIds.STYLE_LIFESTYLE, lang), description: makeDesc(ListIds.STYLE_LIFESTYLE, 'Real-life setting') },
-    { id: ListIds.STYLE_OUTDOOR, title: styleDisplayName(ListIds.STYLE_OUTDOOR, lang), description: makeDesc(ListIds.STYLE_OUTDOOR, 'Natural outdoor scene') },
-    { id: ListIds.STYLE_GRADIENT, title: styleDisplayName(ListIds.STYLE_GRADIENT, lang), description: makeDesc(ListIds.STYLE_GRADIENT, isHindi(lang) ? 'Dramatic dark aur cinematic' : 'Dramatic dark & cinematic') },
-    { id: ListIds.STYLE_FESTIVE, title: styleDisplayName(ListIds.STYLE_FESTIVE, lang), description: makeDesc(ListIds.STYLE_FESTIVE, isHindi(lang) ? 'Tyohar ka mahaul' : 'Indian festival celebration') },
-    { id: ListIds.STYLE_WITH_MODEL, title: styleDisplayName(ListIds.STYLE_WITH_MODEL, lang), description: makeDesc(ListIds.STYLE_WITH_MODEL, 'AI person with product') },
+    { id: ListIds.STYLE_AUTMN_SPECIAL, title: styleDisplayName(ListIds.STYLE_AUTMN_SPECIAL, lang) },
+    { id: ListIds.STYLE_CLEAN_WHITE, title: styleDisplayName(ListIds.STYLE_CLEAN_WHITE, lang) },
+    { id: ListIds.STYLE_STUDIO, title: styleDisplayName(ListIds.STYLE_STUDIO, lang) },
+    { id: ListIds.STYLE_LIFESTYLE, title: styleDisplayName(ListIds.STYLE_LIFESTYLE, lang) },
+    { id: ListIds.STYLE_OUTDOOR, title: styleDisplayName(ListIds.STYLE_OUTDOOR, lang) },
+    { id: ListIds.STYLE_GRADIENT, title: styleDisplayName(ListIds.STYLE_GRADIENT, lang) },
+    { id: ListIds.STYLE_FESTIVE, title: styleDisplayName(ListIds.STYLE_FESTIVE, lang) },
+    { id: ListIds.STYLE_WITH_MODEL, title: styleDisplayName(ListIds.STYLE_WITH_MODEL, lang) },
   ].filter(row => !alreadyPicked.includes(row.id));
 
   if (alreadyPicked.length === 0 && !customMode) {
