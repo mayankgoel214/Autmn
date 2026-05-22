@@ -160,33 +160,35 @@ export function msgStylePicked(lang: Lang, styleName: string, pickNumber: number
 }
 
 export function msgAllStylesReady(lang: Lang, styleNames: string[]): string {
-  const list = styleNames.map((n, i) => `${i + 1}. ${n}`).join('\n');
+  const n = styleNames.length;
+  const s = n === 1 ? 'style' : 'styles';
+  const list = styleNames.map((name, i2) => `${i2 + 1}. ${name}`).join('\n');
   switch (lang) {
     case 'hinglish':
-      return `${styleNames.length} styles ready hain! ✨\n\n${list}\n\nAb product ki photos bhejiye!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'hi':
-      return `${styleNames.length} styles तैयार हैं! ✨\n\n${list}\n\nअब product की photos भेजिए!`;
+      return `${n} ${s} तैयार! ✨\n\n${list}`;
     case 'ta':
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nஇப்போது product photos அனுப்புங்கள்!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'te':
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nఇప్పుడు product photos పంపండి!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'bn':
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nএখন product photos পাঠান!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'mr':
-      return `${styleNames.length} styles तयार! ✨\n\n${list}\n\nआता product photos पाठवा!`;
+      return `${n} ${s} तयार! ✨\n\n${list}`;
     case 'gu':
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nહવે product photos મોકલો!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'kn':
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nಈಗ product photos ಕಳಿಸಿ!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'ml':
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nഇപ്പോൾ product photos അയക്കൂ!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'pa':
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nਹੁਣ product photos ਭੇਜੋ!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'or':
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nଏବେ product photos ପଠାନ୍ତୁ!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
     case 'en':
     default:
-      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nNow send your product photos!`;
+      return `${n} ${s} ready! ✨\n\n${list}`;
   }
 }
 

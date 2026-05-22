@@ -8,10 +8,11 @@ import { downloadMedia } from '@autmn/whatsapp';
 import type { Session, User } from '@autmn/db';
 import { prisma } from '@autmn/db';
 import { transitionTo } from '../db-helpers.js';
-// (message helpers imported as needed)
+import { msgProcessingNow } from '../messages.js';
 import { PRICE_PER_ORDER_PAISE, OUTPUT_STYLES_PER_ORDER, ButtonIds } from '../types.js';
 import type { Language } from '../types.js';
 import { sendPaymentLink, enqueueImageJobs } from './payment.js';
+import { selectStylesForOrder } from '../auto-styles.js';
 import { logger } from '../logger.js';
 
 // ---------------------------------------------------------------------------
@@ -65,11 +66,13 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
   const phoneNumber = session.phoneNumber;
 
   // V2 model: fixed Rs 199 per order regardless of photo count, always 3 style outputs.
-  // Ensure we always have OUTPUT_STYLES_PER_ORDER entries — fill from defaults without repeating.
+  // If the user manually selected styles, use those. Otherwise auto-select based on category.
   const normalizedStyles =
     styleSelections.length >= OUTPUT_STYLES_PER_ORDER
       ? styleSelections.slice(0, OUTPUT_STYLES_PER_ORDER)
-      : fillStylesFromDefaults(styleSelections, OUTPUT_STYLES_PER_ORDER);
+      : styleSelections.length > 0
+        ? [...styleSelections, ...selectStylesForOrder(user.businessType, OUTPUT_STYLES_PER_ORDER).filter(s => !styleSelections.includes(s))].slice(0, OUTPUT_STYLES_PER_ORDER)
+        : selectStylesForOrder(user.businessType, OUTPUT_STYLES_PER_ORDER);
 
   const primaryStyleId = normalizedStyles[0] ?? 'style_clean_white';
   const isFreeOrder = user.orderCount === 0;
@@ -105,8 +108,8 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
       styleSelection: primaryStyleId,
     });
 
-    // Note: msgProcessingNow confirmation removed — user already received "X photos received ✅"
-    // from the debounce buttons flow. Sending again would be a duplicate confirmation.
+    const displayName = (user as any).brandName ?? user.name ?? '';
+    await wa.sendText(phoneNumber, msgProcessingNow(lang, displayName, imageCount, true));
 
     // Enqueue image jobs using the canonical enqueueImageJobs from payment.ts.
     // Order status is already set to 'processing' above; the canonical function
@@ -126,30 +129,4 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
   }
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Safety-net padding for normalizedStyles in createOrderAndSendPayment.
- * Fills `existing` up to `target` with styles from a default pool, never repeating.
- * This should rarely trigger now that onboarding.ts always passes 3 styles via
- * fillWithSmartPack, but it prevents the old repeat-first-style bug if it ever does.
- */
-function fillStylesFromDefaults(existing: string[], target: number): string[] {
-  const defaults = [
-    'style_autmn_special', 'style_lifestyle', 'style_gradient',
-    'style_outdoor', 'style_studio', 'style_festive', 'style_with_model', 'style_clean_white',
-  ];
-  const result = [...existing];
-  const used = new Set(result);
-  for (const s of defaults) {
-    if (result.length >= target) break;
-    if (!used.has(s)) {
-      result.push(s);
-      used.add(s);
-    }
-  }
-  return result.slice(0, target);
-}
 

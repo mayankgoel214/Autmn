@@ -20,7 +20,7 @@ import {
   msgPaymentConfirmed,
   msgGenericError,
 } from '../messages.js';
-import { PAYMENT_CHECK_DELAY_MS, ButtonIds } from '../types.js';
+import { PAYMENT_CHECK_DELAY_MS, ButtonIds, isHindi } from '../types.js';
 import type { Language } from '../types.js';
 import type { MessageContext } from '../types.js';
 import { logger } from '../logger.js';
@@ -55,7 +55,7 @@ export async function handleAwaitingPayment(
     await transitionTo(phoneNumber, 'IDLE', { currentOrderId: null });
     await wa.sendText(
       phoneNumber,
-      lang === 'hinglish'
+      isHindi(lang)
         ? 'Order cancel ho gaya. Jab bhi ready hon, wapas aa jaana!'
         : 'Order cancelled. Come back whenever you are ready!',
     );
@@ -67,8 +67,8 @@ export async function handleAwaitingPayment(
     phoneNumber,
     msgPaymentPending(lang),
     [
-      { id: 'resend_link', title: lang === 'hinglish' ? 'Link dobara bhejo' : 'Resend Link' },
-      { id: ButtonIds.CANCEL_ORDER, title: lang === 'hinglish' ? 'Cancel' : 'Cancel' },
+      { id: 'resend_link', title: isHindi(lang) ? 'Link dobara bhejo' : 'Resend Link' },
+      { id: ButtonIds.CANCEL_ORDER, title: isHindi(lang) ? 'Cancel' : 'Cancel' },
     ],
   );
 }
@@ -136,7 +136,7 @@ export async function onPaymentConfirmed(
         currentOrderId: order.id,
       });
 
-      await wa.sendText(phoneNumber, lang === 'hinglish'
+      await wa.sendText(phoneNumber, isHindi(lang)
         ? 'Kuch problem aayi. Kripya "hi" bhejein aur dobara try karein. Aapka payment safe hai.'
         : 'Something went wrong. Please send "hi" and try again. Your payment is safe.');
 
@@ -183,6 +183,12 @@ export async function enqueueImageJobs(
   const imageQueue = getImageQueue();
   const inputImageUrls = order.inputImageUrls as string[];
   const voiceInstructions = order.voiceInstructions as string | null;
+
+  const userForBrand = await prisma.user.findUnique({
+    where: { phoneNumber },
+    select: { brandName: true },
+  }).catch(() => null);
+  const brandName = userForBrand?.brandName ?? undefined;
 
   // V2 model: 1 job per OUTPUT STYLE (always OUTPUT_STYLES_PER_ORDER = 3).
   // Each job uses the primary input photo and one of the 3 ordered styles.
@@ -269,6 +275,7 @@ export async function enqueueImageJobs(
       style: styleId,
       voiceInstructions: effectiveInstruction,
       productCategory: order.productCategory ?? undefined,
+      brandName,
       pipeline: 'primary',
     });
   }
@@ -318,11 +325,11 @@ export async function sendPaymentLink(
     // Reuse existing link
     await wa.sendPaymentLink(
       phoneNumber,
-      lang === 'hinglish'
+      isHindi(lang)
         ? `${order.imageCount} photo • 3 professional ads • Rs ${order.amount / 100}\nPayment karein:`
         : `${order.imageCount} photo(s) • 3 professional ads • Rs ${order.amount / 100}\nPay to get started:`,
       order.razorpayPaymentLinkUrl,
-      lang === 'hinglish' ? 'Payment karo' : 'Pay Now',
+      isHindi(lang) ? 'Payment karo' : 'Pay Now',
     );
     return;
   }
@@ -357,11 +364,11 @@ export async function sendPaymentLink(
 
     await wa.sendPaymentLink(
       phoneNumber,
-      lang === 'hinglish'
+      isHindi(lang)
         ? `${order.imageCount} photo • 3 professional ads • Rs ${order.amount / 100}\nPayment karein:`
         : `${order.imageCount} photo(s) • 3 professional ads • Rs ${order.amount / 100}\nPay to get started:`,
       link.shortUrl,
-      lang === 'hinglish' ? 'Payment karo' : 'Pay Now',
+      isHindi(lang) ? 'Payment karo' : 'Pay Now',
     );
 
     await schedulePaymentCheck(order.id, phoneNumber, link.id);
@@ -460,6 +467,11 @@ export async function onRevisionPaymentConfirmed(
       },
     });
 
+    const userForBrand2 = await prisma.user.findUnique({
+      where: { phoneNumber },
+      select: { brandName: true },
+    }).catch(() => null);
+
     const imageQueue = getImageQueue();
     await imageQueue.add('process_image', {
       orderId,
@@ -468,7 +480,9 @@ export async function onRevisionPaymentConfirmed(
       inputImageUrl: editImageUrl,
       style: editStyle,
       voiceInstructions: editInstructions ?? undefined,
+      originalVoiceInstructions: (order.voiceInstructions as string | null) ?? undefined,
       productCategory: order.productCategory ?? undefined,
+      brandName: userForBrand2?.brandName ?? undefined,
       pipeline: cutoutUrls[lastIdx] ? 'fallback' : 'primary',
     });
 
@@ -480,7 +494,7 @@ export async function onRevisionPaymentConfirmed(
 
     await wa.sendText(
       phoneNumber,
-      lang === 'hinglish'
+      isHindi(lang)
         ? 'Payment mil gaya! Aapka edit process ho raha hai...'
         : 'Payment received! Processing your edit...',
     );
@@ -497,7 +511,7 @@ export async function onRevisionPaymentConfirmed(
       orderId,
       error: err instanceof Error ? err.message : String(err),
     });
-    await wa.sendText(phoneNumber, lang === 'hinglish'
+    await wa.sendText(phoneNumber, isHindi(lang)
       ? 'Kuch gadbad ho gayi. Thodi der mein dobara koshish karein.'
       : 'Something went wrong. Please try again in a moment.');
   }

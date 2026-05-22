@@ -482,24 +482,14 @@ export async function sendStyleList(
       [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: styleRows }],
     );
   } else {
-    // Picks 2-3: checkbox state + Done + remaining styles
+    // Picks 2-3: flat checkbox state text + simple style list (no Done accordion)
     await wa.sendText(phoneNumber, buildCheckboxState(alreadyPicked, lang));
-
-    const n = alreadyPicked.length;
-    const doneRow = {
-      id: ListIds.STYLE_DONE,
-      title: `Done — ${n} style${n > 1 ? 's' : ''}`,
-      description: isHindi(lang) ? 'In styles ke saath aage badhein' : 'Proceed with current selection',
-    };
 
     await wa.sendList(
       phoneNumber,
       isHindi(lang) ? `Style ${pickNumber} chuniye (optional):` : `Pick style ${pickNumber} (optional):`,
       isHindi(lang) ? 'Chuniye' : 'Choose',
-      [
-        { title: isHindi(lang) ? 'Ya proceed karein' : 'Or proceed', rows: [doneRow] },
-        { title: isHindi(lang) ? 'Style add karein' : 'Add a style', rows: styleRows },
-      ],
+      [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: styleRows }],
     );
   }
 }

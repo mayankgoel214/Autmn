@@ -129,11 +129,14 @@ export async function updateUser(
   phoneNumber: string,
   data: Partial<{
     name: string;
+    brandName: string;
+    brandTone: string;
     language: string;
     businessType: string;
     stylePreference: string;
     lastStyleUsed: string;
     styleHistory: Record<string, number>;
+    savedStyles: string[];
     orderCount: number;
   }>,
 ): Promise<User> {
