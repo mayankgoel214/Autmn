@@ -65,14 +65,13 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
   const { session, user, lang, wa, imageStorageUrls, imageMediaIds, imageCount, styleSelections, voiceInstructions } = params;
   const phoneNumber = session.phoneNumber;
 
-  // V2 model: fixed Rs 199 per order regardless of photo count, always 3 style outputs.
-  // If the user manually selected styles, use those. Otherwise auto-select based on category.
+  // Deliver exactly the styles the user chose — no auto-padding.
+  // Smart Pack always passes 3; custom pickers pass 1-3. Fall back to auto-select
+  // only when the session has zero styles (should not happen in normal flow).
   const normalizedStyles =
-    styleSelections.length >= OUTPUT_STYLES_PER_ORDER
+    styleSelections.length > 0
       ? styleSelections.slice(0, OUTPUT_STYLES_PER_ORDER)
-      : styleSelections.length > 0
-        ? [...styleSelections, ...selectStylesForOrder(user.businessType, OUTPUT_STYLES_PER_ORDER).filter(s => !styleSelections.includes(s))].slice(0, OUTPUT_STYLES_PER_ORDER)
-        : selectStylesForOrder(user.businessType, OUTPUT_STYLES_PER_ORDER);
+      : selectStylesForOrder(user.businessType, OUTPUT_STYLES_PER_ORDER);
 
   const primaryStyleId = normalizedStyles[0] ?? 'style_clean_white';
   const isFreeOrder = user.orderCount === 0;
@@ -84,8 +83,8 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
       phoneNumber,
       imageCount,
       style: primaryStyleId,              // backward compat — first style
-      stylesOrdered: normalizedStyles,    // all 3 styles
-      outputStyleCount: OUTPUT_STYLES_PER_ORDER,
+      stylesOrdered: normalizedStyles,
+      outputStyleCount: normalizedStyles.length,
       voiceInstructions,
       inputImageUrls: imageStorageUrls,
       status: 'payment_pending',
