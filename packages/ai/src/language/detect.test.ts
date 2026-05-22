@@ -42,25 +42,38 @@ describe('normalizeTranscriptionLang', () => {
 // detectLanguage — fast paths, no API call
 // ---------------------------------------------------------------------------
 
-describe('detectLanguage — fast paths', () => {
-  test('Devanagari text → hi (regex, no API)', async () => {
-    const result = await detectLanguage('नमस्ते');
-    assert.equal(result, 'hi');
+describe('detectLanguage — fast paths (no API)', () => {
+  test('Devanagari text → hi', async () => {
+    assert.equal(await detectLanguage('नमस्ते'), 'hi');
   });
 
   test('Devanagari sentence → hi', async () => {
-    const result = await detectLanguage('आपका product अच्छा है');
-    assert.equal(result, 'hi');
+    assert.equal(await detectLanguage('आपका product अच्छा है'), 'hi');
   });
 
   test('empty string → en', async () => {
-    const result = await detectLanguage('');
-    assert.equal(result, 'en');
+    assert.equal(await detectLanguage(''), 'en');
   });
 
   test('whitespace-only → en', async () => {
-    const result = await detectLanguage('   ');
-    assert.equal(result, 'en');
+    assert.equal(await detectLanguage('   '), 'en');
+  });
+
+  // Hinglish regex fast path — these all hit the word list, no API call
+  test('"haan bhai theek hai" → hinglish (regex)', async () => {
+    assert.equal(await detectLanguage('haan bhai theek hai, kitna time lagega?'), 'hinglish');
+  });
+
+  test('"namaste yaar" → hinglish (regex)', async () => {
+    assert.equal(await detectLanguage('namaste yaar'), 'hinglish');
+  });
+
+  test('"acha so you are saying..." → hinglish (regex)', async () => {
+    assert.equal(await detectLanguage('acha so you are saying the product photo will be ready soon?'), 'hinglish');
+  });
+
+  test('"nahi chahiye" → hinglish (regex)', async () => {
+    assert.equal(await detectLanguage('nahi chahiye'), 'hinglish');
   });
 });
 
@@ -69,7 +82,11 @@ describe('detectLanguage — fast paths', () => {
 // Skipped if GEMINI_API_KEY is not in env.
 // ---------------------------------------------------------------------------
 
-const hasGemini = !!(process.env['GEMINI_API_KEY'] ?? process.env.GEMINI_API_KEY);
+const hasGemini = !!(
+  process.env['GOOGLE_AI_API_KEY'] ??
+  process.env['GOOGLE_GENAI_API_KEY'] ??
+  process.env['GEMINI_API_KEY']
+);
 
 describe('detectLanguage — API classification', () => {
   test(

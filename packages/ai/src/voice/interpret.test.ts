@@ -9,7 +9,11 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { interpretVoiceNote } from './interpret.js';
 
-const hasGemini = !!(process.env['GEMINI_API_KEY'] ?? process.env.GEMINI_API_KEY);
+const hasGemini = !!(
+  process.env['GOOGLE_AI_API_KEY'] ??
+  process.env['GOOGLE_GENAI_API_KEY'] ??
+  process.env['GEMINI_API_KEY']
+);
 
 // ---------------------------------------------------------------------------
 // Deterministic — no API

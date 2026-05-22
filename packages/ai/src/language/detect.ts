@@ -19,29 +19,32 @@ export function normalizeTranscriptionLang(code: string): 'en' | 'hi' {
  *
  * Uses Gemini Flash (text-only). Times out after 5s and falls back to 'en'.
  */
+// Words that only appear in Hindi/Hinglish — impossible in standard English.
+// Checked as whole words (word boundaries) to avoid substring false-positives.
+const HINGLISH_WORD_RE = /\b(haan|haa|nahi|nahin|yaar|bhai|acha|accha|theek|theekhai|kya|kyun|kaise|kitna|kitne|kab|kaun|kahaan|kahan|mera|meri|tera|teri|apna|apni|aapka|aapki|tumhara|humara|namaste|namaskar|lagega|lagti|lagta|milega|milegi|karein|karo|karna|boliye|batao|bataiye|bhejiye|bhejo|chahiye|bilkul|zaroor|chalega|seedha|chhod|lena|lelo|dena|dedo|rakho|shukriya|dhanyawad|swagat|zyada|thoda|bahut|sirf|abhi|jaldi|kal|aaj|phir|dobara|wala|wali|wale|matlab|matlab)\b/i;
+
 export async function detectLanguage(message: string): Promise<'en' | 'hi' | 'hinglish'> {
   if (!message.trim()) return 'en';
 
   // Fast heuristic: Devanagari code points → definitely Hindi
   if (/[ऀ-ॿ]/.test(message)) return 'hi';
 
+  // Fast heuristic: unambiguous Hinglish words → no API call needed
+  if (HINGLISH_WORD_RE.test(message)) return 'hinglish';
+
   try {
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey: getProviderKey('gemini') });
 
-    const prompt = `Detect the language of the following message.
+    const prompt = `Classify the language of this message. Reply with exactly one word.
 
-Message: ${message}
+Message: "${message}"
 
-Rules:
-- If the message is in pure English (no Hindi words): return "english"
-- If the message is in Hindi using Roman script, or a mix of Hindi and English (Hinglish): return "hinglish"
-- If the message is in Hindi using Devanagari script: return "hindi"
-- If you cannot determine: return "english"
+Reply "hinglish" if it contains any Hindi words written in Roman script (e.g. "yaar", "bhai", "theek", "haan", "kya", "acha", "namaste", "kitna").
+Reply "hindi" if it uses Devanagari script.
+Reply "english" if it is pure English with no Hindi words.
 
-Examples of Hinglish: "bhai kya scene hai", "hello yaar", "kitna time lagega", "acha", "theek hai", "haan", "nahi", "kya"
-
-Return only one word: "english", "hinglish", or "hindi". Nothing else.`;
+One word only: english / hinglish / hindi`;
 
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('detectLanguage timeout')), 5_000)
