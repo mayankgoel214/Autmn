@@ -79,10 +79,9 @@ export async function sendProcessedImages(
 
     await wa.sendImage(phoneNumber, url, caption);
 
-    // Gap between batch images for a "wow" moment
-    if (i < outputImageUrls.length - 1) {
-      await sleep(1500);
-    }
+    // Gap after every image — including the last one, so the completion text
+    // doesn't fire before WhatsApp has finished delivering the final image.
+    await sleep(1500);
   }
 
   // Re-check that ALL jobs for this order are truly complete before showing
@@ -120,7 +119,10 @@ export async function sendProcessedImages(
     if (count > 0) totalAdCount = count;
   }
 
-  await sleep(1000);
+  // Extra buffer: WhatsApp accepts image sends immediately but delivers them
+  // asynchronously through its CDN. 3 s gives the last image time to land
+  // before the summary text arrives, preventing out-of-order display.
+  await sleep(3000);
   await wa.sendText(phoneNumber, buildPostDeliveryMenu(totalAdCount, language));
 }
 
