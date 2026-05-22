@@ -61,16 +61,31 @@ export async function handleSetupStyle(
   }
 
   if (!styleId) {
-    console.warn(JSON.stringify({
-      event: 'style_resolution_failed',
-      phoneNumber: session.phoneNumber,
-      messageType: message.messageType,
-      listReplyId: message.listReplyId,
-      buttonReplyId: message.buttonReplyId,
-      text: message.text,
-    }));
+    // Early exit: if user says "done"/"ok"/"bas" and has already picked at least 1 style
+    if (message.messageType === 'text' && message.text) {
+      const t = message.text.trim().toLowerCase();
+      const isDoneIntent = /^(done|ok|okay|bas|theek|theek hai|ho gaya|chalega|chalo|proceed|next|aage)\s*$/.test(t);
+      const currentPicked = (session.styleSelections as string[]) ?? [];
+      if (isDoneIntent && currentPicked.length > 0) {
+        const styleNames = currentPicked.map(s => styleDisplayName(s, lang));
+        await wa.sendText(phoneNumber, msgAllStylesReady(lang, styleNames));
+        logger.info('Early style exit via "done" intent', { phoneNumber, styles: currentPicked });
+        await transitionTo(phoneNumber, 'AWAITING_PHOTO', {
+          styleSelection: currentPicked[0],
+          styleSelections: currentPicked,
+          stylePickStep: 0,
+          imageMediaIds: [],
+          imageStorageUrls: [],
+          voiceInstructions: null,
+          currentOrderId: null,
+          earlyPhotoMediaId: null,
+        });
+        await wa.sendText(phoneNumber, msgSendProductPhotos(lang));
+        return;
+      }
+    }
+
     const alreadyPicked = (session.styleSelections as string[]) ?? [];
-    // Show style list for the current step (Smart Pack shown on step 1 automatically)
     const { sendStyleList } = await import('./onboarding.js');
     await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, alreadyPicked);
     return;
@@ -227,7 +242,7 @@ export async function handleSetupStyle(
       },
     });
 
-    await wa.sendText(phoneNumber, msgStylePicked(lang, styleName, newStep));
+    await wa.sendText(phoneNumber, msgStylePicked(lang, styleName, newStep, OUTPUT_STYLES_PER_ORDER));
 
     const { sendStyleList } = await import('./onboarding.js');
     await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, cappedSelections);

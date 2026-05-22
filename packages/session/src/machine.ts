@@ -133,7 +133,11 @@ export async function handleIncomingMessage(
             await handleIdle(freshSession, user, message, wa);
             break;
           case 'SETUP_NAME': {
-            const namePrompt = langSwitch === 'hinglish' ? 'Aapka naam bataiye?' : "What's your name?";
+            const namePrompt = langSwitch === 'hi'
+              ? 'आपका नाम बताइए?'
+              : langSwitch === 'hinglish'
+              ? 'Aapka naam bataiye?'
+              : "What's your name?";
             await wa.sendText(phoneNumber, namePrompt);
             break;
           }
@@ -232,8 +236,14 @@ export async function handleIncomingMessage(
           : 0;
 
         if (awaitingPhotoMinutes > 60) {
-          // 1 hour timeout — user abandoned photo upload
           logger.info('AWAITING_PHOTO timeout — resetting to IDLE', { phoneNumber });
+          const timeoutLang = user.language as Language;
+          const timeoutMsg = timeoutLang === 'hi'
+            ? 'काफी समय हो गया। आपका order फिर से शुरू हो जाएगा।'
+            : isHindi(timeoutLang)
+            ? 'Bohot time ho gaya — aapka order reset ho gaya. Nayi photo bhejiye!'
+            : 'It\'s been a while — your order has been reset. Send new photos to start again.';
+          await wa.sendText(phoneNumber, timeoutMsg);
           await transitionTo(phoneNumber, 'IDLE', {
             currentOrderId: null, styleSelection: null, styleSelections: [],
             stylePickStep: 0, imageMediaIds: [], imageStorageUrls: [],
@@ -474,40 +484,40 @@ function buildSessionRecoveryMessage(
   switch (step) {
     case 'brand_intake':
       return lang === 'hi'
-        ? 'आप बीच में रुक गए थे — ब्रांड सेटअप। वहीं से जारी रखना है, या नए सिरे से शुरू करें?'
+        ? 'वापस आए! ब्रांड सेटअप जारी है।'
         : isHindi(lang)
-        ? 'Aap apna brand setup chhod ke gaye the. Wahin se shuru karein?'
-        : 'You left off telling me about your brand. Want to pick up where you stopped?';
+        ? 'Wapas aaye! Brand setup continue kar lete hain.'
+        : 'Welcome back — picking up your brand setup.';
     case 'photo_upload':
       return lang === 'hi'
-        ? 'आप बीच में रुक गए थे — फ़ोटो भेजना। वहीं से जारी रखना है, या नए सिरे से शुरू करें?'
+        ? 'वापस आए! फ़ोटो भेजना जारी है।'
         : isHindi(lang)
-        ? 'Aap photo bhejne wale the. Wahin se continue karein?'
-        : 'You were in the middle of sending photos. Want to continue from there?';
+        ? 'Wapas aaye! Photo upload continue kar lete hain.'
+        : 'Welcome back — continuing your photo upload.';
     case 'style_selection':
       return lang === 'hi'
-        ? 'आप बीच में रुक गए थे — स्टाइल चुनना। वहीं से जारी रखना है, या नए सिरे से शुरू करें?'
+        ? 'वापस आए! स्टाइल चुनना जारी है।'
         : isHindi(lang)
-        ? 'Aap styles pick kar rahe the. Continue karein, ya fresh start?'
-        : 'You left off picking your styles. Want to continue, or start fresh?';
+        ? 'Wapas aaye! Style selection continue kar lete hain.'
+        : 'Welcome back — continuing your style selection.';
     case 'payment':
       return lang === 'hi'
-        ? 'आप बीच में रुक गए थे — पेमेंट। वहीं से जारी रखना है, या नए सिरे से शुरू करें?'
+        ? 'वापस आए! पेमेंट पेंडिंग है।'
         : isHindi(lang)
-        ? 'Aapka order ready tha par payment complete nahi hua. Wahin se continue karein?'
-        : "Your order is ready but payment wasn't completed. Want to pick up from there?";
+        ? 'Wapas aaye! Payment abhi baki hai.'
+        : 'Welcome back — your payment is still pending.';
     case 'generation':
       return lang === 'hi'
-        ? 'आप बीच में रुक गए थे — ऐड बनाना। वहीं से जारी रखना है, या नए सिरे से शुरू करें?'
+        ? 'वापस आए! ऐड बन रहे थे — देखते हैं।'
         : isHindi(lang)
-        ? 'Jab session drop hua, aapke ads generate ho rahe the. Check kar lete hain...'
-        : 'Your ads were being generated when the session dropped. Let me check on that.';
+        ? 'Wapas aaye! Aapke ads process ho rahe the.'
+        : 'Welcome back — your ads were being generated.';
     case 'delivery':
       return lang === 'hi'
-        ? 'आप बीच में रुक गए थे — ऐड देखना। वहीं से जारी रखना है, या नए सिरे से शुरू करें?'
+        ? 'वापस आए!'
         : isHindi(lang)
-        ? 'Aapke ads pehle se bhej diye gaye hain. Changes karein ya naya order?'
-        : 'Your ads were already sent. Want to make changes, or start a new order?';
+        ? 'Wapas aaye!'
+        : 'Welcome back!';
   }
 }
 

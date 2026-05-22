@@ -6,70 +6,6 @@
 import type { Language } from './types.js';
 type Lang = Language;
 
-// ---------------------------------------------------------------------------
-// SETUP (first-time onboarding — 3 messages total)
-// ---------------------------------------------------------------------------
-
-export function msgWelcomeAndAskName(lang: Lang): string {
-  switch (lang) {
-    case 'hinglish':
-      return 'Namaste! Autmn mein swagat hai.\nAapke product ki photo professional bana denge — Rs 99, 1-2 minute mein.\nPehli baar bilkul free!\n\nAapka naam bataiye?';
-    case 'hi':
-      return 'नमस्ते! Autmn में आपका स्वागत है।\nआपके product की photo professional बना देंगे — Rs 99, 1-2 minute में।\nपहली बार बिल्कुल free!\n\nआपका नाम बताइए?';
-    case 'ta':
-      return 'வணக்கம்! Autmn-க்கு வரவேற்கிறோம்.\nஉங்கள் product photo-ஐ professional-ஆக மாற்றுவோம் — Rs 99, 1-2 minute-ல்.\nமுதல் முறை முற்றிலும் free!\n\nஉங்கள் பெயர் சொல்லுங்கள்?';
-    case 'te':
-      return 'నమస్కారం! Autmn కు స్వాగతం.\nమీ product photo-ని professional గా తయారు చేస్తాం — Rs 99, 1-2 minute లో.\nమొదటిసారి పూర్తిగా free!\n\nమీ పేరు చెప్పండి?';
-    case 'bn':
-      return 'নমস্কার! Autmn-এ স্বাগতম।\nআপনার product photo professional করে দেব — Rs 99, 1-2 minute-এ।\nপ্রথমবার একদম free!\n\nআপনার নাম বলুন?';
-    case 'mr':
-      return 'नमस्कार! Autmn मध्ये स्वागत आहे.\nतुमच्या product ची photo professional बनवतो — Rs 99, 1-2 minute मध्ये.\nपहिल्यांदा पूर्णपणे free!\n\nतुमचं नाव सांगा?';
-    case 'gu':
-      return 'નમસ્તે! Autmn માં સ્વાગત છે.\nતમારા product ની photo professional બનાવીશું — Rs 99, 1-2 minute માં.\nપહેલી વખત બિલ્કુલ free!\n\nતમારું નામ જણાવો?';
-    case 'kn':
-      return 'ನಮಸ್ಕಾರ! Autmn ಗೆ ಸ್ವಾಗತ.\nನಿಮ್ಮ product photo professional ಆಗಿ ಮಾಡ್ತೀವಿ — Rs 99, 1-2 minute-ಲ್ಲಿ.\nಮೊದಲ ಬಾರಿ ಸಂಪೂರ್ಣ free!\n\nನಿಮ್ಮ ಹೆಸರು ಹೇಳಿ?';
-    case 'ml':
-      return 'നമസ്കാരം! Autmn-ലേക്ക് സ്വാഗതം.\nനിങ്ങളുടെ product photo professional ആക്കി തരാം — Rs 99, 1-2 minute-ൽ.\nആദ്യത്തേത് തീർത്തും free!\n\nനിങ്ങളുടെ പേര് പറയൂ?';
-    case 'pa':
-      return 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ! Autmn ਵਿੱਚ ਜੀ ਆਇਆਂ ਨੂੰ.\nਤੁਹਾਡੀ product photo professional ਬਣਾ ਦੇਵਾਂਗੇ — Rs 99, 1-2 minute ਵਿੱਚ.\nਪਹਿਲੀ ਵਾਰ ਬਿਲਕੁਲ free!\n\nਤੁਹਾਡਾ ਨਾਮ ਦੱਸੋ?';
-    case 'or':
-      return 'ନମସ୍କାର! Autmn କୁ ସ୍ୱାଗତ.\nଆପଣଙ୍କ product photo professional କରି ଦେବୁ — Rs 99, 1-2 minute ରେ.\nପ୍ରଥମ ଥର ସম୍ପୂର୍ଣ୍ଣ free!\n\nଆପଣଙ୍କ ନାମ କୁହନ୍ତୁ?';
-    case 'en':
-    default:
-      return 'Welcome to Autmn!\nWe make your product photos professional — Rs 99, under 2 minutes.\nFirst one is completely free!\n\nWhat\'s your name?';
-  }
-}
-
-export function msgGreetAndAskCategory(lang: Lang, name: string): string {
-  switch (lang) {
-    case 'hinglish':
-      return `Shukriya, ${name} ji!\nAap kaunsa product bechte hain?`;
-    case 'hi':
-      return `शुक्रिया, ${name} जी!\nआप कौन सा product बेचते हैं?`;
-    case 'ta':
-      return `நன்றி, ${name}!\nநீங்கள் என்ன product விற்கிறீர்கள்?`;
-    case 'te':
-      return `థాంక్యూ, ${name}!\nమీరు ఏ product అమ్ముతారు?`;
-    case 'bn':
-      return `ধন্যবাদ, ${name}!\nআপনি কোন product বিক্রি করেন?`;
-    case 'mr':
-      return `धन्यवाद, ${name}!\nतुम्ही कोणता product विकता?`;
-    case 'gu':
-      return `આભાર, ${name}!\nતમે કયો product વેચો છો?`;
-    case 'kn':
-      return `ಧನ್ಯವಾದ, ${name}!\nನೀವು ಯಾವ product ಮಾರ್ತೀರಿ?`;
-    case 'ml':
-      return `നന്ദി, ${name}!\nനിങ്ങൾ ഏത് product വിൽക്കുന്നു?`;
-    case 'pa':
-      return `ਧੰਨਵਾਦ, ${name}!\nਤੁਸੀਂ ਕਿਹੜਾ product ਵੇਚਦੇ ਹੋ?`;
-    case 'or':
-      return `ଧନ୍ୟବାଦ, ${name}!\nଆପଣ କେଉଁ product ବିକ୍ରି କରନ୍ତି?`;
-    case 'en':
-    default:
-      return `Thanks, ${name}!\nWhat kind of product do you sell?`;
-  }
-}
-
 export function msgAskStyle(lang: Lang, name: string, recommendedStyleName?: string): string {
   switch (lang) {
     case 'hinglish': {
@@ -186,33 +122,40 @@ export function msgInstructionsReceived(lang: Lang): string {
 // STYLE PICKER (3-step flow)
 // ---------------------------------------------------------------------------
 
-export function msgStylePicked(lang: Lang, styleName: string, pickNumber: number): string {
+export function msgStylePicked(lang: Lang, styleName: string, pickNumber: number, total: number): string {
+  const doneHint = pickNumber < total
+    ? (lang === 'hi'
+        ? '\n_कम styles के साथ proceed करना हो तो "done" भेजें।_'
+        : lang === 'hinglish'
+        ? '\n_Aur styles nahi chahiye toh "done" bhejein._'
+        : '\n_Send "done" to proceed with fewer styles._')
+    : '';
   switch (lang) {
     case 'hinglish':
-      return `✅ *${styleName}* choose kiya! (${pickNumber}/3)`;
+      return `✅ *${styleName}* choose kiya! (${pickNumber} of ${total})${doneHint}`;
     case 'hi':
-      return `✅ *${styleName}* चुन लिया! (${pickNumber}/3)`;
+      return `✅ *${styleName}* चुन लिया! (${pickNumber} of ${total})${doneHint}`;
     case 'ta':
-      return `✅ *${styleName}* தேர்ந்தெடுத்தாயிற்று! (${pickNumber}/3)`;
+      return `✅ *${styleName}* தேர்ந்தெடுத்தாயிற்று! (${pickNumber} of ${total})${doneHint}`;
     case 'te':
-      return `✅ *${styleName}* ఎంచుకున్నారు! (${pickNumber}/3)`;
+      return `✅ *${styleName}* ఎంచుకున్నారు! (${pickNumber} of ${total})${doneHint}`;
     case 'bn':
-      return `✅ *${styleName}* বেছে নেওয়া হয়েছে! (${pickNumber}/3)`;
+      return `✅ *${styleName}* বেছে নেওয়া হয়েছে! (${pickNumber} of ${total})${doneHint}`;
     case 'mr':
-      return `✅ *${styleName}* निवडला! (${pickNumber}/3)`;
+      return `✅ *${styleName}* निवडला! (${pickNumber} of ${total})${doneHint}`;
     case 'gu':
-      return `✅ *${styleName}* પસંદ કર્યો! (${pickNumber}/3)`;
+      return `✅ *${styleName}* પસંદ કર્યો! (${pickNumber} of ${total})${doneHint}`;
     case 'kn':
-      return `✅ *${styleName}* ಆಯ್ಕೆ ಮಾಡಿದ್ದಾರೆ! (${pickNumber}/3)`;
+      return `✅ *${styleName}* ಆಯ್ಕೆ ಮಾಡಿದ್ದಾರೆ! (${pickNumber} of ${total})${doneHint}`;
     case 'ml':
-      return `✅ *${styleName}* തിരഞ്ഞെടുത്തു! (${pickNumber}/3)`;
+      return `✅ *${styleName}* തിരഞ്ഞെടുത്തു! (${pickNumber} of ${total})${doneHint}`;
     case 'pa':
-      return `✅ *${styleName}* ਚੁਣਿਆ! (${pickNumber}/3)`;
+      return `✅ *${styleName}* ਚੁਣਿਆ! (${pickNumber} of ${total})${doneHint}`;
     case 'or':
-      return `✅ *${styleName}* ବାଛିଲେ! (${pickNumber}/3)`;
+      return `✅ *${styleName}* ବାଛିଲେ! (${pickNumber} of ${total})${doneHint}`;
     case 'en':
     default:
-      return `✅ *${styleName}* picked! (${pickNumber}/3)`;
+      return `✅ *${styleName}* picked! (${pickNumber} of ${total})${doneHint}`;
   }
 }
 
@@ -220,30 +163,30 @@ export function msgAllStylesReady(lang: Lang, styleNames: string[]): string {
   const list = styleNames.map((n, i) => `${i + 1}. ${n}`).join('\n');
   switch (lang) {
     case 'hinglish':
-      return `3 styles ready hain! ✨\n\n${list}\n\nAb product ki photos bhejiye!`;
+      return `${styleNames.length} styles ready hain! ✨\n\n${list}\n\nAb product ki photos bhejiye!`;
     case 'hi':
-      return `3 styles तैयार हैं! ✨\n\n${list}\n\nअब product की photos भेजिए!`;
+      return `${styleNames.length} styles तैयार हैं! ✨\n\n${list}\n\nअब product की photos भेजिए!`;
     case 'ta':
-      return `3 styles ready! ✨\n\n${list}\n\nஇப்போது product photos அனுப்புங்கள்!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nஇப்போது product photos அனுப்புங்கள்!`;
     case 'te':
-      return `3 styles ready! ✨\n\n${list}\n\nఇప్పుడు product photos పంపండి!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nఇప్పుడు product photos పంపండి!`;
     case 'bn':
-      return `3 styles ready! ✨\n\n${list}\n\nএখন product photos পাঠান!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nএখন product photos পাঠান!`;
     case 'mr':
-      return `3 styles तयार! ✨\n\n${list}\n\nआता product photos पाठवा!`;
+      return `${styleNames.length} styles तयार! ✨\n\n${list}\n\nआता product photos पाठवा!`;
     case 'gu':
-      return `3 styles ready! ✨\n\n${list}\n\nહવે product photos મોકલો!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nહવે product photos મોકલો!`;
     case 'kn':
-      return `3 styles ready! ✨\n\n${list}\n\nಈಗ product photos ಕಳಿಸಿ!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nಈಗ product photos ಕಳಿಸಿ!`;
     case 'ml':
-      return `3 styles ready! ✨\n\n${list}\n\nഇപ്പോൾ product photos അയക്കൂ!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nഇപ്പോൾ product photos അയക്കൂ!`;
     case 'pa':
-      return `3 styles ready! ✨\n\n${list}\n\nਹੁਣ product photos ਭੇਜੋ!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nਹੁਣ product photos ਭੇਜੋ!`;
     case 'or':
-      return `3 styles ready! ✨\n\n${list}\n\nଏବେ product photos ପଠାନ୍ତୁ!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nଏବେ product photos ପଠାନ୍ତୁ!`;
     case 'en':
     default:
-      return `3 styles ready! ✨\n\n${list}\n\nNow send your product photos!`;
+      return `${styleNames.length} styles ready! ✨\n\n${list}\n\nNow send your product photos!`;
   }
 }
 
@@ -618,30 +561,30 @@ export function msgProcessingNow(
   const freeNoteOr = isFree ? '\nପ୍ରଥମ order free! Rs 0' : '';
   switch (lang) {
     case 'hinglish':
-      return `Shuru ho gaya, ${name} ji! 🎨\n${photoText} • 3 professional ads\nAapke 3 ads ban rahe hain... 2-3 minute mein ready!${freeNoteHinglish} ⏳`;
+      return `Shuru ho gaya, ${name} ji! 🎨\n${photoText} • 3 professional ads\nAapke 3 ads ban rahe hain... 2-5 minute mein ready!${freeNoteHinglish} ⏳`;
     case 'hi':
-      return 'ठीक है। आपके ऐड लगभग 2 मिनट में तैयार हो जाएंगे।';
+      return `ठीक है, ${name} जी! 🎨\n${photoText} • professional ads\nआपके ads बन रहे हैं... 2-5 मिनट में ready!${freeNoteHi} ⏳`;
     case 'ta':
-      return `ஆரம்பித்தாகிவிட்டது, ${name}! 🎨\n${photoText} • 3 professional ads\nஉங்கள் 3 ads தயாராகின்றன... 2-3 minute-ல் ready!${freeNoteTa} ⏳`;
+      return `ஆரம்பித்தாகிவிட்டது, ${name}! 🎨\n${photoText} • 3 professional ads\nஉங்கள் 3 ads தயாராகின்றன... 2-5 minute-ல் ready!${freeNoteTa} ⏳`;
     case 'te':
-      return `మొదలైంది, ${name}! 🎨\n${photoText} • 3 professional ads\nమీ 3 ads తయారవుతున్నాయి... 2-3 minute లో ready!${freeNoteTe} ⏳`;
+      return `మొదలైంది, ${name}! 🎨\n${photoText} • 3 professional ads\nమీ 3 ads తయారవుతున్నాయి... 2-5 minute లో ready!${freeNoteTe} ⏳`;
     case 'bn':
-      return `শুরু হয়ে গেছে, ${name}! 🎨\n${photoText} • 3 professional ads\nআপনার 3 ads তৈরি হচ্ছে... 2-3 minute-এ ready!${freeNoteBn} ⏳`;
+      return `শুরু হয়ে গেছে, ${name}! 🎨\n${photoText} • 3 professional ads\nআপনার 3 ads তৈরি হচ্ছে... 2-5 minute-এ ready!${freeNoteBn} ⏳`;
     case 'mr':
-      return `सुरू झालं, ${name}! 🎨\n${photoText} • 3 professional ads\nतुमचे 3 ads बनत आहेत... 2-3 minute मध्ये ready!${freeNoteMr} ⏳`;
+      return `सुरू झालं, ${name}! 🎨\n${photoText} • 3 professional ads\nतुमचे 3 ads बनत आहेत... 2-5 minute मध्ये ready!${freeNoteMr} ⏳`;
     case 'gu':
-      return `શરૂ થઈ ગયું, ${name}! 🎨\n${photoText} • 3 professional ads\nતમારા 3 ads બની રહ્યા છે... 2-3 minute માં ready!${freeNoteGu} ⏳`;
+      return `શરૂ થઈ ગયું, ${name}! 🎨\n${photoText} • 3 professional ads\nતમારા 3 ads બની રહ્યા છે... 2-5 minute માં ready!${freeNoteGu} ⏳`;
     case 'kn':
-      return `ಶುರುವಾಯ್ತು, ${name}! 🎨\n${photoText} • 3 professional ads\nನಿಮ್ಮ 3 ads ತಯಾರಾಗ್ತಿದೆ... 2-3 minute-ಲ್ಲಿ ready!${freeNoteKn} ⏳`;
+      return `ಶುರುವಾಯ್ತು, ${name}! 🎨\n${photoText} • 3 professional ads\nನಿಮ್ಮ 3 ads ತಯಾರಾಗ್ತಿದೆ... 2-5 minute-ಲ್ಲಿ ready!${freeNoteKn} ⏳`;
     case 'ml':
-      return `തുടങ്ങി, ${name}! 🎨\n${photoText} • 3 professional ads\nനിങ്ങളുടെ 3 ads ഉണ്ടാക്കുന്നു... 2-3 minute-ൽ ready!${freeNoteMl} ⏳`;
+      return `തുടങ്ങി, ${name}! 🎨\n${photoText} • 3 professional ads\nനിങ്ങളുടെ 3 ads ഉണ്ടാക്കുന്നു... 2-5 minute-ൽ ready!${freeNoteMl} ⏳`;
     case 'pa':
-      return `ਸ਼ੁਰੂ ਹੋ ਗਿਆ, ${name}! 🎨\n${photoText} • 3 professional ads\nਤੁਹਾਡੇ 3 ads ਬਣ ਰਹੇ ਹਨ... 2-3 minute ਵਿੱਚ ready!${freeNotePa} ⏳`;
+      return `ਸ਼ੁਰੂ ਹੋ ਗਿਆ, ${name}! 🎨\n${photoText} • 3 professional ads\nਤੁਹਾਡੇ 3 ads ਬਣ ਰਹੇ ਹਨ... 2-5 minute ਵਿੱਚ ready!${freeNotePa} ⏳`;
     case 'or':
-      return `ଆରମ୍ଭ ହୋଇଗଲା, ${name}! 🎨\n${photoText} • 3 professional ads\nଆପଣଙ୍କ 3 ads ତିଆରି ହେଉଛି... 2-3 minute ରେ ready!${freeNoteOr} ⏳`;
+      return `ଆରମ୍ଭ ହୋଇଗଲା, ${name}! 🎨\n${photoText} • 3 professional ads\nଆପଣଙ୍କ 3 ads ତିଆରି ହେଉଛି... 2-5 minute ରେ ready!${freeNoteOr} ⏳`;
     case 'en':
     default:
-      return `Let's go, ${name}! 🎨\n${photoText} • 3 professional ads\nMaking your 3 ads now... ready in 2-3 minutes!${freeNoteEn} ⏳`;
+      return `Let's go, ${name}! 🎨\n${photoText} • 3 professional ads\nMaking your 3 ads now... ready in 2-5 minutes!${freeNoteEn} ⏳`;
   }
 }
 
@@ -686,30 +629,30 @@ export function msgConfirmStyleForPhoto(lang: Lang, name: string, styleName: str
 export function msgPaymentConfirmed(lang: Lang): string {
   switch (lang) {
     case 'hinglish':
-      return 'Payment mil gayi! Aapke 3 ads ban rahe hain... 2-3 minute mein ready! ⏳';
+      return 'Payment mil gayi! Aapke 3 ads ban rahe hain... 2-5 minute mein ready! ⏳';
     case 'hi':
-      return 'Payment मिल गई! आपके 3 ads बन रहे हैं... 2-3 minute में ready! ⏳';
+      return 'Payment मिल गई! आपके 3 ads बन रहे हैं... 2-5 minute में ready! ⏳';
     case 'ta':
-      return 'Payment கிடைத்தது! உங்கள் 3 ads தயாராகின்றன... 2-3 minute-ல் ready! ⏳';
+      return 'Payment கிடைத்தது! உங்கள் 3 ads தயாராகின்றன... 2-5 minute-ல் ready! ⏳';
     case 'te':
-      return 'Payment వచ్చింది! మీ 3 ads తయారవుతున్నాయి... 2-3 minute లో ready! ⏳';
+      return 'Payment వచ్చింది! మీ 3 ads తయారవుతున్నాయి... 2-5 minute లో ready! ⏳';
     case 'bn':
-      return 'Payment পেয়েছি! আপনার 3 ads তৈরি হচ্ছে... 2-3 minute-এ ready! ⏳';
+      return 'Payment পেয়েছি! আপনার 3 ads তৈরি হচ্ছে... 2-5 minute-এ ready! ⏳';
     case 'mr':
-      return 'Payment मिळाली! तुमचे 3 ads बनत आहेत... 2-3 minute मध्ये ready! ⏳';
+      return 'Payment मिळाली! तुमचे 3 ads बनत आहेत... 2-5 minute मध्ये ready! ⏳';
     case 'gu':
-      return 'Payment મળ્યી! તમારા 3 ads બની રહ્યા છે... 2-3 minute માં ready! ⏳';
+      return 'Payment મળ્યી! તમારા 3 ads બની રહ્યા છે... 2-5 minute માં ready! ⏳';
     case 'kn':
-      return 'Payment ಬಂತು! ನಿಮ್ಮ 3 ads ತಯಾರಾಗ್ತಿದೆ... 2-3 minute-ಲ್ಲಿ ready! ⏳';
+      return 'Payment ಬಂತು! ನಿಮ್ಮ 3 ads ತಯಾರಾಗ್ತಿದೆ... 2-5 minute-ಲ್ಲಿ ready! ⏳';
     case 'ml':
-      return 'Payment കിട്ടി! നിങ്ങളുടെ 3 ads ഉണ്ടാക്കുന്നു... 2-3 minute-ൽ ready! ⏳';
+      return 'Payment കിട്ടി! നിങ്ങളുടെ 3 ads ഉണ്ടാക്കുന്നു... 2-5 minute-ൽ ready! ⏳';
     case 'pa':
-      return 'Payment ਮਿਲਿਆ! ਤੁਹਾਡੇ 3 ads ਬਣ ਰਹੇ ਹਨ... 2-3 minute ਵਿੱਚ ready! ⏳';
+      return 'Payment ਮਿਲਿਆ! ਤੁਹਾਡੇ 3 ads ਬਣ ਰਹੇ ਹਨ... 2-5 minute ਵਿੱਚ ready! ⏳';
     case 'or':
-      return 'Payment ମିଳିଲା! ଆପଣଙ୍କ 3 ads ତିଆରି ହେଉଛି... 2-3 minute ରେ ready! ⏳';
+      return 'Payment ମିଳିଲା! ଆପଣଙ୍କ 3 ads ତିଆରି ହେଉଛି... 2-5 minute ରେ ready! ⏳';
     case 'en':
     default:
-      return 'Payment received! Making your 3 ads now... ready in 2-3 minutes! ⏳';
+      return 'Payment received! Making your 3 ads now... ready in 2-5 minutes! ⏳';
   }
 }
 
@@ -781,30 +724,30 @@ export function msgPaymentFailed(lang: Lang): string {
 export function msgProcessingStarted(lang: Lang, name: string, isFree: boolean): string {
   switch (lang) {
     case 'hinglish':
-      return `Shukriya, ${name} ji! ${isFree ? 'Pehla order bilkul free!' : 'Payment confirmed ✓'}\n\nAb shuru hota hai:\n📷 Aapke product ka analysis\n🎨 3 professional ad designs\n\n2-3 minute mein ready hoga!`;
+      return `Shukriya, ${name} ji! ${isFree ? 'Pehla order bilkul free!' : 'Payment confirmed ✓'}\n\nAb shuru hota hai:\n📷 Aapke product ka analysis\n🎨 3 professional ad designs\n\n2-5 minute mein ready hoga!`;
     case 'hi':
-      return `शुक्रिया, ${name} जी! ${isFree ? 'पहला order बिल्कुल free!' : 'Payment confirmed ✓'}\n\nअब शुरू होता है:\n📷 आपके product का analysis\n🎨 3 professional ad designs\n\n2-3 minute में ready होगा!`;
+      return `शुक्रिया, ${name} जी! ${isFree ? 'पहला order बिल्कुल free!' : 'Payment confirmed ✓'}\n\nअब शुरू होता है:\n📷 आपके product का analysis\n🎨 3 professional ad designs\n\n2-5 minute में ready होगा!`;
     case 'ta':
-      return `நன்றி, ${name}! ${isFree ? 'முதல் order பூர்த்தியும் free!' : 'Payment confirmed ✓'}\n\nஆரம்பிக்கிறோம்:\n📷 உங்கள் product analysis\n🎨 3 professional ad designs\n\n2-3 minute-ல் ready ஆகும்!`;
+      return `நன்றி, ${name}! ${isFree ? 'முதல் order பூர்த்தியும் free!' : 'Payment confirmed ✓'}\n\nஆரம்பிக்கிறோம்:\n📷 உங்கள் product analysis\n🎨 3 professional ad designs\n\n2-5 minute-ல் ready ஆகும்!`;
     case 'te':
-      return `థాంక్యూ, ${name}! ${isFree ? 'మొదటి order పూర్తిగా free!' : 'Payment confirmed ✓'}\n\nఇప్పుడు మొదలవుతోంది:\n📷 మీ product analysis\n🎨 3 professional ad designs\n\n2-3 minute లో ready అవుతుంది!`;
+      return `థాంక్యూ, ${name}! ${isFree ? 'మొదటి order పూర్తిగా free!' : 'Payment confirmed ✓'}\n\nఇప్పుడు మొదలవుతోంది:\n📷 మీ product analysis\n🎨 3 professional ad designs\n\n2-5 minute లో ready అవుతుంది!`;
     case 'bn':
-      return `ধন্যবাদ, ${name}! ${isFree ? 'প্রথম order একদম free!' : 'Payment confirmed ✓'}\n\nএখন শুরু হচ্ছে:\n📷 আপনার product analysis\n🎨 3 professional ad designs\n\n2-3 minute-এ ready হবে!`;
+      return `ধন্যবাদ, ${name}! ${isFree ? 'প্রথম order একদম free!' : 'Payment confirmed ✓'}\n\nএখন শুরু হচ্ছে:\n📷 আপনার product analysis\n🎨 3 professional ad designs\n\n2-5 minute-এ ready হবে!`;
     case 'mr':
-      return `धन्यवाद, ${name}! ${isFree ? 'पहिला order पूर्णपणे free!' : 'Payment confirmed ✓'}\n\nआता सुरू होतंय:\n📷 तुमच्या product चे analysis\n🎨 3 professional ad designs\n\n2-3 minute मध्ये ready होईल!`;
+      return `धन्यवाद, ${name}! ${isFree ? 'पहिला order पूर्णपणे free!' : 'Payment confirmed ✓'}\n\nआता सुरू होतंय:\n📷 तुमच्या product चे analysis\n🎨 3 professional ad designs\n\n2-5 minute मध्ये ready होईल!`;
     case 'gu':
-      return `ઠીક છે, ${name}! ${isFree ? 'પહેલો order free!' : 'Payment confirmed ✓'}\n\nહવે શરૂ:\n📷 Product નું analysis\n🎨 3 professional ad designs\n\n2-3 minute માં ready!`;
+      return `ઠીક છે, ${name}! ${isFree ? 'પહેલો order free!' : 'Payment confirmed ✓'}\n\nહવે શરૂ:\n📷 Product નું analysis\n🎨 3 professional ad designs\n\n2-5 minute માં ready!`;
     case 'kn':
-      return `ಸರಿ, ${name}! ${isFree ? 'ಮೊದಲ order free!' : 'Payment confirmed ✓'}\n\nಈಗ ಶುರು:\n📷 Product ಅನ್ಯಾಲಿಸಿಸ್\n🎨 3 professional ad designs\n\n2-3 minute-ಲ್ಲಿ ready!`;
+      return `ಸರಿ, ${name}! ${isFree ? 'ಮೊದಲ order free!' : 'Payment confirmed ✓'}\n\nಈಗ ಶುರು:\n📷 Product ಅನ್ಯಾಲಿಸಿಸ್\n🎨 3 professional ad designs\n\n2-5 minute-ಲ್ಲಿ ready!`;
     case 'ml':
-      return `ശരി, ${name}! ${isFree ? 'ആദ്യ order free!' : 'Payment confirmed ✓'}\n\nഇപ്പോൾ തുടങ്ങുന്നു:\n📷 Product analysis\n🎨 3 professional ad designs\n\n2-3 minute-ൽ ready!`;
+      return `ശരി, ${name}! ${isFree ? 'ആദ്യ order free!' : 'Payment confirmed ✓'}\n\nഇപ്പോൾ തുടങ്ങുന്നു:\n📷 Product analysis\n🎨 3 professional ad designs\n\n2-5 minute-ൽ ready!`;
     case 'pa':
-      return `ਠੀਕ ਹੈ, ${name}! ${isFree ? 'ਪਹਿਲਾ order free!' : 'Payment confirmed ✓'}\n\nਹੁਣ ਸ਼ੁਰੂ:\n📷 Product ਦਾ analysis\n🎨 3 professional ad designs\n\n2-3 minute ਵਿੱਚ ready!`;
+      return `ਠੀਕ ਹੈ, ${name}! ${isFree ? 'ਪਹਿਲਾ order free!' : 'Payment confirmed ✓'}\n\nਹੁਣ ਸ਼ੁਰੂ:\n📷 Product ਦਾ analysis\n🎨 3 professional ad designs\n\n2-5 minute ਵਿੱਚ ready!`;
     case 'or':
-      return `ଭଲ, ${name}! ${isFree ? 'ପ୍ରଥମ order free!' : 'Payment confirmed ✓'}\n\nଏବେ ଆରମ୍ଭ:\n📷 Product ର analysis\n🎨 3 professional ad designs\n\n2-3 minute ରେ ready!`;
+      return `ଭଲ, ${name}! ${isFree ? 'ପ୍ରଥମ order free!' : 'Payment confirmed ✓'}\n\nଏବେ ଆରମ୍ଭ:\n📷 Product ର analysis\n🎨 3 professional ad designs\n\n2-5 minute ରେ ready!`;
     case 'en':
     default:
-      return `Got it, ${name}! ${isFree ? 'First order is free!' : 'Payment confirmed ✓'}\n\nStarting now:\n📷 Analyzing your product\n🎨 Creating 3 professional ads\n\nReady in 2-3 minutes!`;
+      return `Got it, ${name}! ${isFree ? 'First order is free!' : 'Payment confirmed ✓'}\n\nStarting now:\n📷 Analyzing your product\n🎨 Creating 3 professional ads\n\nReady in 2-5 minutes!`;
   }
 }
 
