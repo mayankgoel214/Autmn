@@ -9,7 +9,7 @@ import { getProviderKey } from '@autmn/keypool';
  *
  * Uses Gemini Flash (text-only). Times out after 5s and falls back to 'en'.
  */
-export async function detectLanguage(message: string): Promise<'en' | 'hi'> {
+export async function detectLanguage(message: string): Promise<'en' | 'hi' | 'hinglish'> {
   if (!message.trim()) return 'en';
 
   // Fast heuristic: Devanagari code points → definitely Hindi
@@ -24,11 +24,14 @@ export async function detectLanguage(message: string): Promise<'en' | 'hi'> {
 Message: ${message}
 
 Rules:
-- If the message is in Hindi (Devanagari script or clearly Hindi words in Roman script): return "hindi"
-- If the message is in English or Hinglish (mix of Hindi and English words): return "english"
+- If the message is in pure English (no Hindi words): return "english"
+- If the message is in Hindi using Roman script, or a mix of Hindi and English (Hinglish): return "hinglish"
+- If the message is in Hindi using Devanagari script: return "hindi"
 - If you cannot determine: return "english"
 
-Return only one word: "hindi" or "english". Nothing else.`;
+Examples of Hinglish: "bhai kya scene hai", "hello yaar", "kitna time lagega", "acha", "theek hai", "haan", "nahi", "kya"
+
+Return only one word: "english", "hinglish", or "hindi". Nothing else.`;
 
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('detectLanguage timeout')), 5_000)
@@ -44,7 +47,9 @@ Return only one word: "hindi" or "english". Nothing else.`;
     ]);
 
     const raw = result.text?.trim().toLowerCase() ?? 'english';
-    return raw === 'hindi' ? 'hi' : 'en';
+    if (raw === 'hindi') return 'hi';
+    if (raw === 'hinglish') return 'hinglish';
+    return 'en';
   } catch {
     return 'en';
   }
