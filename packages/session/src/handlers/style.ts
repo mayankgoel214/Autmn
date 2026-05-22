@@ -11,7 +11,7 @@ import type { Session, User } from '@autmn/db';
 import { prisma } from '@autmn/db';
 import { getImageQueue } from '@autmn/queue';
 import { transitionTo } from '../db-helpers.js';
-import { styleDisplayName, msgRevisionLimitReached, msgStylePicked, msgAllStylesReady, msgSendProductPhotos, msgStylePackReady } from '../messages.js';
+import { styleDisplayName, msgRevisionLimitReached, msgAllStylesReady, msgSendProductPhotos, msgStylePackReady } from '../messages.js';
 import { ListIds, ButtonIds, FREE_REDOS_PER_STYLE, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
 import { selectStylesForOrder } from '../auto-styles.js';
 import type { Language } from '../types.js';
@@ -31,6 +31,32 @@ export async function handleSetupStyle(
 
   // List reply (normal flow)
   if (message.messageType === 'interactive' && message.listReplyId) {
+    // "Done" tap — proceed with however many styles were picked
+    if (message.listReplyId === ListIds.STYLE_DONE) {
+      const currentPicked = (session.styleSelections as string[]) ?? [];
+      if (currentPicked.length > 0) {
+        const styleNames = currentPicked.map(s => styleDisplayName(s, lang));
+        await wa.sendText(phoneNumber, msgAllStylesReady(lang, styleNames));
+        logger.info('Early style exit via Done tap', { phoneNumber, styles: currentPicked });
+        await transitionTo(phoneNumber, 'AWAITING_PHOTO', {
+          styleSelection: currentPicked[0],
+          styleSelections: currentPicked,
+          stylePickStep: 0,
+          imageMediaIds: [],
+          imageStorageUrls: [],
+          voiceInstructions: null,
+          currentOrderId: null,
+          earlyPhotoMediaId: null,
+        });
+        await wa.sendText(phoneNumber, msgSendProductPhotos(lang));
+        return;
+      }
+      // No styles yet — re-show the first list
+      const { sendStyleList } = await import('./onboarding.js');
+      await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, []);
+      return;
+    }
+
     if (VALID_STYLE_IDS.has(message.listReplyId)) {
       styleId = message.listReplyId;
     }
@@ -241,8 +267,6 @@ export async function handleSetupStyle(
         styleSelection: cappedSelections[0] ?? null,
       },
     });
-
-    await wa.sendText(phoneNumber, msgStylePicked(lang, styleName, newStep, OUTPUT_STYLES_PER_ORDER));
 
     const { sendStyleList } = await import('./onboarding.js');
     await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, cappedSelections);

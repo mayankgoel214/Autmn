@@ -411,9 +411,9 @@ export async function sendCategoryList(
 
 /**
  * Sends the style picker.
- * Step 1: two sections — "Let AI choose" (Smart Pack + Autumn Special) and
- *         "Pick your own (choose up to 3)" (7 individual styles).
- * Steps 2-3: Section 2 only, with already-picked styles filtered out.
+ * Step 1: two sections — "Let AI choose" (Smart Pack) and
+ *         "Pick your own (choose up to 3)" (8 individual styles).
+ * Steps 2-3: checkbox state text + list with "Done" row + remaining styles.
  */
 export async function sendStyleList(
   phoneNumber: string,
@@ -427,9 +427,9 @@ export async function sendStyleList(
   const isFirstPick = pickNumber === 1;
 
   const makeDesc = (id: string, desc: string) =>
-    id === recStyleId ? `${desc} -- Recommended` : desc;
+    id === recStyleId ? `${desc} — Recommended` : desc;
 
-  const section2Rows = [
+  const styleRows = [
     { id: ListIds.STYLE_AUTMN_SPECIAL, title: styleDisplayName(ListIds.STYLE_AUTMN_SPECIAL, lang), description: makeDesc(ListIds.STYLE_AUTMN_SPECIAL, isHindi(lang) ? 'AI best creative direction chunega' : 'AI picks the best creative direction') },
     { id: ListIds.STYLE_CLEAN_WHITE, title: styleDisplayName(ListIds.STYLE_CLEAN_WHITE, lang), description: makeDesc(ListIds.STYLE_CLEAN_WHITE, 'Pure white background') },
     { id: ListIds.STYLE_STUDIO, title: styleDisplayName(ListIds.STYLE_STUDIO, lang), description: makeDesc(ListIds.STYLE_STUDIO, 'Colored backdrop studio') },
@@ -444,14 +444,14 @@ export async function sendStyleList(
     if (lang === 'hi') {
       await wa.sendText(
         phoneNumber,
-        'कितने ऐड वर्ज़न चाहिए?\n\n• 1 ऐड — ₹30\n• 2 ऐड — ₹60\n• 3 ऐड — ₹90\n\nहर वर्ज़न का स्टाइल अलग होगा ताकि आप टेस्ट कर सकें।',
+        'कितने एड वर्ज़न चाहिए?\n\n• 1 एड — ₹30\n• 2 एड — ₹60\n• 3 एड — ₹90\n\nहर वर्ज़न का स्टाइल अलग होगा ताकि आप टेस्ट कर सकें।',
       );
     }
 
     const section1Rows = [
       {
         id: ListIds.SMART_PACK,
-        title: isHindi(lang) ? 'Smart Pack ✨' : 'Smart Pack ✨',
+        title: 'Smart Pack ✨',
         description: isHindi(lang)
           ? 'AI aapke product ke liye 3 best styles chunega'
           : 'AI picks the best 3 styles for your product',
@@ -464,21 +464,45 @@ export async function sendStyleList(
       isHindi(lang) ? 'Chuniye' : 'Choose',
       [
         { title: 'Let AI choose', rows: section1Rows },
-        { title: 'Pick your own (choose up to 3)', rows: section2Rows },
+        { title: 'Pick your own (choose up to 3)', rows: styleRows },
       ],
     );
   } else {
-    const headerText = isHindi(lang)
-      ? `Style ${pickNumber} of ${OUTPUT_STYLES_PER_ORDER} chuniye:`
-      : `Pick style ${pickNumber} of ${OUTPUT_STYLES_PER_ORDER}:`;
+    // Show visual checkbox state before the list
+    await wa.sendText(phoneNumber, buildCheckboxState(alreadyPicked, lang));
+
+    const n = alreadyPicked.length;
+    const doneRow = {
+      id: ListIds.STYLE_DONE,
+      title: isHindi(lang) ? `Done — ${n} style${n > 1 ? 's' : ''}` : `Done — ${n} style${n > 1 ? 's' : ''}`,
+      description: isHindi(lang) ? 'In styles ke saath aage badhein' : 'Proceed with current selection',
+    };
 
     await wa.sendList(
       phoneNumber,
-      headerText,
+      isHindi(lang) ? `Style ${pickNumber} chuniye (optional):` : `Pick style ${pickNumber} (optional):`,
       isHindi(lang) ? 'Chuniye' : 'Choose',
-      [{ title: 'Pick your own (choose up to 3)', rows: section2Rows }],
+      [
+        { title: isHindi(lang) ? 'Ya proceed karein' : 'Or proceed', rows: [doneRow] },
+        { title: isHindi(lang) ? 'Style add karein' : 'Add a style', rows: styleRows },
+      ],
     );
   }
+}
+
+function buildCheckboxState(alreadyPicked: string[], lang: Language): string {
+  const lines: string[] = [];
+  for (let i = 0; i < OUTPUT_STYLES_PER_ORDER; i++) {
+    if (i < alreadyPicked.length) {
+      lines.push(`✅ ${styleDisplayName(alreadyPicked[i]!, lang)}`);
+    } else {
+      lines.push('⬜ (optional)');
+    }
+  }
+  const hint = isHindi(lang)
+    ? 'Ek aur style chuniye ya Done tap karein ↓'
+    : 'Pick another or tap Done ↓';
+  return lines.join('\n') + '\n\n' + hint;
 }
 
 // ---------------------------------------------------------------------------

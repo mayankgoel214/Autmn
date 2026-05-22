@@ -86,7 +86,7 @@ export async function handleIncomingMessage(
   //
   // `session.lastUserMessageAt` holds the value from BEFORE the update above,
   // because getSession fetched it before the update ran. So the gap is real.
-  if (!isEscapeIntent(message)) {
+  if (!isEscapeIntent(message) && message.messageType !== 'interactive') {
     const recoveryMsg = buildSessionRecoveryMessage(session, user.language as Language);
     if (recoveryMsg) {
       await wa.sendText(phoneNumber, recoveryMsg);

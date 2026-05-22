@@ -56,6 +56,11 @@ export function getLanguageNativeName(lang: Language): string {
   }
 }
 
+/** Returns true for both pure Hindi ('hi') and Hinglish ('hinglish'). */
+export function isHindi(lang: Language): boolean {
+  return lang === 'hi' || lang === 'hinglish';
+}
+
 // ---------------------------------------------------------------------------
 
 export const CONVERSATION_STATES = [
@@ -146,9 +151,13 @@ export const ButtonIds = {
   // Language
   LANG_HINDI: 'lang_hi',
   LANG_ENGLISH: 'lang_en',
-  // Returning user style confirm
+  // Returning user style confirm (legacy — still handled for old sessions)
   SAME_STYLE: 'same_style',
   NEW_STYLE: 'new_style',
+  // Returning user profile confirmation
+  PROFILE_CONTINUE: 'profile_continue',
+  PROFILE_CHANGE_BRAND: 'profile_change_brand',
+  PROFILE_CHANGE_CATEGORY: 'profile_change_category',
   // Free trial confirm
   CONFIRM_FREE: 'confirm_free',
   // Feedback
@@ -210,4 +219,6 @@ export const ListIds = {
   STYLE_FESTIVE: 'style_festive',
   STYLE_WITH_MODEL: 'style_with_model',
   STYLE_VIDEO_SHOOT: 'style_video_shoot',
+  // Style picker control
+  STYLE_DONE: 'style_done',
 } as const;
