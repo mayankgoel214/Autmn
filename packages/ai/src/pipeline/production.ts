@@ -31,7 +31,12 @@ import { geminiGenerateImage } from './gemini-generate.js';
 import { openaiGenerateImage } from './openai-generate.js';
 import { postProcessFinal, addAILabel, downloadBuffer, uploadToStorage } from './fallback.js';
 import { runDeterministicChecks } from '../qa/deterministic-checks.js';
-import { buildBetaPrompt, buildRevisionPrompt, type StyleArtDirection } from './style-prompts-v5.js';
+import {
+  buildBetaPrompt,
+  buildRevisionPrompt,
+  type StyleArtDirection,
+  type BrandContext,
+} from './style-prompts-v5.js';
 import { preprocessImage } from './preprocess.js';
 import { generateCreativeBrief, type CreativeBrief } from './creative-brief.js';
 import {
@@ -88,6 +93,12 @@ export interface ProductionParams extends ProcessImageParams {
    * Optional user-provided guidance (voice-note transcript or typed text).
    */
   userInstructions?: string;
+  /**
+   * Optional per-user brand context (Phase 5). When supplied, threaded into
+   * every prompt so the LLM has the brand's tagline / vibe / colors / summary
+   * as a stylistic anchor. Omit it for parity with pre-Phase-5 generation.
+   */
+  brandContext?: BrandContext;
 }
 
 export interface StyleResult {
@@ -192,11 +203,12 @@ async function processStyleWithChain(
   productDescription?: string,
   brandName?: string,
   originalVoiceInstructions?: string,
+  brandContext?: BrandContext,
 ): Promise<StyleResult> {
   const styleStart = Date.now();
   const prompt = originalVoiceInstructions && userInstructions
-    ? buildRevisionPrompt(style, userInstructions, originalVoiceInstructions, productCategory, artDirection, productDescription, brandName)
-    : buildBetaPrompt(style, '', userInstructions, productCategory, artDirection, productDescription, brandName);
+    ? buildRevisionPrompt(style, userInstructions, originalVoiceInstructions, productCategory, artDirection, productDescription, brandName, brandContext)
+    : buildBetaPrompt(style, '', userInstructions, productCategory, artDirection, productDescription, brandName, brandContext);
   let accumulatedCost = 0;
   let tier1DefectReason: string | null = null;
 
@@ -400,6 +412,7 @@ export async function processStyleProduction(params: {
   artDirection?: StyleArtDirection;
   productDescription?: string;
   brandName?: string;
+  brandContext?: BrandContext;
 }): Promise<StyleResult> {
   const orderId = params.orderId ?? randomBytes(4).toString('hex');
   return processStyleWithChain(
@@ -413,6 +426,7 @@ export async function processStyleProduction(params: {
     params.productDescription,
     params.brandName,
     params.originalVoiceInstructions,
+    params.brandContext,
   );
 }
 
@@ -538,6 +552,8 @@ export async function processOrderProduction(
         creativeBrief?.directions[style],
         creativeBrief?.profile.productType,
         params.brandName,
+        undefined, // originalVoiceInstructions — not passed in order-level path
+        params.brandContext,
       ),
     ),
   );

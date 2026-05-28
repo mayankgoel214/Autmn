@@ -11,7 +11,7 @@ import type { ImageJob } from '@autmn/db';
 import { processImageNeverFail, downloadBuffer, type NeverFailResult } from '@autmn/ai';
 import { uploadFile, Buckets } from '@autmn/storage';
 import { WhatsAppClient } from '@autmn/whatsapp';
-import { sendProcessedImages, msgGotPhotoCreating, msgProgressAlmostDone, msgProgressReadyToSend, msgPhotoProcessingFailed } from '@autmn/session';
+import { sendProcessedImages, msgGotPhotoCreating, msgProgressAlmostDone, msgProgressReadyToSend, msgPhotoProcessingFailed, fetchBrandContextForUser } from '@autmn/session';
 import type { Language } from '@autmn/session';
 import { ImageProcessingJobDataSchema } from '@autmn/queue';
 import { getConfig, type WorkerConfig } from '../config.js';
@@ -153,6 +153,35 @@ export async function processImageJob(job: Job): Promise<void> {
         }));
       }
 
+      // Phase 5 — fetch the user's brand context and thread it into the
+      // pipeline. INCLUDE_BRAND_CONTEXT=false flips the kill switch for the
+      // A/B experiment called out in the plan (default: include).
+      const includeBrand = process.env.INCLUDE_BRAND_CONTEXT !== 'false';
+      let brandContext: Awaited<ReturnType<typeof fetchBrandContextForUser>> = undefined;
+      if (includeBrand) {
+        try {
+          brandContext = await fetchBrandContextForUser(data.phoneNumber);
+        } catch (err) {
+          // Non-fatal — a brand-context lookup failure must not kill an order.
+          console.warn(JSON.stringify({
+            event: 'brand_context_fetch_failed',
+            phoneNumber: data.phoneNumber,
+            error: err instanceof Error ? err.message.slice(0, 200) : String(err),
+          }));
+        }
+      }
+      if (brandContext) {
+        console.info(JSON.stringify({
+          event: 'brand_context_injected',
+          orderId: data.orderId,
+          phoneNumber: data.phoneNumber,
+          hasTagline: !!brandContext.tagline,
+          hasVibe: !!brandContext.vibe,
+          colorCount: brandContext.brandColors?.length ?? 0,
+          hasSummary: !!brandContext.summary,
+        }));
+      }
+
       const result = await processImageNeverFail({
         imageUrl: data.inputImageUrl,
         style: effectiveStyle,
@@ -161,6 +190,7 @@ export async function processImageJob(job: Job): Promise<void> {
         voiceInstructions: data.voiceInstructions,
         originalVoiceInstructions: data.originalVoiceInstructions,
         referenceImageBuffers: referenceImageBuffers.length > 0 ? referenceImageBuffers : undefined,
+        brandContext,
       });
 
       // Cancel the stage 2 timer if pipeline finished before 30s

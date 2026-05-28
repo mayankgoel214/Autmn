@@ -56,7 +56,13 @@ export {
   type LightAnalysis,
 } from './pipeline/light-analyzer.js';
 
-export { buildBetaPrompt, type StyleArtDirection } from './pipeline/style-prompts-v5.js';
+export {
+  buildBetaPrompt,
+  buildRevisionPrompt,
+  formatBrandContextBlock,
+  type StyleArtDirection,
+  type BrandContext,
+} from './pipeline/style-prompts-v5.js';
 
 // ---------------------------------------------------------------------------
 // Transcription

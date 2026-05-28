@@ -19,6 +19,7 @@ import { downloadBuffer } from './fallback.js';
 import { preprocessImage } from './preprocess.js';
 import { processStyleProduction } from './production.js';
 import { generateCreativeBrief } from './creative-brief.js';
+import type { BrandContext } from './style-prompts-v5.js';
 import type { ProcessImageParams } from './_common/types.js';
 
 // ---------------------------------------------------------------------------
@@ -40,6 +41,12 @@ export interface NeverFailParams extends ProcessImageParams {
    * Ignored in V1 — all modes run the Beta prompt.
    */
   pipelineMode?: 'full' | 'lean' | 'skinny' | 'beta';
+  /**
+   * Phase 5 — per-user brand context. Threaded into the prompt so the LLM
+   * sees the brand's tagline / vibe / colours / summary as a stylistic
+   * anchor. Omit it for byte-identical pre-Phase-5 prompts.
+   */
+  brandContext?: BrandContext;
 }
 
 export interface NeverFailResult {
@@ -139,6 +146,7 @@ export async function processImageNeverFail(
     artDirection: brief?.directions[style],
     productDescription: brief?.profile.productType,
     brandName: params.brandName,
+    brandContext: params.brandContext,
   });
 
   // ---- Map to NeverFailResult ------------------------------------------------

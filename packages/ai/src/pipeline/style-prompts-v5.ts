@@ -119,6 +119,42 @@ export interface StyleArtDirection {
 }
 
 /**
+ * Per-user brand context (Phase 5) — derived from BrandProfile +
+ * BrandSummaryVersion. Threaded through every prompt builder so the LLM has
+ * the user's brand identity as a stylistic anchor. Every field is optional;
+ * an empty BrandContext is treated identically to undefined.
+ */
+export interface BrandContext {
+  /** Free-text summary written by generateSummary (Phase 3b). */
+  summary?: string;
+  /** Brand tagline. */
+  tagline?: string;
+  /** 2-6 brand colours as colour names or hex codes. */
+  brandColors?: string[];
+  /** 2-4 word brand vibe ("minimalist luxury", "playful festive", etc.). */
+  vibe?: string;
+}
+
+/**
+ * Renders the BrandContext as a prompt block, or returns empty string when
+ * every field is missing. Keeping this here so production.ts can re-use it
+ * if it ever wants to emit the same block elsewhere.
+ */
+export function formatBrandContextBlock(ctx: BrandContext | undefined): string {
+  if (!ctx) return '';
+  const lines: string[] = [];
+  if (ctx.tagline && ctx.tagline.trim()) lines.push(`- Tagline: ${ctx.tagline.trim()}`);
+  if (ctx.vibe && ctx.vibe.trim()) lines.push(`- Vibe: ${ctx.vibe.trim()}`);
+  if (ctx.brandColors && ctx.brandColors.length > 0) {
+    const cleaned = ctx.brandColors.map((c) => c.trim()).filter(Boolean);
+    if (cleaned.length > 0) lines.push(`- Brand colors: ${cleaned.join(', ')}`);
+  }
+  if (ctx.summary && ctx.summary.trim()) lines.push(`- About: ${ctx.summary.trim().slice(0, 600)}`);
+  if (lines.length === 0) return '';
+  return `\nBrand context (apply these stylistic signals to the ad without dominating the product):\n${lines.join('\n')}\n`;
+}
+
+/**
  * Build the final generation prompt using the V2 structured template.
  *
  * `productDescription` comes from creative brief `profile.productType`.
@@ -136,6 +172,7 @@ export function buildBetaPrompt(
   artDirection?: StyleArtDirection,
   productDescription?: string,
   brandName?: string,
+  brandContext?: BrandContext,
 ): string {
   const productLine = productDescription?.trim() || 'the product shown in the reference image';
   const brandLine = brandName?.trim() || 'unspecified';
@@ -152,6 +189,8 @@ export function buildBetaPrompt(
   const constraintParts = [userPart, fidelityNote].filter(Boolean);
   const hardConstraints = constraintParts.join(' ');
 
+  const brandBlock = formatBrandContextBlock(brandContext);
+
   return `Generate a professional product advertisement image.
 
 Product: ${productLine}
@@ -159,7 +198,7 @@ Brand: ${brandLine}
 Category: ${categoryLine}
 Style: ${styleLine}
 Style description: ${styleDesc}
-
+${brandBlock}
 HARD CONSTRAINTS — these override everything else. Follow them exactly:
 ${hardConstraints}
 
@@ -187,6 +226,7 @@ export function buildRevisionPrompt(
   artDirection: StyleArtDirection | undefined,
   productDescription: string | undefined,
   brandName: string | undefined,
+  brandContext?: BrandContext,
 ): string {
   const productLine = productDescription?.trim() || 'the product shown in the reference image';
   const brandLine = brandName?.trim() || 'unspecified';
@@ -209,6 +249,8 @@ export function buildRevisionPrompt(
 
   const constraintSection = [originalBlock, revisionBlock].filter(Boolean).join('\n\n');
 
+  const brandBlock = formatBrandContextBlock(brandContext);
+
   return `You are regenerating one specific ad based on user feedback. Do not touch or resend the other ads.
 
 Product: ${productLine}
@@ -216,7 +258,7 @@ Brand: ${brandLine}
 Category: ${categoryLine}
 Style: ${styleLine}
 Style description: ${styleDesc}
-
+${brandBlock}
 ${constraintSection}
 
 Rules that always apply:
