@@ -4,6 +4,7 @@
  */
 
 import type { Language } from './types.js';
+import { isHindi } from './types.js';
 type Lang = Language;
 
 export function msgAskStyle(lang: Lang, name: string, recommendedStyleName?: string): string {
@@ -2063,6 +2064,81 @@ export function msgBrandEditExit(lang: Lang): string {
     case 'hinglish': return 'Edits save ho gaye ✅';
     case 'en':
     default:         return 'Edits saved ✅';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 14 — post-delivery menu (5⭐ rating + Send new product + Request refund)
+// ---------------------------------------------------------------------------
+
+export function msgDeliveryMenuBody(adCount: number, lang: Lang): string {
+  const countStr = adCount === 1 ? '1 ad' : `${adCount} ads`;
+  switch (lang) {
+    case 'hi':
+      return `ये रहे आपके ${adCount} ऐड 🎉\n\nरेटिंग दें या अगला कदम चुनें:`;
+    case 'hinglish':
+      return `Yeh raha aapka ${countStr} 🎉\n\nRating dein ya next step chuniye:`;
+    case 'en':
+    default:
+      return `That's your ${countStr} 🎉\n\nRate the ads or pick your next step:`;
+  }
+}
+
+export function msgDeliveryMenuFooter(lang: Lang): string {
+  return lang === 'hi' ? 'चुनिए' : isHindi(lang) ? 'Chuniye' : 'Choose';
+}
+
+export function msgDeliveryRateSectionTitle(lang: Lang): string {
+  return lang === 'hi' ? 'रेटिंग दें' : isHindi(lang) ? 'Rate the ads' : 'Rate the ads';
+}
+
+export function msgDeliveryNextSectionTitle(lang: Lang): string {
+  return lang === 'hi' ? 'अगला' : isHindi(lang) ? 'Next step' : 'Next step';
+}
+
+/** Row labels for the 5 rating list rows. */
+export function rowRate(stars: 1 | 2 | 3 | 4 | 5, lang: Lang): string {
+  const dots = '⭐'.repeat(stars);
+  switch (stars) {
+    case 5: return `${dots}  ${isHindi(lang) ? 'Loved it!' : 'Loved it!'}`;
+    case 4: return `${dots}  ${isHindi(lang) ? 'Good' : 'Good'}`;
+    case 3: return `${dots}  ${isHindi(lang) ? 'OK' : 'OK'}`;
+    case 2: return `${dots}  ${isHindi(lang) ? 'Meh' : 'Meh'}`;
+    case 1: return `${dots}  ${isHindi(lang) ? 'Bad' : 'Bad'}`;
+  }
+}
+
+export function rowSendNewProduct(lang: Lang): string {
+  return isHindi(lang) ? 'Naya product bhejein' : 'Send new product';
+}
+
+export function rowRequestRefund(lang: Lang): string {
+  return isHindi(lang) ? 'Refund request karein' : 'Request refund';
+}
+
+export function msgRatingThanks(rating: number, lang: Lang): string {
+  const stars = '⭐'.repeat(rating);
+  switch (lang) {
+    case 'hi':
+      return `धन्यवाद! ${stars} रेटिंग save हो गई.`;
+    case 'hinglish':
+      return `Shukriya! ${stars} rating save ho gayi.`;
+    case 'en':
+    default:
+      return `Thanks! ${stars} rating saved.`;
+  }
+}
+
+/** Phase 15 placeholder — real refund-request flow lands in Phase 15. */
+export function msgRefundComingSoon(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'Refund flow Phase 15 mein aa raha hai. Filhaal manual review hoga — Mayank se contact karein.';
+    case 'hinglish':
+      return 'Refund flow Phase 15 mein aa raha hai. Filhaal manual review hoga — Mayank se contact karein.';
+    case 'en':
+    default:
+      return 'Refund flow ships in Phase 15. For now it is manual — please contact Mayank.';
   }
 }
 

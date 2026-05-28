@@ -79,6 +79,7 @@ export const CONVERSATION_STATES = [
   'CHANGE_SETTINGS_MENU',
   'BRAND_DETAILS_COLLECTING',
   'BRAND_DETAILS_EDITING',
+  'REFUND_REQUEST',
 ] as const;
 
 export type ConversationState = typeof CONVERSATION_STATES[number];
@@ -253,4 +254,14 @@ export const ListIds = {
   STYLE_VIDEO_SHOOT: 'style_video_shoot',
   // Style picker control
   STYLE_DONE: 'style_done',
+  // Phase 14 — post-delivery menu (single list with two sections):
+  //   Section "Rate the ads" -> RATE_1..RATE_5
+  //   Section "Next step"   -> SEND_NEW_PRODUCT, REQUEST_REFUND
+  RATE_1: 'rate_1',
+  RATE_2: 'rate_2',
+  RATE_3: 'rate_3',
+  RATE_4: 'rate_4',
+  RATE_5: 'rate_5',
+  SEND_NEW_PRODUCT: 'send_new_product',
+  REQUEST_REFUND: 'request_refund',
 } as const;

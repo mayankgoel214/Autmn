@@ -436,6 +436,31 @@ export async function handleIncomingMessage(
       // of the edit/revision flow. Stale sessions in that state hit the
       // switch's default arm below and get reset to IDLE.
 
+      case 'REFUND_REQUEST': {
+        // Phase 14 placeholder — the real reason-capture + admin-review +
+        // Razorpay-refund flow lands in Phase 15. For now we just bounce the
+        // user back to IDLE on any input so they aren't stuck.
+        if (isEscapeIntent(message)) {
+          logger.info('Escape intent in REFUND_REQUEST — resetting to IDLE', { phoneNumber });
+          await transitionTo(phoneNumber, 'IDLE', {
+            currentOrderId: null, styleSelection: null, styleSelections: [],
+            stylePickStep: 0, earlyPhotoMediaId: null, inChangeSettings: false,
+          });
+          const freshSession = await getSession(phoneNumber);
+          if (freshSession) await handleIdle(freshSession, user, message, wa);
+          break;
+        }
+        // Acknowledge and route to IDLE so the chat isn't stuck.
+        const lang = user.language as Language;
+        await wa.sendText(phoneNumber, isHindi(lang)
+          ? 'Refund team se sampark karein. Filhaal IDLE mein wapas le ja rahe hain.'
+          : 'Please contact the refund team. Returning you to the main menu.');
+        await transitionTo(phoneNumber, 'IDLE');
+        const freshSession = await getSession(phoneNumber);
+        if (freshSession) await handleIdle(freshSession, user, message, wa);
+        break;
+      }
+
       default:
         logger.warn('Unknown session state', { state: session.state, phoneNumber });
         await transitionTo(phoneNumber, 'IDLE');
@@ -481,6 +506,8 @@ function mapStateToRecoveryStep(state: string): RecoveryStep | null {
     case 'BRAND_DETAILS_COLLECTING':
     case 'BRAND_DETAILS_EDITING':
       return 'brand_intake';
+    case 'REFUND_REQUEST':
+      return 'delivery';
     case 'SETUP_STYLE':
       return 'style_selection';
     case 'AWAITING_PHOTO':

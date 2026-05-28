@@ -15,11 +15,19 @@ import { transitionTo } from '../db-helpers.js';
 import {
   msgImageDelivered,
   msgStyleImageDelivered,
-  msgAskFeedback,
+  msgDeliveryMenuBody,
+  msgDeliveryMenuFooter,
+  msgDeliveryRateSectionTitle,
+  msgDeliveryNextSectionTitle,
+  rowRate,
+  rowSendNewProduct,
+  rowRequestRefund,
+  msgRatingThanks,
+  msgRefundComingSoon,
   styleDisplayName,
   msgSendProductPhotos,
 } from '../messages.js';
-import { ButtonIds, isHindi } from '../types.js';
+import { ListIds, isHindi } from '../types.js';
 import type { Language } from '../types.js';
 import type { MessageContext } from '../types.js';
 import { logger } from '../logger.js';
@@ -118,7 +126,51 @@ export async function sendProcessedImages(
   // asynchronously through its CDN. 3 s gives the last image time to land
   // before the summary text arrives, preventing out-of-order display.
   await sleep(3000);
-  await wa.sendText(phoneNumber, buildPostDeliveryMenu(totalAdCount, language));
+
+  // Phase 14 — single list with two sections: rating (1-5⭐) + next step
+  // (Send new product / Request refund). Replaces the legacy numbered text
+  // menu and the Save/Order-another button group.
+  await sendDeliveryMenu(phoneNumber, totalAdCount, language, wa);
+}
+
+async function sendDeliveryMenu(
+  phoneNumber: string,
+  adCount: number,
+  language: Language,
+  wa: WhatsAppClient,
+): Promise<void> {
+  try {
+    await wa.sendList(
+      phoneNumber,
+      msgDeliveryMenuBody(adCount, language),
+      msgDeliveryMenuFooter(language),
+      [
+        {
+          title: msgDeliveryRateSectionTitle(language),
+          rows: [
+            { id: ListIds.RATE_5, title: rowRate(5, language) },
+            { id: ListIds.RATE_4, title: rowRate(4, language) },
+            { id: ListIds.RATE_3, title: rowRate(3, language) },
+            { id: ListIds.RATE_2, title: rowRate(2, language) },
+            { id: ListIds.RATE_1, title: rowRate(1, language) },
+          ],
+        },
+        {
+          title: msgDeliveryNextSectionTitle(language),
+          rows: [
+            { id: ListIds.SEND_NEW_PRODUCT, title: rowSendNewProduct(language) },
+            { id: ListIds.REQUEST_REFUND, title: rowRequestRefund(language) },
+          ],
+        },
+      ],
+    );
+  } catch (err) {
+    logger.error('Delivery menu send failed; falling back to text body only', {
+      phoneNumber,
+      error: String(err),
+    });
+    await wa.sendText(phoneNumber, msgDeliveryMenuBody(adCount, language));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,24 +185,38 @@ export async function handleDelivered(
 ): Promise<void> {
   const lang = (user.language as Language) || 'hinglish';
 
-  // ── Numbered text-reply parsing (Phase 8 menu has 2 options) ─────────────
+  // ── List-reply routing (the Phase 14 menu) ───────────────────────────────
+  if (message.messageType === 'interactive' && message.listReplyId) {
+    const id = message.listReplyId;
+    const ratingMap: Record<string, number> = {
+      [ListIds.RATE_1]: 1,
+      [ListIds.RATE_2]: 2,
+      [ListIds.RATE_3]: 3,
+      [ListIds.RATE_4]: 4,
+      [ListIds.RATE_5]: 5,
+    };
+
+    if (id in ratingMap) {
+      await handleRating(session, user, wa, lang, ratingMap[id]!);
+      return;
+    }
+    if (id === ListIds.SEND_NEW_PRODUCT) {
+      await handleSendNewProduct(session, wa, lang);
+      return;
+    }
+    if (id === ListIds.REQUEST_REFUND) {
+      await handleRequestRefund(session, wa, lang);
+      return;
+    }
+    // Unknown list id — re-show the menu.
+    await reshowDeliveryMenu(session, wa, lang);
+    return;
+  }
+
+  // ── "hi" greeting still bounces back to IDLE so the returning-user menu
+  //    fires naturally. Other free-form text re-shows the menu. ────────────
   if (message.messageType === 'text' && message.text) {
     const t = message.text.trim();
-
-    // Phase 8 menu: 1 = Order another, 2 = Save and finish. (Phase 14 replaces
-    // this with 5⭐ + Send new product + Request refund.)
-    if (isMenuOrderAnother(t)) {
-      await handleOrderAnother(session, wa, lang);
-      return;
-    }
-    if (isMenuSaveFinish(t)) {
-      await handleSaveAndFinish(session, user, wa, lang);
-      return;
-    }
-
-    // "hi" / "hello" greetings in DELIVERED → transition to IDLE so the
-    // returning-user 2-button menu fires naturally. Same behaviour as before
-    // the edit flow was removed.
     const isGreeting = /^(hi|hello|hey|hii|hiii|namaste|naya|new|start|shuru|hlo|hlw)\s*$/i.test(t);
     if (isGreeting) {
       logger.info('Greeting in DELIVERED state, transitioning to IDLE', { text: t, phoneNumber: session.phoneNumber });
@@ -171,17 +237,9 @@ export async function handleDelivered(
       }
       return;
     }
-  }
-
-  // ── Interactive buttons ──────────────────────────────────────────────────
-  if (message.messageType === 'interactive' && message.buttonReplyId) {
-    if (message.buttonReplyId === ButtonIds.FEEDBACK_GREAT) {
-      await handleSaveAndFinish(session, user, wa, lang);
-      return;
-    }
-    // All other button IDs (legacy FEEDBACK_CHANGE / FEEDBACK_REDO /
-    // REDO_STYLE_* / try_new_style / reuse_photo / new_photo) were removed
-    // in Phase 8. Fall through to the default re-prompt.
+    // Any other text — re-show the menu rather than silently dropping.
+    await reshowDeliveryMenu(session, wa, lang);
+    return;
   }
 
   // ── New photo → start a new order, preserving last style ────────────────
@@ -202,51 +260,77 @@ export async function handleDelivered(
     return;
   }
 
-  // ── Default — re-show the single Save & finish button ───────────────────
-  try {
-    await wa.sendButtons(session.phoneNumber, msgAskFeedback(lang), [
-      { id: ButtonIds.FEEDBACK_GREAT, title: 'Love it! ❤️' },
-    ]);
-  } catch {
-    await wa.sendText(session.phoneNumber, msgAskFeedback(lang));
+  // ── Default — re-show the delivery menu ─────────────────────────────────
+  await reshowDeliveryMenu(session, wa, lang);
+}
+
+async function reshowDeliveryMenu(
+  session: Session,
+  wa: WhatsAppClient,
+  lang: Language,
+): Promise<void> {
+  let adCount = 1;
+  if (session.currentOrderId) {
+    const order = await prisma.order.findUnique({
+      where: { id: session.currentOrderId },
+      select: { outputStyleCount: true, stylesOrdered: true, numStylesPicked: true },
+    }).catch(() => null);
+    adCount =
+      order?.numStylesPicked ||
+      order?.outputStyleCount ||
+      (order?.stylesOrdered as string[] | null)?.length ||
+      1;
   }
+  await sendDeliveryMenu(session.phoneNumber, adCount, lang, wa);
 }
 
-// ---------------------------------------------------------------------------
-// Post-delivery numbered menu
-// ---------------------------------------------------------------------------
-
-function buildPostDeliveryMenu(adCount: number, lang: Language): string {
-  const countStr = adCount === 1 ? '1 ad' : `${adCount} ads`;
-  if (lang === 'hi') {
-    const countHi = adCount === 1 ? 'ये रहा आपका 1 ऐड' : `ये रहे आपके ${adCount} ऐड`;
-    return `${countHi} 🎉\n\nअब क्या करना है?\n\n1 — दूसरे प्रोडक्ट का ऑर्डर करें\n2 — सेव करके खत्म करें`;
+async function handleRating(
+  session: Session,
+  user: User,
+  wa: WhatsAppClient,
+  lang: Language,
+  rating: number,
+): Promise<void> {
+  if (session.currentOrderId) {
+    await prisma.order.update({
+      where: { id: session.currentOrderId },
+      data: { rating, ratedAt: new Date() },
+    }).catch((err) => {
+      logger.warn('Failed to write Order.rating', {
+        orderId: session.currentOrderId,
+        rating,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
-  if (isHindi(lang)) {
-    return `Yeh raha aapka ${adCount === 1 ? '1 ad' : `${adCount} ads`} 🎉\n\nKya karna chahenge? Reply karein:\n\n1 — Doosre product ka order\n2 — Save karke khatam`;
-  }
-  return `That's your ${countStr} 🎉\n\nWhat would you like to do? Reply with:\n\n1 — Order another product\n2 — Save and finish`;
+  await wa.sendText(session.phoneNumber, msgRatingThanks(rating, lang));
+  logger.info('Order rated', {
+    phoneNumber: session.phoneNumber,
+    orderId: session.currentOrderId,
+    rating,
+  });
+  // Stay in DELIVERED — the action rows in the same menu remain tappable.
+  // Also update lastStyleUsed/totalImages/styleHistory if this rating is the
+  // first feedback we got (parity with the legacy "Save and finish" path).
+  const order = session.currentOrderId
+    ? await prisma.order.findUnique({ where: { id: session.currentOrderId } })
+    : null;
+  const currentHistory = (user.styleHistory as Record<string, number> | null) ?? {};
+  const styleId = session.styleSelection ?? order?.style ?? null;
+  const updatedHistory = styleId
+    ? { ...currentHistory, [styleId]: (currentHistory[styleId] ?? 0) + 1 }
+    : currentHistory;
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      totalImages: { increment: order?.imageCount ?? 0 },
+      ...(styleId ? { lastStyleUsed: styleId } : {}),
+      styleHistory: updatedHistory,
+    },
+  }).catch(() => {});
 }
 
-function isMenuOrderAnother(t: string): boolean {
-  // Phase 8 menu option "1" -> Order another. The legacy "2" / "3" digits
-  // are intentionally NOT honoured here — if we accepted them too they would
-  // collide with the new "2 = Save" mapping below.
-  return /^(1|order|another|nayi?\s*order|doosra|naya)\b/i.test(t);
-}
-
-function isMenuSaveFinish(t: string): boolean {
-  // Phase 8 menu option "2" -> Save. Also accepts the legacy "3" digit and
-  // all the save-intent keywords so users coming back from stale chat history
-  // typing "3" or "save" still navigate correctly.
-  return /^(2|3|save|finish|done|khatam|ho\s*gaya|theek)\b/i.test(t);
-}
-
-// ---------------------------------------------------------------------------
-// Sub-handlers
-// ---------------------------------------------------------------------------
-
-async function handleOrderAnother(
+async function handleSendNewProduct(
   session: Session,
   wa: WhatsAppClient,
   lang: Language,
@@ -264,56 +348,14 @@ async function handleOrderAnother(
   await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
 }
 
-async function handleSaveAndFinish(
+async function handleRequestRefund(
   session: Session,
-  user: User,
   wa: WhatsAppClient,
   lang: Language,
 ): Promise<void> {
-  await wa.sendText(
-    session.phoneNumber,
-    isHindi(lang)
-      ? 'Done! Aapke ads save ho gaye. Kisi bhi time message karein — hum aur ads banane ke liye ready hain. 😊'
-      : 'Done. Your ads are saved. Message us anytime to make more. 😊',
-  );
-
-  const order = session.currentOrderId
-    ? await prisma.order.findUnique({ where: { id: session.currentOrderId } })
-    : null;
-
-  const currentHistory = (user.styleHistory as Record<string, number> | null) ?? {};
-  const styleId = session.styleSelection ?? order?.style ?? null;
-  const updatedHistory = styleId
-    ? { ...currentHistory, [styleId]: (currentHistory[styleId] ?? 0) + 1 }
-    : currentHistory;
-
-  // Pre-Phase-8 #2: orderCount is now incremented in createOrderAndSendPayment
-  // (at order creation, not on Save & finish), so a user who never tapped this
-  // feedback button no longer gets unlimited free orders. totalImages /
-  // lastStyleUsed / styleHistory are still per-delivery and stay here.
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      totalImages: { increment: order?.imageCount ?? 0 },
-      ...(styleId ? { lastStyleUsed: styleId } : {}),
-      styleHistory: updatedHistory,
-    },
-  });
-
-  await transitionTo(session.phoneNumber, 'IDLE', {
-    currentOrderId: null,
-    styleSelection: null,
-    voiceInstructions: null,
-    imageMediaIds: [],
-    imageStorageUrls: [],
-    earlyPhotoMediaId: null,
-  });
-
-  logger.info('Order completed — Save and finish', {
-    phoneNumber: session.phoneNumber,
-    orderId: order?.id,
-    styleId,
-  });
+  await transitionTo(session.phoneNumber, 'REFUND_REQUEST');
+  // Phase 15 will replace this stub with the full reason-capture flow.
+  await wa.sendText(session.phoneNumber, msgRefundComingSoon(lang));
 }
 
 // ---------------------------------------------------------------------------
