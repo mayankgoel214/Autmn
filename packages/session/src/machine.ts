@@ -22,7 +22,9 @@ import {
   handleSetupLanguage,
   handleSetupName,
   handleSetupCategory,
+  handleSetupCategoryOther,
 } from './handlers/onboarding.js';
+import { handleChangeSettingsMenu } from './handlers/change-settings.js';
 import { handleSetupStyle } from './handlers/style.js';
 import { handleAwaitingPhoto } from './handlers/images.js';
 import { handleAwaitingPayment } from './handlers/payment.js';
@@ -104,9 +106,12 @@ export async function handleIncomingMessage(
     return;
   }
 
-  // 5b. Language switch intent — intercept before state routing
+  // 5b. Language switch intent — intercept before state routing.
+  // EXCEPT during SETUP_LANGUAGE, where the user IS explicitly being asked to
+  // pick a language. Letting the intercept fire there would silently set the
+  // language without advancing the state, leaving the user stuck on the picker.
   const langSwitch = isLanguageSwitch(message.text);
-  if (langSwitch !== null) {
+  if (langSwitch !== null && session.state !== 'SETUP_LANGUAGE') {
     const currentLang = user.language as Language;
     if (currentLang === langSwitch) {
       await wa.sendText(phoneNumber, msgLanguageAlreadySet(langSwitch));
@@ -167,7 +172,7 @@ export async function handleIncomingMessage(
           logger.info('Escape intent in SETUP_LANGUAGE — resetting to IDLE', { phoneNumber });
           await transitionTo(phoneNumber, 'IDLE', {
             currentOrderId: null, styleSelection: null, styleSelections: [],
-            stylePickStep: 0, earlyPhotoMediaId: null,
+            stylePickStep: 0, earlyPhotoMediaId: null, inChangeSettings: false,
           });
           const freshSession = await getSession(phoneNumber);
           if (freshSession) await handleIdle(freshSession, user, message, wa);
@@ -182,7 +187,7 @@ export async function handleIncomingMessage(
           logger.info('Escape intent in SETUP_NAME — resetting to IDLE', { phoneNumber });
           await transitionTo(phoneNumber, 'IDLE', {
             currentOrderId: null, styleSelection: null, styleSelections: [],
-            stylePickStep: 0, earlyPhotoMediaId: null,
+            stylePickStep: 0, earlyPhotoMediaId: null, inChangeSettings: false,
           });
           const freshSession = await getSession(phoneNumber);
           if (freshSession) await handleIdle(freshSession, user, message, wa);
@@ -197,13 +202,28 @@ export async function handleIncomingMessage(
           logger.info('Escape intent in SETUP_CATEGORY — resetting to IDLE', { phoneNumber });
           await transitionTo(phoneNumber, 'IDLE', {
             currentOrderId: null, styleSelection: null, styleSelections: [],
-            stylePickStep: 0, earlyPhotoMediaId: null,
+            stylePickStep: 0, earlyPhotoMediaId: null, inChangeSettings: false,
           });
           const freshSession = await getSession(phoneNumber);
           if (freshSession) await handleIdle(freshSession, user, message, wa);
           break;
         }
         await handleSetupCategory(session, user, message, wa);
+        break;
+      }
+
+      case 'SETUP_CATEGORY_OTHER': {
+        if (isEscapeIntent(message)) {
+          logger.info('Escape intent in SETUP_CATEGORY_OTHER — resetting to IDLE', { phoneNumber });
+          await transitionTo(phoneNumber, 'IDLE', {
+            currentOrderId: null, styleSelection: null, styleSelections: [],
+            stylePickStep: 0, earlyPhotoMediaId: null, inChangeSettings: false,
+          });
+          const freshSession = await getSession(phoneNumber);
+          if (freshSession) await handleIdle(freshSession, user, message, wa);
+          break;
+        }
+        await handleSetupCategoryOther(session, user, message, wa);
         break;
       }
 
@@ -362,6 +382,21 @@ export async function handleIncomingMessage(
         break;
       }
 
+      case 'CHANGE_SETTINGS_MENU': {
+        if (isEscapeIntent(message)) {
+          logger.info('Escape intent in CHANGE_SETTINGS_MENU — resetting to IDLE', { phoneNumber });
+          await transitionTo(phoneNumber, 'IDLE', {
+            currentOrderId: null, styleSelection: null, styleSelections: [],
+            stylePickStep: 0, earlyPhotoMediaId: null, inChangeSettings: false,
+          });
+          const freshSession = await getSession(phoneNumber);
+          if (freshSession) await handleIdle(freshSession, user, message, wa);
+          break;
+        }
+        await handleChangeSettingsMenu(session, user, message, wa);
+        break;
+      }
+
       case 'AWAITING_REVISION_PAYMENT': {
         // Escape hatch — user gives up on revision payment
         if (isEscapeIntent(message)) {
@@ -449,6 +484,8 @@ function mapStateToRecoveryStep(state: string): RecoveryStep | null {
     case 'SETUP_LANGUAGE':
     case 'SETUP_NAME':
     case 'SETUP_CATEGORY':
+    case 'SETUP_CATEGORY_OTHER':
+    case 'CHANGE_SETTINGS_MENU':
       return 'brand_intake';
     case 'SETUP_STYLE':
       return 'style_selection';

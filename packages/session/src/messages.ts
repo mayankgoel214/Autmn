@@ -1595,3 +1595,238 @@ export function categoryDisplayName(categoryId: string, lang: Lang): string {
   const key = (lang === 'hinglish' || lang === 'hi') ? 'hinglish' : 'en';
   return names[categoryId]?.[key] ?? categoryId;
 }
+
+// ---------------------------------------------------------------------------
+// PHASE 1 — ONBOARDING PROMPTS (language → name → category, all optional)
+// ---------------------------------------------------------------------------
+
+/**
+ * First-contact language picker — intentionally language-neutral.
+ * Sent alongside three buttons: हिंदी / English / Hinglish.
+ */
+export function msgAskLanguage(): string {
+  return 'Welcome to Autmn 🙏 / नमस्ते\n\nChoose your language / भाषा चुनें:';
+}
+
+export function msgAskBrandName(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'आपके ब्रांड का नाम क्या है?\n\n(skipping is fine — type "skip")';
+    case 'hinglish':
+      return 'Aapke brand ka naam kya hai?\n\n(skip karna ho to "skip" likhein)';
+    case 'en':
+    default:
+      return 'What\'s your brand name?\n\n(or type "skip" to skip)';
+  }
+}
+
+export function msgAskCategoryHeader(lang: Lang, name?: string): string {
+  const lead = name ? `${name} — ` : '';
+  switch (lang) {
+    case 'hi':
+      return `${lead}आप क्या बेचते हैं?`;
+    case 'hinglish':
+      return `${lead}aap kya bechte hain?`;
+    case 'en':
+    default:
+      return `${lead}what do you sell?`;
+  }
+}
+
+export function msgAskCategoryOther(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'अपनी category लिखें (जैसे: stationery, toys, electronics)\n\n("skip" to skip)';
+    case 'hinglish':
+      return 'Apni category likhein (jaise: stationery, toys, electronics)\n\n("skip" likhein to skip)';
+    case 'en':
+    default:
+      return 'Type your category (e.g. stationery, toys, electronics)\n\n(or "skip")';
+  }
+}
+
+export function msgConfirmLanguage(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'भाषा सेट: हिंदी ✅';
+    case 'hinglish':
+      return 'Language set: Hinglish ✅';
+    case 'en':
+    default:
+      return 'Language set: English ✅';
+  }
+}
+
+export function msgConfirmBrandName(lang: Lang, name: string): string {
+  switch (lang) {
+    case 'hi':
+      return `Brand naam set: ${name} ✅`;
+    case 'hinglish':
+      return `Brand naam set: ${name} ✅`;
+    case 'en':
+    default:
+      return `Brand name set: ${name} ✅`;
+  }
+}
+
+export function msgConfirmBrandSkipped(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'Brand naam skip ✅';
+    case 'hinglish':
+      return 'Brand naam skip ✅';
+    case 'en':
+    default:
+      return 'Brand name skipped ✅';
+  }
+}
+
+export function msgConfirmCategory(lang: Lang, categoryDisplay: string): string {
+  switch (lang) {
+    case 'hi':
+      return `Category set: ${categoryDisplay} ✅`;
+    case 'hinglish':
+      return `Category set: ${categoryDisplay} ✅`;
+    case 'en':
+    default:
+      return `Category set: ${categoryDisplay} ✅`;
+  }
+}
+
+export function msgConfirmCategorySkipped(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'Category skip ✅';
+    case 'hinglish':
+      return 'Category skip ✅';
+    case 'en':
+    default:
+      return 'Category skipped ✅';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 2 — RETURNING-USER MENU + CHANGE-SETTINGS
+// ---------------------------------------------------------------------------
+
+/**
+ * Returning-user 2-button menu prompt. Includes the user's brand name when
+ * available so they recognise we remember them.
+ */
+export function msgReturningUserMenu(lang: Lang, name?: string): string {
+  const lead = name ? `${name} 🙏` : '🙏';
+  switch (lang) {
+    case 'hi':
+      return `${lead}\n\nवापसी पर स्वागत है। क्या करना है?`;
+    case 'hinglish':
+      return `${lead}\n\nWapas aaye. Kya karna hai?`;
+    case 'en':
+    default:
+      return `${lead}\n\nWelcome back. What would you like to do?`;
+  }
+}
+
+export function btnGenerateAd(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'नया ऐड बनाएँ';
+    case 'hinglish':
+      return 'Naya ad banao';
+    case 'en':
+    default:
+      return 'Generate ad';
+  }
+}
+
+export function btnChangeSettings(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'सेटिंग्स बदलें';
+    case 'hinglish':
+      return 'Settings badlein';
+    case 'en':
+    default:
+      return 'Change settings';
+  }
+}
+
+/** Body text shown alongside the change-settings list. */
+export function msgChangeSettingsMenuBody(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'क्या बदलना है?';
+    case 'hinglish':
+      return 'Kya badalna hai?';
+    case 'en':
+    default:
+      return 'What would you like to change?';
+  }
+}
+
+/** Row labels for the change-settings list. */
+export function rowChangeLanguage(lang: Lang): string {
+  switch (lang) {
+    case 'hi':       return 'भाषा';
+    case 'hinglish': return 'Language';
+    case 'en':
+    default:         return 'Language';
+  }
+}
+export function rowChangeBrand(lang: Lang): string {
+  switch (lang) {
+    case 'hi':       return 'ब्रांड का नाम';
+    case 'hinglish': return 'Brand naam';
+    case 'en':
+    default:         return 'Brand name';
+  }
+}
+export function rowChangeCategory(lang: Lang): string {
+  switch (lang) {
+    case 'hi':       return 'Category';
+    case 'hinglish': return 'Category';
+    case 'en':
+    default:         return 'Category';
+  }
+}
+export function rowChangeBrandDetails(lang: Lang): string {
+  switch (lang) {
+    case 'hi':       return 'ब्रांड डिटेल्स';
+    case 'hinglish': return 'Brand details';
+    case 'en':
+    default:         return 'Brand details';
+  }
+}
+export function rowBack(lang: Lang): string {
+  switch (lang) {
+    case 'hi':       return '⬅ वापस';
+    case 'hinglish': return '⬅ Wapas';
+    case 'en':
+    default:         return '⬅ Back';
+  }
+}
+
+/** Brand-details row stub until Phase 3 wires it. */
+export function msgBrandDetailsComingSoon(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'ब्रांड डिटेल्स जल्द आ रहा है ✨';
+    case 'hinglish':
+      return 'Brand details jaldi aa raha hai ✨';
+    case 'en':
+    default:
+      return 'Brand details — coming soon ✨';
+  }
+}
+
+/** Confirmation sent on tapping Back to leave the change-settings menu. */
+export function msgSettingsExit(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'हो गया ✅ कुछ और चाहिए तो "hi" भेजें।';
+    case 'hinglish':
+      return 'Ho gaya ✅ Aur kuch chahiye to "hi" bhejein.';
+    case 'en':
+    default:
+      return 'Done ✅ Message me anytime to make more ads.';
+  }
+}

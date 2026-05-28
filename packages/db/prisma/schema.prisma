@@ -19,6 +19,7 @@ enum SessionState {
   SETUP_LANGUAGE
   SETUP_NAME
   SETUP_CATEGORY
+  SETUP_CATEGORY_OTHER
   SETUP_STYLE
   AWAITING_PHOTO
   AWAITING_PAYMENT
@@ -26,6 +27,7 @@ enum SessionState {
   DELIVERED
   EDIT_PROCESSING
   AWAITING_REVISION_PAYMENT
+  CHANGE_SETTINGS_MENU
 }
 
 enum OrderStatus {
@@ -91,6 +93,7 @@ model User {
 
   session         Session?
   orders          Order[]
+  brandProfile    BrandProfile?
 
   @@map("users")
 }
@@ -113,6 +116,10 @@ model Session {
   earlyPhotoMediaId           String?      @map("early_photo_media_id")
   pendingEditStyle            String?      @map("pending_edit_style")
   pendingEditInstructions     String?      @map("pending_edit_instructions")
+  // Set to true when the user enters a setting edit from CHANGE_SETTINGS_MENU.
+  // Phase 1 handlers check it at the end and route back to the menu instead of
+  // progressing to the next setup step. Cleared on completion or escape.
+  inChangeSettings            Boolean      @default(false) @map("in_change_settings")
   lastUserMessageAt           DateTime?    @map("last_user_message_at")
   stateEnteredAt      DateTime?    @map("state_entered_at")
   cswExpiresAt        DateTime?    @map("csw_expires_at")
@@ -302,4 +309,73 @@ model PromptTemplate {
   @@unique([styleId, version])
   @@index([styleId, active])
   @@map("prompt_templates")
+}
+
+// ---------------------------------------------------------------------------
+// BrandProfile — 1:1 with User. Optional rich brand context for ad generation.
+// ---------------------------------------------------------------------------
+
+model BrandProfile {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @db.Uuid
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  logoUrl         String?
+  tagline         String?
+  brandColors     String[] // hex codes or color names
+  vibe            String?  // "minimalist luxury", "playful festive", etc.
+  websiteUrl      String?
+
+  summary         String?  @db.Text  // full natural-language summary used in AI prompts
+  summaryUpdatedAt DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assets          BrandAsset[]
+  versions        BrandSummaryVersion[]
+
+  @@map("brand_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// BrandAsset — N:1 with BrandProfile. One row per uploaded asset.
+// ---------------------------------------------------------------------------
+
+model BrandAsset {
+  id              String   @id @default(uuid()) @db.Uuid
+  brandProfileId  String   @db.Uuid
+  brandProfile    BrandProfile @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+
+  type            String   // 'logo' | 'sample' | 'reference_image' | 'pdf' | 'website' | 'text'
+  storageUrl      String?  // null for text and website types
+  rawText         String?  @db.Text  // for text/url types
+  originalFilename String?
+  mimeType        String?
+
+  aiDescription   String?  @db.Text  // AI's analysis of this asset
+
+  createdAt       DateTime @default(now())
+
+  @@index([brandProfileId])
+  @@map("brand_assets")
+}
+
+// ---------------------------------------------------------------------------
+// BrandSummaryVersion — N:1 with BrandProfile. History of every summary change.
+// ---------------------------------------------------------------------------
+
+model BrandSummaryVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  brandProfileId  String   @db.Uuid
+  brandProfile    BrandProfile @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+
+  summary         String   @db.Text
+  structuredData  Json     // { tagline, brandColors, vibe }
+  changeReason    String?  // "initial", "user_edit: change colors to red", "asset_added"
+
+  createdAt       DateTime @default(now())
+
+  @@index([brandProfileId, createdAt])
+  @@map("brand_summary_versions")
 }

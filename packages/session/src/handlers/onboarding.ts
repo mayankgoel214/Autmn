@@ -11,14 +11,27 @@ import type { WhatsAppClient } from '@autmn/whatsapp';
 import type { Session, User } from '@autmn/db';
 import { prisma } from '@autmn/db';
 import { uploadFile, Buckets } from '@autmn/storage';
-import { detectLanguage } from '@autmn/ai';
 import { transitionTo, updateUser } from '../db-helpers.js';
 import { downloadWhatsAppMedia, mimeToExt } from './instructions.js';
 import {
   styleDisplayName,
   msgAllStylesReady,
   msgSendProductPhotos,
+  msgAskLanguage,
+  msgAskBrandName,
+  msgAskCategoryHeader,
+  msgAskCategoryOther,
+  msgConfirmLanguage,
+  msgConfirmBrandName,
+  msgConfirmBrandSkipped,
+  msgConfirmCategory,
+  msgConfirmCategorySkipped,
+  categoryDisplayName,
+  msgReturningUserMenu,
+  btnGenerateAd,
+  btnChangeSettings,
 } from '../messages.js';
+import { sendChangeSettingsMenu } from './change-settings.js';
 import { ListIds, ButtonIds, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
 import { selectStylesForOrder } from '../auto-styles.js';
 import type { Language } from '../types.js';
@@ -58,6 +71,44 @@ export async function handleIdle(
   // ── Handle button replies (always checked first to prevent re-showing prompts) ──────
   if (message.messageType === 'interactive' && message.buttonReplyId) {
     const buttonId = message.buttonReplyId;
+
+    // Phase 2 — Generate ad: returning user wants to make another ad.
+    if (buttonId === ButtonIds.GENERATE_AD) {
+      const claimed = await prisma.session.updateMany({
+        where: { phoneNumber: session.phoneNumber, state: 'IDLE' },
+        data: {
+          state: 'AWAITING_PHOTO',
+          stateEnteredAt: new Date(),
+          styleSelection: null,
+          styleSelections: [],
+          stylePickStep: 0,
+          imageMediaIds: [],
+          imageStorageUrls: [],
+          voiceInstructions: null,
+          currentOrderId: null,
+          earlyPhotoMediaId: null,
+          inChangeSettings: false,
+        },
+      });
+      if (claimed.count === 0) return;
+      await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
+      return;
+    }
+
+    // Phase 2 — Change settings: open the change-settings menu.
+    if (buttonId === ButtonIds.CHANGE_SETTINGS) {
+      const claimed = await prisma.session.updateMany({
+        where: { phoneNumber: session.phoneNumber, state: 'IDLE' },
+        data: {
+          state: 'CHANGE_SETTINGS_MENU',
+          stateEnteredAt: new Date(),
+          inChangeSettings: false,
+        },
+      });
+      if (claimed.count === 0) return;
+      await sendChangeSettingsMenu(session.phoneNumber, lang, wa);
+      return;
+    }
 
     // Profile confirmation: continue with saved profile → AWAITING_PHOTO (photo first)
     if (buttonId === ButtonIds.PROFILE_CONTINUE) {
@@ -166,22 +217,18 @@ export async function handleIdle(
       return;
     }
 
-    // Show saved profile summary + options
-    const categoryDisplay = displayCategoryName(user.businessType ?? null, lang);
-    const profileBody = lang === 'hi'
-      ? `वापस आने पर स्वागत है, ${displayName}। नए ऐड बनाने के लिए तैयार हैं?\n\nआपकी सेव की हुई प्रोफ़ाइल अभी भी एक्टिव है। सीधे फ़ोटो भेजना शुरू करें, या पहले कुछ बदलना है?`
-      : isHindi(lang)
-      ? `${displayName}. Aapka saved profile:\n• Category: ${categoryDisplay}\n\nContinue karein ya update karein.`
-      : `${displayName}. Your saved profile:\n• Category: ${categoryDisplay}\n\nContinue or update your profile.`;
+    // Phase 2 — 2-button returning-user menu (replaces the 3-button Continue
+    // / Change brand / Change category UI). Brand / category / details edits
+    // are all reached via Change settings.
+    const menuBody = msgReturningUserMenu(lang, displayName ?? undefined);
 
     try {
       await wa.sendButtons(
         session.phoneNumber,
-        profileBody,
+        menuBody,
         [
-          { id: ButtonIds.PROFILE_CONTINUE,         title: 'Continue' },
-          { id: ButtonIds.PROFILE_CHANGE_BRAND,     title: isHindi(lang) ? 'Brand naam' : 'Change brand' },
-          { id: ButtonIds.PROFILE_CHANGE_CATEGORY,  title: isHindi(lang) ? 'Category' : 'Change category' },
+          { id: ButtonIds.GENERATE_AD,     title: btnGenerateAd(lang) },
+          { id: ButtonIds.CHANGE_SETTINGS, title: btnChangeSettings(lang) },
         ],
       );
     } catch (btnErr) {
@@ -189,43 +236,34 @@ export async function handleIdle(
         phoneNumber: session.phoneNumber,
         error: String(btnErr),
       });
-      await wa.sendText(session.phoneNumber, profileBody);
+      await wa.sendText(session.phoneNumber, menuBody);
     }
     return;
   }
 
-  // ── New user: auto-detect language from first message, skip picker ───────────────
-  let firstMessageText = message.text ?? message.caption ?? '';
+  // ── New user: language picker first (no auto-detect, per Phase 1) ──────────────
+  await transitionTo(session.phoneNumber, 'SETUP_LANGUAGE');
 
-  // Voice note as first message — transcribe to extract text for language detection
-  if (message.messageType === 'audio' && message.mediaId && !firstMessageText) {
-    try {
-      const accessToken = process.env.WHATSAPP_ACCESS_TOKEN ?? '';
-      const { downloadMedia } = await import('@autmn/whatsapp');
-      const { buffer, mimeType } = await downloadMedia(message.mediaId, accessToken);
-      const { transcribeVoiceNote } = await import('@autmn/ai');
-      const transcript = await transcribeVoiceNote(buffer, mimeType);
-      if (transcript.text) firstMessageText = transcript.text;
-    } catch (err) {
-      logger.error('Failed to transcribe first-message voice note for language detection', {
-        phoneNumber: session.phoneNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+  try {
+    await wa.sendButtons(
+      session.phoneNumber,
+      msgAskLanguage(),
+      [
+        { id: ButtonIds.LANG_HINDI, title: 'हिंदी' },
+        { id: ButtonIds.LANG_ENGLISH, title: 'English' },
+        { id: ButtonIds.LANG_HINGLISH, title: 'Hinglish' },
+      ],
+    );
+  } catch (btnErr) {
+    logger.error('sendButtons failed in handleIdle (new user language picker)', {
+      phoneNumber: session.phoneNumber,
+      error: String(btnErr),
+    });
+    await wa.sendText(
+      session.phoneNumber,
+      `${msgAskLanguage()}\n\nReply: hindi / english / hinglish (or 1 / 2 / 3)`,
+    );
   }
-
-  const detectedLang: Language = await detectLanguage(firstMessageText).catch(() => 'en' as Language);
-
-  await updateUser(session.phoneNumber, { language: detectedLang });
-  await transitionTo(session.phoneNumber, 'SETUP_NAME');
-
-  const combinedQuestion = detectedLang === 'hi'
-    ? 'नमस्ते! मैं Autmn हूँ — आपके प्रोडक्ट की फ़ोटो को प्रोफेशनल ऐड इमेज में बदलता हूँ, कुछ ही मिनटों में।\n\nशुरू करने से पहले — आपके ब्रांड का नाम क्या है और आप कौन सा प्रोडक्ट बेचते हैं?'
-    : detectedLang === 'hinglish'
-    ? 'Namaste! Autmn mein aapka swagat hai 🙏\n\nAapka brand naam aur aap kya bechte hain — jaise: Riya Boutique, Jewellery\n\nOptions: Jewellery · Food · Garments · Skincare · Candle · Bags · Other'
-    : "Namaste! Welcome to Autmn 🙏\n\nYour brand name and what you sell — e.g. 'Riya Boutique, Jewellery'\n\nOptions: Jewellery · Food · Garments · Skincare · Candle · Bags · Other";
-
-  await wa.sendText(session.phoneNumber, combinedQuestion);
 }
 
 function displayCategoryName(categoryId: string | null, lang: Language): string {
@@ -255,25 +293,83 @@ export async function handleSetupLanguage(
   message: MessageContext,
   wa: WhatsAppClient,
 ): Promise<void> {
-  let lang: Language = 'en';
+  let lang: Language | null = null;
 
   if (message.messageType === 'interactive' && message.buttonReplyId) {
-    lang = message.buttonReplyId === ButtonIds.LANG_HINDI ? 'hi' : 'en';
+    switch (message.buttonReplyId) {
+      case ButtonIds.LANG_HINDI:    lang = 'hi'; break;
+      case ButtonIds.LANG_ENGLISH:  lang = 'en'; break;
+      case ButtonIds.LANG_HINGLISH: lang = 'hinglish'; break;
+    }
   } else if (message.messageType === 'text' && message.text) {
-    const text = message.text.toLowerCase().trim() ?? '';
-    const isHinglish = text === 'hindi' || text === '1' || text === 'हिंदी' || text === 'हिन्दी' ||
-                    text.includes('hindi') || text.includes('हिं');
-    lang = isHinglish ? 'hinglish' : 'en';
+    lang = parseLanguagePick(message.text);
+  }
+
+  if (!lang) {
+    // Could not parse — re-send picker.
+    try {
+      await wa.sendButtons(
+        session.phoneNumber,
+        msgAskLanguage(),
+        [
+          { id: ButtonIds.LANG_HINDI, title: 'हिंदी' },
+          { id: ButtonIds.LANG_ENGLISH, title: 'English' },
+          { id: ButtonIds.LANG_HINGLISH, title: 'Hinglish' },
+        ],
+      );
+    } catch {
+      await wa.sendText(
+        session.phoneNumber,
+        `${msgAskLanguage()}\n\nReply: hindi / english / hinglish (or 1 / 2 / 3)`,
+      );
+    }
+    return;
   }
 
   await updateUser(session.phoneNumber, { language: lang });
+  await wa.sendText(session.phoneNumber, msgConfirmLanguage(lang));
+
+  // Phase 2: a change-settings edit ends here — back to the menu.
+  if (await finishSetupStepIfEditing(session, lang, wa)) return;
+
   await transitionTo(session.phoneNumber, 'SETUP_NAME');
+  await wa.sendText(session.phoneNumber, msgAskBrandName(lang));
+}
 
-  const combinedQuestion = isHindi(lang)
-    ? 'Aapka brand naam aur aap kya bechte hain — jaise: Riya Boutique, Jewellery\n\nOptions: Jewellery · Food · Garments · Skincare · Candle · Bags · Other'
-    : "Your brand name and what you sell — e.g. 'Riya Boutique, Jewellery'\n\nOptions: Jewellery · Food · Garments · Skincare · Candle · Bags · Other";
+/**
+ * Phase 2 helper. When Session.inChangeSettings is true (set by the
+ * change-settings menu when handing off to a Phase 1 handler), clear the flag,
+ * transition to CHANGE_SETTINGS_MENU, and re-send the menu — instead of
+ * letting the handler progress to the next setup state.
+ *
+ * Returns true iff the routing happened, so the caller can short-circuit.
+ */
+async function finishSetupStepIfEditing(
+  session: Session,
+  lang: Language,
+  wa: WhatsAppClient,
+): Promise<boolean> {
+  if (!(session as any).inChangeSettings) return false;
+  await prisma.session.update({
+    where: { phoneNumber: session.phoneNumber },
+    data: { inChangeSettings: false },
+  });
+  await transitionTo(session.phoneNumber, 'CHANGE_SETTINGS_MENU');
+  await sendChangeSettingsMenu(session.phoneNumber, lang, wa);
+  return true;
+}
 
-  await wa.sendText(session.phoneNumber, combinedQuestion);
+/**
+ * Text-fallback parser for the language picker. Accepts literal language
+ * names, 1/2/3, and common Devanagari spellings. Returns null if no match —
+ * the caller re-sends the picker.
+ */
+function parseLanguagePick(text: string): Language | null {
+  const t = text.trim().toLowerCase();
+  if (/^(hindi|1|हिंदी|हिन्दी)$/.test(t)) return 'hi';
+  if (/^(english|2|angrezi)$/.test(t)) return 'en';
+  if (/^(hinglish|3|roman hindi|hindi roman)$/.test(t)) return 'hinglish';
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -287,53 +383,58 @@ export async function handleSetupName(
   wa: WhatsAppClient,
 ): Promise<void> {
   const lang = user.language as Language;
-  const raw = message.text?.trim();
+  const raw = message.text?.trim() ?? '';
 
-  if (!raw || raw.length < 1) {
-    await wa.sendText(
-      session.phoneNumber,
-      isHindi(lang)
-        ? 'Brand naam aur category likhiye — jaise: Riya Boutique, Jewellery'
-        : "Type your brand name and what you sell — e.g. 'Riya Boutique, Jewellery'",
-    );
+  if (!raw) {
+    await wa.sendText(session.phoneNumber, msgAskBrandName(lang));
     return;
   }
 
-  const { brandName, categoryId } = parseBrandAndCategory(raw);
+  let savedBrandName: string | null = null;
 
-  // Save brandName to both brandName and name (name is used by delivery messages for compat)
-  await updateUser(session.phoneNumber, { brandName, name: brandName });
-
-  if (categoryId) {
-    await updateUser(session.phoneNumber, { businessType: categoryId });
-    await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
-      currentOrderId: null,
-      styleSelection: null,
-      styleSelections: [],
-      stylePickStep: 0,
-      imageMediaIds: [],
-      imageStorageUrls: [],
-      voiceInstructions: null,
-      earlyPhotoMediaId: null,
-    });
-    await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
-  } else if (user.businessType) {
-    // Returning user updating brand name only — already has category, go to photo
-    await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
-      currentOrderId: null,
-      styleSelection: null,
-      styleSelections: [],
-      stylePickStep: 0,
-      imageMediaIds: [],
-      imageStorageUrls: [],
-      voiceInstructions: null,
-      earlyPhotoMediaId: null,
-    });
-    await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
+  if (SKIP_INTENT.test(raw)) {
+    await wa.sendText(session.phoneNumber, msgConfirmBrandSkipped(lang));
   } else {
-    await transitionTo(session.phoneNumber, 'SETUP_CATEGORY');
-    await sendCategoryList(session.phoneNumber, lang, wa, brandName);
+    savedBrandName = sanitizeBrandName(raw);
+    if (!savedBrandName) {
+      // Sanitization stripped everything — treat as empty input.
+      await wa.sendText(session.phoneNumber, msgAskBrandName(lang));
+      return;
+    }
+    // brandName is canonical; name kept in sync for legacy delivery messages.
+    await updateUser(session.phoneNumber, { brandName: savedBrandName, name: savedBrandName });
+    await wa.sendText(session.phoneNumber, msgConfirmBrandName(lang, savedBrandName));
   }
+
+  // Phase 2: a change-settings edit ends here — back to the menu.
+  if (await finishSetupStepIfEditing(session, lang, wa)) return;
+
+  // Returning user already has a category — skip the category step entirely.
+  if (user.businessType) {
+    await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
+      currentOrderId: null,
+      styleSelection: null,
+      styleSelections: [],
+      stylePickStep: 0,
+      imageMediaIds: [],
+      imageStorageUrls: [],
+      voiceInstructions: null,
+      earlyPhotoMediaId: null,
+    });
+    await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
+    return;
+  }
+
+  await transitionTo(session.phoneNumber, 'SETUP_CATEGORY');
+  await sendCategoryList(session.phoneNumber, lang, wa, savedBrandName ?? undefined);
+}
+
+const SKIP_INTENT = /^(skip|no|nahi|nahin|नहीं|छोड़ो|chodo|chhodo|pass)$/i;
+
+function sanitizeBrandName(raw: string): string {
+  // eslint-disable-next-line no-control-regex
+  const cleaned = raw.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 50);
+  return cleaned.length === 0 ? '' : cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
 // ---------------------------------------------------------------------------
@@ -347,19 +448,117 @@ export async function handleSetupCategory(
   wa: WhatsAppClient,
 ): Promise<void> {
   const lang = user.language as Language;
+  const userName = (user as any).brandName ?? user.name ?? undefined;
 
   if (message.messageType !== 'interactive' || !message.listReplyId) {
-    await sendCategoryList(session.phoneNumber, lang, wa, (user as any).brandName ?? user.name ?? undefined);
+    await sendCategoryList(session.phoneNumber, lang, wa, userName);
     return;
   }
 
-  const categoryId = message.listReplyId;
-  if (!VALID_CATEGORY_IDS.has(categoryId)) {
-    await sendCategoryList(session.phoneNumber, lang, wa, (user as any).brandName ?? user.name ?? undefined);
+  const replyId = message.listReplyId;
+
+  // Skip — leave businessType unset, go straight to AWAITING_PHOTO.
+  if (replyId === ListIds.CAT_SKIP) {
+    await wa.sendText(session.phoneNumber, msgConfirmCategorySkipped(lang));
+    // Phase 2: a change-settings edit ends here — back to the menu.
+    if (await finishSetupStepIfEditing(session, lang, wa)) return;
+    await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
+      currentOrderId: null,
+      styleSelection: null,
+      styleSelections: [],
+      stylePickStep: 0,
+      imageMediaIds: [],
+      imageStorageUrls: [],
+      voiceInstructions: null,
+      earlyPhotoMediaId: null,
+    });
+    await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
     return;
   }
 
-  await updateUser(session.phoneNumber, { businessType: categoryId });
+  // Other — capture free-text category in SETUP_CATEGORY_OTHER.
+  if (replyId === ListIds.CAT_OTHER) {
+    await transitionTo(session.phoneNumber, 'SETUP_CATEGORY_OTHER');
+    await wa.sendText(session.phoneNumber, msgAskCategoryOther(lang));
+    return;
+  }
+
+  if (!VALID_CATEGORY_IDS.has(replyId)) {
+    await sendCategoryList(session.phoneNumber, lang, wa, userName);
+    return;
+  }
+
+  await updateUser(session.phoneNumber, { businessType: replyId });
+  await wa.sendText(session.phoneNumber, msgConfirmCategory(lang, categoryDisplayName(replyId, lang)));
+  // Phase 2: a change-settings edit ends here — back to the menu.
+  if (await finishSetupStepIfEditing(session, lang, wa)) return;
+
+  await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
+    currentOrderId: null,
+    styleSelection: null,
+    styleSelections: [],
+    stylePickStep: 0,
+    imageMediaIds: [],
+    imageStorageUrls: [],
+    voiceInstructions: null,
+    earlyPhotoMediaId: null,
+  });
+  await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
+}
+
+// ---------------------------------------------------------------------------
+// SETUP_CATEGORY_OTHER — free-text category capture (Phase 1)
+// ---------------------------------------------------------------------------
+
+export async function handleSetupCategoryOther(
+  session: Session,
+  user: User,
+  message: MessageContext,
+  wa: WhatsAppClient,
+): Promise<void> {
+  const lang = user.language as Language;
+  const raw = message.text?.trim() ?? '';
+
+  if (!raw) {
+    await wa.sendText(session.phoneNumber, msgAskCategoryOther(lang));
+    return;
+  }
+
+  // Allow skipping from inside the free-text capture step too.
+  if (SKIP_INTENT.test(raw)) {
+    await wa.sendText(session.phoneNumber, msgConfirmCategorySkipped(lang));
+    // Phase 2: a change-settings edit ends here — back to the menu.
+    if (await finishSetupStepIfEditing(session, lang, wa)) return;
+    await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
+      currentOrderId: null,
+      styleSelection: null,
+      styleSelections: [],
+      stylePickStep: 0,
+      imageMediaIds: [],
+      imageStorageUrls: [],
+      voiceInstructions: null,
+      earlyPhotoMediaId: null,
+    });
+    await wa.sendText(session.phoneNumber, msgSendProductPhotos(lang));
+    return;
+  }
+
+  // Free-text category is stored verbatim (sanitized + lowercased) as the
+  // businessType. It won't match any cat_* key in CATEGORY_STYLE_RECOMMENDATION
+  // or selectStylesForOrder, which is the intended "no style recommendation for
+  // Other" behavior from the plan — both fall through to their defaults.
+  // eslint-disable-next-line no-control-regex
+  const sanitized = raw.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 50).toLowerCase();
+  if (!sanitized) {
+    await wa.sendText(session.phoneNumber, msgAskCategoryOther(lang));
+    return;
+  }
+  const displayName = sanitized.charAt(0).toUpperCase() + sanitized.slice(1);
+
+  await updateUser(session.phoneNumber, { businessType: sanitized });
+  await wa.sendText(session.phoneNumber, msgConfirmCategory(lang, displayName));
+  // Phase 2: a change-settings edit ends here — back to the menu.
+  if (await finishSetupStepIfEditing(session, lang, wa)) return;
 
   await transitionTo(session.phoneNumber, 'AWAITING_PHOTO', {
     currentOrderId: null,
@@ -384,9 +583,7 @@ export async function sendCategoryList(
   wa: WhatsAppClient,
   name?: string,
 ): Promise<void> {
-  const greeting = name
-    ? (isHindi(lang) ? `${name} — aap kaunsa product bechte hain?` : `${name} — what do you sell?`)
-    : (isHindi(lang) ? 'Aap kaunsa product bechte hain?' : 'What do you sell?');
+  const greeting = msgAskCategoryHeader(lang, name);
 
   await wa.sendList(
     phoneNumber,
@@ -402,7 +599,8 @@ export async function sendCategoryList(
           { id: ListIds.CAT_SKINCARE, title: 'Skincare / Beauty', description: 'Creams, serums, cosmetics...' },
           { id: ListIds.CAT_CANDLE, title: 'Candle / Home Decor', description: 'Candles, diffusers, decor...' },
           { id: ListIds.CAT_BAG, title: 'Bag / Purse', description: 'Handbags, wallets, clutches...' },
-          { id: ListIds.CAT_GENERAL, title: isHindi(lang) ? 'Kuch Aur' : 'Other', description: 'Electronics, toys, etc...' },
+          { id: ListIds.CAT_OTHER, title: isHindi(lang) ? '✏️ Khud likhein' : '✏️ Type my own', description: isHindi(lang) ? 'Apni category type karein' : 'Type your own category' },
+          { id: ListIds.CAT_SKIP, title: isHindi(lang) ? '⏭️ Skip karein' : '⏭️ Skip', description: isHindi(lang) ? 'Bina category aage badein' : 'Skip this step' },
         ],
       },
     ],
@@ -509,7 +707,17 @@ function buildCheckboxState(alreadyPicked: string[], lang: Language): string {
 // Internal
 // ---------------------------------------------------------------------------
 
-const VALID_CATEGORY_IDS = new Set<string>(Object.values(ListIds).filter(id => id.startsWith('cat_')));
+// Explicit set — CAT_OTHER and CAT_SKIP also start with `cat_` but are control
+// rows handled separately, not real categories.
+const VALID_CATEGORY_IDS = new Set<string>([
+  ListIds.CAT_JEWELLERY,
+  ListIds.CAT_FOOD,
+  ListIds.CAT_GARMENT,
+  ListIds.CAT_SKINCARE,
+  ListIds.CAT_CANDLE,
+  ListIds.CAT_BAG,
+  ListIds.CAT_GENERAL,
+]);
 
 // ---------------------------------------------------------------------------
 // Brand + category parser — for combined "Riya Boutique, Jewellery" replies

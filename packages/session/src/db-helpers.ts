@@ -37,6 +37,7 @@ export async function transitionTo(
     earlyPhotoMediaId: string | null;
     pendingEditStyle: string | null;
     pendingEditInstructions: string | null;
+    inChangeSettings: boolean;
     lastUserMessageAt: Date;
     stateEnteredAt: Date;
     cswExpiresAt: Date;

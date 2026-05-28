@@ -68,6 +68,7 @@ export const CONVERSATION_STATES = [
   'SETUP_LANGUAGE',
   'SETUP_NAME',
   'SETUP_CATEGORY',
+  'SETUP_CATEGORY_OTHER',
   'SETUP_STYLE',
   'AWAITING_PHOTO',
   'AWAITING_PAYMENT',
@@ -75,6 +76,7 @@ export const CONVERSATION_STATES = [
   'DELIVERED',
   'EDIT_PROCESSING',
   'AWAITING_REVISION_PAYMENT',
+  'CHANGE_SETTINGS_MENU',
 ] as const;
 
 export type ConversationState = typeof CONVERSATION_STATES[number];
@@ -151,13 +153,17 @@ export const ButtonIds = {
   // Language
   LANG_HINDI: 'lang_hi',
   LANG_ENGLISH: 'lang_en',
+  LANG_HINGLISH: 'lang_hinglish',
   // Returning user style confirm (legacy — still handled for old sessions)
   SAME_STYLE: 'same_style',
   NEW_STYLE: 'new_style',
-  // Returning user profile confirmation
+  // Returning user profile confirmation (legacy 3-button UI — Phase 2 replaces)
   PROFILE_CONTINUE: 'profile_continue',
   PROFILE_CHANGE_BRAND: 'profile_change_brand',
   PROFILE_CHANGE_CATEGORY: 'profile_change_category',
+  // Returning user 2-button menu (Phase 2)
+  GENERATE_AD: 'generate_ad',
+  CHANGE_SETTINGS: 'change_settings',
   // Free trial confirm
   CONFIRM_FREE: 'confirm_free',
   // Feedback
@@ -203,6 +209,14 @@ export const ListIds = {
   CAT_CANDLE: 'cat_candle',
   CAT_BAG: 'cat_bag',
   CAT_GENERAL: 'cat_general',
+  CAT_OTHER: 'cat_other',
+  CAT_SKIP: 'cat_skip',
+  // Change-settings menu rows (Phase 2)
+  SETTING_LANGUAGE: 'setting_language',
+  SETTING_BRAND: 'setting_brand',
+  SETTING_CATEGORY: 'setting_category',
+  SETTING_BRAND_DETAILS: 'setting_brand_details',
+  SETTING_BACK: 'setting_back',
   // Style packs (single-tap = all 3 styles resolved)
   SMART_PACK: 'smart_pack',
   BESTSELLER_PACK: 'bestseller_pack',

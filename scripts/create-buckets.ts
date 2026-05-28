@@ -28,7 +28,7 @@ function loadEnv(envPath: string): void {
   }
 }
 
-loadEnv(resolve('/Users/lending/Autmn/.env'));
+loadEnv(resolve(import.meta.dirname, '../.env'));
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -42,24 +42,32 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Matches Buckets constant in packages/storage/src/buckets.ts
-const buckets = ['raw-images', 'processed-images', 'voice-notes', 'cutouts', 'videos'] as const;
+// Matches Buckets constant in packages/storage/src/buckets.ts.
+// brand-assets is PRIVATE (signed URLs only); all others are public-read.
+const buckets: Array<{ name: string; public: boolean }> = [
+  { name: 'raw-images', public: true },
+  { name: 'processed-images', public: true },
+  { name: 'voice-notes', public: true },
+  { name: 'cutouts', public: true },
+  { name: 'videos', public: true },
+  { name: 'brand-assets', public: false },
+];
 
 async function main() {
   console.log(`Connecting to: ${supabaseUrl}\n`);
 
   for (const bucket of buckets) {
-    const { data, error } = await supabase.storage.createBucket(bucket, {
-      public: true,
+    const { error } = await supabase.storage.createBucket(bucket.name, {
+      public: bucket.public,
     });
     if (error) {
       if (error.message.toLowerCase().includes('already exists')) {
-        console.log(`${bucket}: already exists (skipped)`);
+        console.log(`${bucket.name}: already exists (skipped)`);
       } else {
-        console.error(`${bucket}: ERROR — ${error.message}`);
+        console.error(`${bucket.name}: ERROR — ${error.message}`);
       }
     } else {
-      console.log(`${bucket}: created`);
+      console.log(`${bucket.name}: created (public: ${bucket.public})`);
     }
   }
 
