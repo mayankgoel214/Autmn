@@ -59,6 +59,7 @@ export {
 export {
   buildBetaPrompt,
   buildRevisionPrompt,
+  buildAnythingYouWantPrompt,
   formatBrandContextBlock,
   type StyleArtDirection,
   type BrandContext,

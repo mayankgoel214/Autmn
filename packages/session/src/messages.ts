@@ -1577,6 +1577,8 @@ export function styleDisplayName(styleId: string, lang: Lang): string {
     style_minimal: { hinglish: 'Minimal Saaf', en: 'Minimal & Clean' },
     style_with_model: { hinglish: 'Model Ke Saath', en: 'With Model' },
     style_video_shoot: { hinglish: 'Video Ad 🎬 (Beta)', en: 'Video Ad 🎬 (Beta)' },
+    // Phase 10 — user-described custom direction.
+    style_anything_you_want: { hinglish: '🎨 Anything You Want', en: '🎨 Anything You Want' },
   };
   // All non-hinglish languages fall back to English until translated
   const key = (lang === 'hinglish' || lang === 'hi') ? 'hinglish' : 'en';

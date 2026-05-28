@@ -13,6 +13,7 @@ import { PRICE_PER_OUTPUT_AD_PAISE, OUTPUT_STYLES_PER_ORDER, ButtonIds } from '.
 import type { Language } from '../types.js';
 import { sendPaymentLink, enqueueImageJobs } from './payment.js';
 import { selectStylesForOrder } from '../auto-styles.js';
+import { mapInstructionsByPosition } from '../instructions-mapping.js';
 import { logger } from '../logger.js';
 
 // ---------------------------------------------------------------------------
@@ -59,10 +60,18 @@ export interface CreateOrderParams {
   /** All 3 styles selected for this order */
   styleSelections: string[];
   voiceInstructions: string | null;
+  /**
+   * Phase 11 — optional ordered list of per-style user instructions. When the
+   * user sent N separate messages (one per style) instead of one combined
+   * voice/text blob, pass them here so the position-based mapping algorithm
+   * can produce `Order.instructionMappingJson`. The single-blob `voiceInstructions`
+   * field above remains the legacy primary path (parsed by the LLM downstream).
+   */
+  instructionsByPosition?: string[];
 }
 
 export async function createOrderAndSendPayment(params: CreateOrderParams): Promise<void> {
-  const { session, user, lang, wa, imageStorageUrls, imageMediaIds, imageCount, styleSelections, voiceInstructions } = params;
+  const { session, user, lang, wa, imageStorageUrls, imageMediaIds, imageCount, styleSelections, voiceInstructions, instructionsByPosition } = params;
   const phoneNumber = session.phoneNumber;
 
   // Deliver exactly the styles the user chose — no auto-padding.
@@ -93,6 +102,14 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
   // order is always ₹0 regardless of how many styles were picked.
   const amount = isFreeOrder ? 0 : PRICE_PER_OUTPUT_AD_PAISE * normalizedStyles.length;
 
+  // Phase 11 — compute the position-based instruction mapping. Only stored
+  // when the caller passed `instructionsByPosition` (the ordered per-style
+  // list). For the legacy single-blob path, this stays null and the AI
+  // pipeline's LLM parser does the splitting at processing time.
+  const positionMapping = instructionsByPosition && instructionsByPosition.length > 0
+    ? mapInstructionsByPosition(instructionsByPosition, normalizedStyles)
+    : null;
+
   // Create order. The new amountPaise / numStylesPicked / isFirstFree
   // columns (Phase 8 schema) are populated alongside the legacy `amount` +
   // `outputStyleCount` columns until Phase 16 cleanup retires the duplicates.
@@ -110,6 +127,9 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
       amountPaise: amount,
       numStylesPicked: normalizedStyles.length,
       isFirstFree: isFreeOrder,
+      instructionMappingJson: positionMapping
+        ? (positionMapping as unknown as object)
+        : undefined,
       productCategory: user.businessType ?? 'general',
       userId: user.id,
     },

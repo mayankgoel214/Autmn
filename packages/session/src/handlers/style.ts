@@ -375,6 +375,10 @@ async function finishStylePicking(
 }
 
 function resolveStyleFromText(text: string): string | null {
+  // Phase 10 — match the "Anything You Want" intent first, since words like
+  // "custom" / "anything" are unambiguous and shouldn't be hijacked by the
+  // generic-keyword matchers below.
+  if (text.includes('anything') || text.includes('custom') || text.includes('kuch bhi') || text.includes('apni marzi') || text.includes('khud')) return ListIds.STYLE_ANYTHING_YOU_WANT;
   if (text.includes('special') || text.includes('autmn') || text.includes('best') || text.includes('creative')) return ListIds.STYLE_AUTMN_SPECIAL;
   if (text.includes('white') || text.includes('safed') || text.includes('clean')) return ListIds.STYLE_CLEAN_WHITE;
   if (text.includes('lifestyle') || text.includes('life')) return ListIds.STYLE_LIFESTYLE;

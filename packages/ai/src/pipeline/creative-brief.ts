@@ -94,6 +94,13 @@ const STYLE_INTENT: Record<string, string> = {
 
   style_autmn_special:
     `Persona: art-direction-driven editorial photographer (Wallpaper*, Kinfolk, Apartamento style). Signature: unconventional angle/setup, conceptual hook, magazine-cover composition. Direction must describe: ONE bold creative concept (suspended product / unusual surface / frozen-moment scene / scattered elements) + lighting + mood. NO model, no human — pure conceptual product hero.`,
+
+  // Phase 10 — user-described custom direction. The brief LLM is told to
+  // defer to the user's per-style instruction rather than apply a fixed
+  // photographer persona. The dedicated buildAnythingYouWantPrompt downstream
+  // also overrides the templated prompt structure.
+  style_anything_you_want:
+    `Persona: a flexible art director executing the user's stated vision. The user described the scene themselves — do not impose a fixed aesthetic. Build the artDirection by translating the user's per-style instruction into one concrete scene direction + a 3-7 word mood anchor consistent with what they asked for. Treat the user's words as the source of truth.`,
 };
 
 function buildBriefPrompt(

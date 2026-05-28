@@ -672,6 +672,9 @@ export async function sendStyleList(
 ): Promise<void> {
   const pickNumber = alreadyPicked.length + 1;
 
+  // Phase 10 — Anything You Want is always offered alongside the 8 templated
+  // styles. The user's description is collected later in AWAITING_INSTRUCTIONS
+  // (Phase 11 maps which instruction belongs to which style position).
   const styleRows = [
     { id: ListIds.STYLE_AUTMN_SPECIAL, title: styleDisplayName(ListIds.STYLE_AUTMN_SPECIAL, lang) },
     { id: ListIds.STYLE_CLEAN_WHITE, title: styleDisplayName(ListIds.STYLE_CLEAN_WHITE, lang) },
@@ -681,6 +684,7 @@ export async function sendStyleList(
     { id: ListIds.STYLE_GRADIENT, title: styleDisplayName(ListIds.STYLE_GRADIENT, lang) },
     { id: ListIds.STYLE_FESTIVE, title: styleDisplayName(ListIds.STYLE_FESTIVE, lang) },
     { id: ListIds.STYLE_WITH_MODEL, title: styleDisplayName(ListIds.STYLE_WITH_MODEL, lang) },
+    { id: ListIds.STYLE_ANYTHING_YOU_WANT, title: styleDisplayName(ListIds.STYLE_ANYTHING_YOU_WANT, lang) },
   ].filter(row => !alreadyPicked.includes(row.id));
 
   if (alreadyPicked.length === 0 && !customMode) {

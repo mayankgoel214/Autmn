@@ -21,16 +21,20 @@
 
 function humanizeStyle(style: string): string {
   switch (style) {
-    case 'style_clean_white':    return 'Clean White Studio';
-    case 'style_studio':         return 'Colored Studio';
-    case 'style_lifestyle':      return 'Lifestyle';
-    case 'style_gradient':       return 'Dark Luxury';
-    case 'style_outdoor':        return 'Outdoor';
-    case 'style_festive':        return 'Festive Indian';
-    case 'style_minimal':        return 'Minimal';
-    case 'style_with_model':     return 'With Model';
-    case 'style_autmn_special':  return 'Autmn Special (art-directed)';
-    default:                     return style.replace(/^style_/, '').replace(/_/g, ' ');
+    case 'style_clean_white':         return 'Clean White Studio';
+    case 'style_studio':              return 'Colored Studio';
+    case 'style_lifestyle':           return 'Lifestyle';
+    case 'style_gradient':            return 'Dark Luxury';
+    case 'style_outdoor':             return 'Outdoor';
+    case 'style_festive':             return 'Festive Indian';
+    case 'style_minimal':             return 'Minimal';
+    case 'style_with_model':          return 'With Model';
+    case 'style_autmn_special':       return 'Autmn Special (art-directed)';
+    // Phase 10 — user-described custom direction. The label says it but the
+    // real direction lives in HARD CONSTRAINTS where the user's words drive
+    // the scene composition.
+    case 'style_anything_you_want':   return 'Custom (user-described)';
+    default:                          return style.replace(/^style_/, '').replace(/_/g, ' ');
   }
 }
 
@@ -73,6 +77,12 @@ function getDefaultStyleDescription(style: string): string {
       return 'Indian model naturally holding or using the product, candid interaction, natural light, 50-85mm shallow DOF.';
     case 'style_autmn_special':
       return 'Bold, unexpected, magazine-cover-worthy composition — suspended product, unusual surface, frozen-moment scene, or scattered elements. Pure conceptual product hero.';
+    case 'style_anything_you_want':
+      // Phase 10 — placeholder when the user picked "Anything You Want" but
+      // provided no description. buildAnythingYouWantPrompt is the
+      // preferred path; this string only fires if the description is empty
+      // (e.g. user picked the style and never sent instructions).
+      return 'Modern professional product ad with clean composition, balanced lighting, and clear product hero. Pick a tasteful contemporary aesthetic.';
     default:
       return 'Professional ad photography, product as clear focal point.';
   }
@@ -174,6 +184,19 @@ export function buildBetaPrompt(
   brandName?: string,
   brandContext?: BrandContext,
 ): string {
+  // Phase 10 — when the user picked "Anything You Want", their per-style
+  // instruction IS the creative brief, not just a HARD CONSTRAINT addendum.
+  // Delegate to the dedicated builder so the user's words drive the scene.
+  if (style === 'style_anything_you_want') {
+    return buildAnythingYouWantPrompt(
+      userInstructions,
+      productCategory,
+      productDescription,
+      brandName,
+      brandContext,
+    );
+  }
+
   const productLine = productDescription?.trim() || 'the product shown in the reference image';
   const brandLine = brandName?.trim() || 'unspecified';
   const categoryLine = humanizeCategory(productCategory);
@@ -210,6 +233,61 @@ Rules that always apply:
 - Do not change the product's shape, packaging design, logo, or label. Reproduce it faithfully.
 - Lighting and composition must match the selected style exactly.
 - Do not invent background elements that were not in the original photo or specified in hard_constraints.`;
+}
+
+/**
+ * Phase 10 — prompt builder for the user-described "Anything You Want" style.
+ *
+ * Unlike the templated styles where `userInstructions` is a HARD CONSTRAINT
+ * appended to a fixed style direction, here the user's description IS the
+ * style direction. The prompt frames their words as the creative brief and
+ * keeps the same product-fidelity guardrails so identity drift is still
+ * prevented.
+ *
+ * `userDescription` is the user's per-style instruction text (from the Phase
+ * 11 instruction mapping). Voice notes have already been transcribed by the
+ * time they reach this function.
+ *
+ * Empty description falls back to the smart-style default — we still ship
+ * something rather than failing.
+ */
+export function buildAnythingYouWantPrompt(
+  userDescription: string | undefined,
+  productCategory?: string,
+  productDescription?: string,
+  brandName?: string,
+  brandContext?: BrandContext,
+): string {
+  const productLine = productDescription?.trim() || 'the product shown in the reference image';
+  const brandLine = brandName?.trim() || 'unspecified';
+  const categoryLine = humanizeCategory(productCategory);
+  const desc = userDescription?.trim() || '';
+
+  // No description → fall through to the smart-style default. We still mark
+  // it as "user-described" in the style line so the brief LLM (upstream) can
+  // log this case for observability.
+  const sceneBlock = desc
+    ? `USER-DESCRIBED SCENE — this is the creative direction. Build the entire image around this:\n${desc}`
+    : 'USER-DESCRIBED SCENE — the user picked custom direction but provided no description. Use a tasteful modern aesthetic with balanced lighting and clean composition.';
+
+  const fidelityNote = getCategoryFidelityNote(productCategory);
+  const brandBlock = formatBrandContextBlock(brandContext);
+
+  return `Generate a professional product advertisement image.
+
+Product: ${productLine}
+Brand: ${brandLine}
+Category: ${categoryLine}
+Style: Custom (user-described)
+${brandBlock}
+${sceneBlock}
+
+${fidelityNote ? `Category fidelity note: ${fidelityNote}\n\n` : ''}Rules that always apply (these override the user-described scene if they conflict):
+- The product must be the clear focal point of the image.
+- Do not change the product's shape, packaging design, logo, or label. Reproduce it faithfully from the reference image.
+- Do not invent secondary products, brand marks, or text that aren't on the original product.
+- If the user-described scene calls for people or props, keep them subordinate to the product hero.
+- Square 1:1 framing.`;
 }
 
 /**

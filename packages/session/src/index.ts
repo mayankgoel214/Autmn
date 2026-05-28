@@ -7,3 +7,4 @@ export type { ConversationState, MessageContext, SessionContext, Language } from
 export { CONVERSATION_STATES, ButtonIds, ListIds } from './types.js';
 export { fetchBrandContextForUser } from './brand-context.js';
 export { clearReturningMenuDedupe } from './handlers/onboarding.js';
+export { mapInstructionsByPosition, type PositionMapResult } from './instructions-mapping.js';

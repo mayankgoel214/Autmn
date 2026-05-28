@@ -252,6 +252,10 @@ export const ListIds = {
   STYLE_FESTIVE: 'style_festive',
   STYLE_WITH_MODEL: 'style_with_model',
   STYLE_VIDEO_SHOOT: 'style_video_shoot',
+  // Phase 10 — user-described custom direction. Treated as one of the 1-3
+  // pickable styles; the user's description lands later via the per-style
+  // instruction mapping (Phase 11) instead of via a templated style prompt.
+  STYLE_ANYTHING_YOU_WANT: 'style_anything_you_want',
   // Style picker control
   STYLE_DONE: 'style_done',
   // Phase 14 — post-delivery menu (single list with two sections):
