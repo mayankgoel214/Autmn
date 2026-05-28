@@ -137,8 +137,11 @@ export {
   scrapeWebsite,
   fetchHtml,
   generateSummary,
+  parseBrandEdit,
   type AnalyzeImageParams,
   type ScrapeResult,
   type BrandSummary,
   type AssetDescriptor,
+  type BrandEditPatch,
+  type BrandEditField,
 } from './brand/index.js';

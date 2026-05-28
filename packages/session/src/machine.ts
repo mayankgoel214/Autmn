@@ -26,6 +26,7 @@ import {
 } from './handlers/onboarding.js';
 import { handleChangeSettingsMenu } from './handlers/change-settings.js';
 import { handleBrandDetailsCollecting } from './handlers/brand-details.js';
+import { handleBrandDetailsEditing } from './handlers/brand-details-edit.js';
 import { handleSetupStyle } from './handlers/style.js';
 import { handleAwaitingPhoto } from './handlers/images.js';
 import { handleAwaitingPayment } from './handlers/payment.js';
@@ -413,6 +414,21 @@ export async function handleIncomingMessage(
         break;
       }
 
+      case 'BRAND_DETAILS_EDITING': {
+        if (isEscapeIntent(message)) {
+          logger.info('Escape intent in BRAND_DETAILS_EDITING — resetting to IDLE', { phoneNumber });
+          await transitionTo(phoneNumber, 'IDLE', {
+            currentOrderId: null, styleSelection: null, styleSelections: [],
+            stylePickStep: 0, earlyPhotoMediaId: null, inChangeSettings: false,
+          });
+          const freshSession = await getSession(phoneNumber);
+          if (freshSession) await handleIdle(freshSession, user, message, wa);
+          break;
+        }
+        await handleBrandDetailsEditing(session, user, message, wa);
+        break;
+      }
+
       case 'AWAITING_REVISION_PAYMENT': {
         // Escape hatch — user gives up on revision payment
         if (isEscapeIntent(message)) {
@@ -503,6 +519,7 @@ function mapStateToRecoveryStep(state: string): RecoveryStep | null {
     case 'SETUP_CATEGORY_OTHER':
     case 'CHANGE_SETTINGS_MENU':
     case 'BRAND_DETAILS_COLLECTING':
+    case 'BRAND_DETAILS_EDITING':
       return 'brand_intake';
     case 'SETUP_STYLE':
       return 'style_selection';

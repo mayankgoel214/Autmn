@@ -78,6 +78,7 @@ export const CONVERSATION_STATES = [
   'AWAITING_REVISION_PAYMENT',
   'CHANGE_SETTINGS_MENU',
   'BRAND_DETAILS_COLLECTING',
+  'BRAND_DETAILS_EDITING',
 ] as const;
 
 export type ConversationState = typeof CONVERSATION_STATES[number];
@@ -179,6 +180,9 @@ export const ButtonIds = {
   // Returning user 2-button menu (Phase 2)
   GENERATE_AD: 'generate_ad',
   CHANGE_SETTINGS: 'change_settings',
+  // Brand-details view buttons (Phase 4)
+  EDIT_BRAND: 'edit_brand',
+  ADD_MORE_BRAND: 'add_more_brand',
   // Free trial confirm
   CONFIRM_FREE: 'confirm_free',
   // Feedback

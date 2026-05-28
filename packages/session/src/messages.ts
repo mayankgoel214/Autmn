@@ -1969,3 +1969,110 @@ export function msgBrandAnalyzing(lang: Lang): string {
       return 'Analysing your brand assets ✨ Profile will be ready in a few seconds.';
   }
 }
+
+// ---------------------------------------------------------------------------
+// PHASE 4 — BRAND PROFILE VIEW + EDIT
+// ---------------------------------------------------------------------------
+
+export interface BrandProfileViewInput {
+  brandName?: string | null;
+  tagline?: string | null;
+  brandColors?: string[] | null;
+  vibe?: string | null;
+  assetCounts: { image: number; pdf: number; doc: number; text: number; website: number };
+}
+
+/** Structured field summary sent before the Edit / Add-more buttons. */
+export function msgBrandProfileView(view: BrandProfileViewInput, lang: Lang): string {
+  const hi = lang === 'hi' || lang === 'hinglish';
+  const header = hi ? 'Aapka brand profile:' : 'Your brand profile:';
+  const lines: string[] = [header];
+  if (view.brandName) lines.push(`• ${hi ? 'Brand' : 'Brand'}: ${view.brandName}`);
+  if (view.tagline) lines.push(`• ${hi ? 'Tagline' : 'Tagline'}: ${view.tagline}`);
+  if (view.brandColors && view.brandColors.length > 0)
+    lines.push(`• ${hi ? 'Colors' : 'Colors'}: ${view.brandColors.join(', ')}`);
+  if (view.vibe) lines.push(`• ${hi ? 'Vibe' : 'Vibe'}: ${view.vibe}`);
+
+  const counts = view.assetCounts;
+  const assetParts: string[] = [];
+  if (counts.image > 0) assetParts.push(`${counts.image} image${counts.image === 1 ? '' : 's'}`);
+  if (counts.pdf > 0) assetParts.push(`${counts.pdf} PDF${counts.pdf === 1 ? '' : 's'}`);
+  if (counts.doc > 0) assetParts.push(`${counts.doc} document${counts.doc === 1 ? '' : 's'}`);
+  if (counts.text > 0) assetParts.push(`${counts.text} note${counts.text === 1 ? '' : 's'}`);
+  if (counts.website > 0) assetParts.push(`${counts.website} website link${counts.website === 1 ? '' : 's'}`);
+  if (assetParts.length > 0) lines.push(`• ${hi ? 'Assets' : 'Assets'}: ${assetParts.join(', ')}`);
+
+  return lines.join('\n');
+}
+
+export function btnEditBrand(lang: Lang): string {
+  switch (lang) {
+    case 'hi':       return 'बदलें';
+    case 'hinglish': return 'Badlein';
+    case 'en':
+    default:         return 'Edit';
+  }
+}
+
+export function btnAddMoreBrand(lang: Lang): string {
+  switch (lang) {
+    case 'hi':       return 'और जोड़ें';
+    case 'hinglish': return 'Aur jodein';
+    case 'en':
+    default:         return 'Add more';
+  }
+}
+
+export function msgAskBrandEdit(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'क्या बदलना है? Natural language में लिखें — जैसे "change colors to red and gold" या "tagline: handcrafted in India".\n\n"done" लिखें finish करने के लिए.';
+    case 'hinglish':
+      return 'Kya badalna hai? Natural language mein likhein — jaise "change colors to red and gold" ya "tagline: handcrafted in India".\n\n"done" likhein finish karne ke liye.';
+    case 'en':
+    default:
+      return 'What would you like to change? Write in natural language — e.g. "change colors to red and gold" or "tagline: handcrafted in India".\n\nType "done" to finish.';
+  }
+}
+
+/** Field-aware confirmation. The orchestrator passes a short summary of the
+ *  applied patch so the user sees exactly what changed. */
+export function msgBrandEditApplied(field: string, valueDisplay: string, lang: Lang): string {
+  const hi = lang === 'hi' || lang === 'hinglish';
+  const label = brandFieldLabel(field, lang);
+  return hi
+    ? `Updated ✅\n• ${label}: ${valueDisplay}`
+    : `Updated ✅\n• ${label}: ${valueDisplay}`;
+}
+
+export function msgBrandEditUnrecognized(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'समझ नहीं आया. Tagline, colors, vibe, या summary बदलने का instruction दें — जैसे "change colors to red".';
+    case 'hinglish':
+      return 'Samajh nahi aaya. Tagline, colors, vibe, ya summary badalne ka instruction dein — jaise "change colors to red".';
+    case 'en':
+    default:
+      return 'Couldn\'t parse that. Try something like "change colors to red and gold" or "tagline: handcrafted in India".';
+  }
+}
+
+export function msgBrandEditExit(lang: Lang): string {
+  switch (lang) {
+    case 'hi':       return 'Edits save हो गए ✅';
+    case 'hinglish': return 'Edits save ho gaye ✅';
+    case 'en':
+    default:         return 'Edits saved ✅';
+  }
+}
+
+function brandFieldLabel(field: string, lang: Lang): string {
+  const hi = lang === 'hi' || lang === 'hinglish';
+  switch (field) {
+    case 'brandColors': return hi ? 'Colors' : 'Colors';
+    case 'tagline':     return hi ? 'Tagline' : 'Tagline';
+    case 'vibe':        return hi ? 'Vibe' : 'Vibe';
+    case 'summary':     return hi ? 'Summary' : 'Summary';
+    default:            return field;
+  }
+}

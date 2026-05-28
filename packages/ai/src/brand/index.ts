@@ -10,3 +10,8 @@ export {
   type BrandSummary,
   type AssetDescriptor,
 } from './generate-summary.js';
+export {
+  parseBrandEdit,
+  type BrandEditPatch,
+  type BrandEditField,
+} from './edit.js';

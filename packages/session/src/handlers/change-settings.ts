@@ -17,6 +17,10 @@ import {
   msgAskLanguage,
   msgAskBrandName,
   msgAskBrandDetails,
+  msgAskBrandEdit,
+  msgBrandProfileView,
+  btnEditBrand,
+  btnAddMoreBrand,
   msgChangeSettingsMenuBody,
   msgSettingsExit,
   rowChangeLanguage,
@@ -100,7 +104,29 @@ export async function handleChangeSettingsMenu(
   const lang = (user.language as Language) ?? 'hi';
   const phoneNumber = session.phoneNumber;
 
-  // Only list-reply rows drive this state; anything else re-prompts.
+  // Phase 4 — the brand-profile view is rendered into THIS state, so we have
+  // to accept button replies (Edit / Add more) here too. Handle them before
+  // the list-reply gate.
+  if (message.messageType === 'interactive' && message.buttonReplyId) {
+    switch (message.buttonReplyId) {
+      case ButtonIds.EDIT_BRAND: {
+        await transitionTo(phoneNumber, 'BRAND_DETAILS_EDITING');
+        await wa.sendText(phoneNumber, msgAskBrandEdit(lang));
+        return;
+      }
+      case ButtonIds.ADD_MORE_BRAND: {
+        await transitionTo(phoneNumber, 'BRAND_DETAILS_COLLECTING');
+        await wa.sendText(phoneNumber, msgAskBrandDetails(lang));
+        return;
+      }
+      default:
+        // Unknown button — re-show the menu rather than silently ignore.
+        await sendChangeSettingsMenu(phoneNumber, lang, wa);
+        return;
+    }
+  }
+
+  // Only list-reply rows drive the rest of this state.
   if (message.messageType !== 'interactive' || !message.listReplyId) {
     await sendChangeSettingsMenu(phoneNumber, lang, wa);
     return;
@@ -145,9 +171,26 @@ export async function handleChangeSettingsMenu(
     }
 
     case ListIds.SETTING_BRAND_DETAILS: {
-      // Phase 3 entry point — hand off to BRAND_DETAILS_COLLECTING. The
-      // handler routes back to CHANGE_SETTINGS_MENU on "done" / "skip", so
-      // we don't need the inChangeSettings flag here.
+      // Phase 4 — branch on whether the user already has a BrandProfile with
+      // content. With content: render the structured view + Edit/Add-more
+      // buttons, stay in CHANGE_SETTINGS_MENU. Without content: drop straight
+      // into the collection flow (Phase 3a behaviour).
+      const profile = await prisma.brandProfile.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (profile) {
+        const assets = await prisma.brandAsset.findMany({
+          where: { brandProfileId: profile.id },
+          select: { type: true },
+        });
+        const hasContent = assets.length > 0 || profile.summary !== null;
+        if (hasContent) {
+          await sendBrandProfileView(user, profile, assets, phoneNumber, lang, wa);
+          return;
+        }
+      }
+
       await transitionTo(phoneNumber, 'BRAND_DETAILS_COLLECTING');
       await wa.sendText(phoneNumber, msgAskBrandDetails(lang));
       return;
@@ -164,5 +207,55 @@ export async function handleChangeSettingsMenu(
       await sendChangeSettingsMenu(phoneNumber, lang, wa);
       return;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 — brand-profile view renderer. Called when SETTING_BRAND_DETAILS is
+// tapped AND the user already has a BrandProfile with assets or summary.
+// ---------------------------------------------------------------------------
+
+async function sendBrandProfileView(
+  user: User,
+  profile: { tagline: string | null; brandColors: string[]; vibe: string | null },
+  assets: Array<{ type: string }>,
+  phoneNumber: string,
+  lang: Language,
+  wa: WhatsAppClient,
+): Promise<void> {
+  const counts = { image: 0, pdf: 0, doc: 0, text: 0, website: 0 };
+  for (const a of assets) {
+    if (a.type === 'logo' || a.type === 'reference_image' || a.type === 'sample') counts.image++;
+    else if (a.type === 'pdf') counts.pdf++;
+    else if (a.type === 'document') counts.doc++;
+    else if (a.type === 'text') counts.text++;
+    else if (a.type === 'website') counts.website++;
+  }
+
+  const viewText = msgBrandProfileView(
+    {
+      brandName: (user as any).brandName ?? user.name ?? undefined,
+      tagline: profile.tagline,
+      brandColors: profile.brandColors,
+      vibe: profile.vibe,
+      assetCounts: counts,
+    },
+    lang,
+  );
+
+  try {
+    await wa.sendButtons(phoneNumber, viewText, [
+      { id: ButtonIds.EDIT_BRAND, title: btnEditBrand(lang) },
+      { id: ButtonIds.ADD_MORE_BRAND, title: btnAddMoreBrand(lang) },
+    ]);
+  } catch (btnErr) {
+    logger.error('sendButtons failed rendering brand-profile view', {
+      phoneNumber,
+      error: String(btnErr),
+    });
+    await wa.sendText(
+      phoneNumber,
+      `${viewText}\n\nReply "edit" to change a field, or "add more" to upload more assets.`,
+    );
   }
 }
