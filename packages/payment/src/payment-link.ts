@@ -17,7 +17,27 @@ const CreatePaymentLinkSchema = z.object({
     .min(100, 'amount must be at least 100 paise (Rs 1)'),
   description: z.string().optional(),
   expiresInMinutes: z.number().int().positive().optional(),
+  paymentMethods: z
+    .object({
+      upi: z.boolean().optional(),
+      card: z.boolean().optional(),
+      wallet: z.boolean().optional(),
+      netbanking: z.boolean().optional(),
+      emi: z.boolean().optional(),
+      paylater: z.boolean().optional(),
+    })
+    .optional(),
 });
+
+/** Phase 12a — UPI-only default. Any override merges over these falses. */
+const UPI_ONLY_METHODS = {
+  upi: true,
+  card: false,
+  wallet: false,
+  netbanking: false,
+  emi: false,
+  paylater: false,
+} as const;
 
 export interface CreatedPaymentLink {
   id: string;
@@ -26,6 +46,56 @@ export interface CreatedPaymentLink {
   amount: number;
   /** Unix timestamp (seconds) when the link expires */
   expiresAt: number;
+}
+
+/**
+ * Build the Razorpay payment-link payload — extracted so smoke tests can
+ * assert UPI-only restrictions without hitting the live SDK. Returns the
+ * exact object passed to `client.paymentLink.create()`. Side-effect-free.
+ */
+export function buildPaymentLinkPayload(
+  params: CreatePaymentLinkParams,
+): { payload: Record<string, unknown>; expireBy: number } {
+  const parsed = CreatePaymentLinkSchema.safeParse(params);
+  if (!parsed.success) {
+    throw new Error(`Invalid payment link params: ${parsed.error.message}`);
+  }
+
+  const {
+    orderId, customerPhone, customerName, amount, description,
+    expiresInMinutes, paymentMethods,
+  } = parsed.data;
+
+  const expiryMinutes = expiresInMinutes ?? DEFAULT_EXPIRES_IN_MINUTES;
+  const expireBy = Math.floor(Date.now() / 1000) + expiryMinutes * 60;
+  const callbackUrl = process.env.RAZORPAY_CALLBACK_URL;
+
+  // Phase 12a — UPI-only default; explicit override (test/staging) merges on top.
+  const methods = { ...UPI_ONLY_METHODS, ...(paymentMethods ?? {}) };
+
+  const payload: Record<string, unknown> = {
+    amount,
+    currency: 'INR',
+    accept_partial: false,
+    reference_id: orderId,
+    description: description ?? DEFAULT_DESCRIPTION,
+    customer: {
+      contact: `+${customerPhone}`,
+      ...(customerName ? { name: customerName } : {}),
+    },
+    notify: { sms: false, email: false },
+    reminder_enable: false,
+    // upi_link fires the UPI Intent Flow from the short_url itself
+    // (deep-links into the user's default UPI app on mobile).
+    upi_link: methods.upi === true,
+    expire_by: expireBy,
+    options: { checkout: { method: methods } },
+  };
+  if (callbackUrl) {
+    payload['callback_url'] = callbackUrl;
+    payload['callback_method'] = 'get';
+  }
+  return { payload, expireBy };
 }
 
 /**
@@ -39,55 +109,13 @@ export interface CreatedPaymentLink {
 export async function createPaymentLink(
   params: CreatePaymentLinkParams
 ): Promise<CreatedPaymentLink> {
-  const parsed = CreatePaymentLinkSchema.safeParse(params);
-  if (!parsed.success) {
-    throw new Error(`Invalid payment link params: ${parsed.error.message}`);
-  }
-
-  const {
-    orderId,
-    customerPhone,
-    customerName,
-    amount,
-    description,
-    expiresInMinutes,
-  } = parsed.data;
-
-  const expiryMinutes = expiresInMinutes ?? DEFAULT_EXPIRES_IN_MINUTES;
-  const expireBy = Math.floor(Date.now() / 1000) + expiryMinutes * 60;
+  const { payload, expireBy } = buildPaymentLinkPayload(params);
 
   const client = getRazorpayClient();
-
   // Razorpay SDK types don't expose paymentLinks natively in all versions,
   // so we cast to any and rely on the underlying HTTP call.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const razorpay = client as any;
-
-  const callbackUrl = process.env.RAZORPAY_CALLBACK_URL;
-
-  const payload: Record<string, unknown> = {
-    amount,
-    currency: 'INR',
-    accept_partial: false,
-    reference_id: orderId,
-    description: description ?? DEFAULT_DESCRIPTION,
-    customer: {
-      contact: `+${customerPhone}`,
-      ...(customerName ? { name: customerName } : {}),
-    },
-    notify: {
-      sms: false,
-      email: false,
-    },
-    reminder_enable: false,
-    upi_link: true,
-    expire_by: expireBy,
-  };
-
-  if (callbackUrl) {
-    payload['callback_url'] = callbackUrl;
-    payload['callback_method'] = 'get';
-  }
 
   let response: Record<string, unknown>;
 

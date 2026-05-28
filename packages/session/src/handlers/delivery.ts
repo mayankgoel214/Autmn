@@ -205,7 +205,7 @@ export async function handleDelivered(
       return;
     }
     if (id === ListIds.REQUEST_REFUND) {
-      await handleRequestRefund(session, wa, lang);
+      await handleRequestRefund(session, user, wa, lang);
       return;
     }
     // Unknown list id — re-show the menu.
@@ -350,9 +350,25 @@ async function handleSendNewProduct(
 
 async function handleRequestRefund(
   session: Session,
+  user: User,
   wa: WhatsAppClient,
   lang: Language,
 ): Promise<void> {
+  // Phase 15b' — short-circuit free orders. No charge, nothing to refund;
+  // direct the user to "Send new product" instead and stay in DELIVERED.
+  if (session.currentOrderId) {
+    const order = await prisma.order.findUnique({
+      where: { id: session.currentOrderId },
+      select: { amountPaise: true, amount: true },
+    });
+    const totalPaise = (order?.amountPaise ?? 0) || (order?.amount ?? 0);
+    if (totalPaise === 0) {
+      const { handleFreeOrderRefundShortCircuit } = await import('./refund.js');
+      await handleFreeOrderRefundShortCircuit(session, user, wa);
+      return;
+    }
+  }
+
   await transitionTo(session.phoneNumber, 'REFUND_REQUEST');
   // Phase 15 — the user's next message (text or voice) becomes the refund
   // reason and is processed by handlers/refund.ts. We just send the opening

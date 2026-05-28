@@ -14,6 +14,7 @@ import type { Language } from '../types.js';
 import { sendPaymentLink, enqueueImageJobs } from './payment.js';
 import { selectStylesForOrder } from '../auto-styles.js';
 import { mapInstructionsByPosition } from '../instructions-mapping.js';
+import { generateUniqueShortId } from '../short-id.js';
 import { logger } from '../logger.js';
 
 // ---------------------------------------------------------------------------
@@ -110,6 +111,17 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
     ? mapInstructionsByPosition(instructionsByPosition, normalizedStyles)
     : null;
 
+  // Phase 15b' — pre-generate a human-readable short id. We check uniqueness
+  // against the DB before creating the row; the @unique constraint covers
+  // the race window between check + create.
+  const shortId = await generateUniqueShortId(async (candidate) => {
+    const existing = await prisma.order.findUnique({
+      where: { shortId: candidate },
+      select: { id: true },
+    });
+    return existing === null;
+  });
+
   // Create order. The new amountPaise / numStylesPicked / isFirstFree
   // columns (Phase 8 schema) are populated alongside the legacy `amount` +
   // `outputStyleCount` columns until Phase 16 cleanup retires the duplicates.
@@ -125,6 +137,7 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
       status: 'payment_pending',
       amount,
       amountPaise: amount,
+      shortId,
       numStylesPicked: normalizedStyles.length,
       isFirstFree: isFreeOrder,
       instructionMappingJson: positionMapping

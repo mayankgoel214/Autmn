@@ -11,8 +11,14 @@ import { getRedisConnection } from '@autmn/queue';
 import { getStorageClient } from '@autmn/storage';
 import { WhatsAppClient } from '@autmn/whatsapp';
 import { issueRefund } from '@autmn/payment';
-import { msgRefundApproved, msgRefundDenied } from '@autmn/session';
+import {
+  msgRefundApproved,
+  msgRefundDenied,
+  verifyRefundDecisionToken,
+} from '@autmn/session';
 import type { Language } from '@autmn/session';
+import { renderRefundDecisionPage } from '@autmn/email';
+import type { RefundDecisionPageStatus } from '@autmn/email';
 
 /**
  * Parse a Supabase public storage URL into { bucket, path }.
@@ -56,9 +62,167 @@ async function deleteStorageFiles(app: FastifyInstance, urls: string[]): Promise
   }
 }
 
+// ---------------------------------------------------------------------------
+// Phase 15c — magic-link decision helpers
+// ---------------------------------------------------------------------------
+
+type OrderWithUserLang = Awaited<ReturnType<typeof prisma.order.findUnique>> & {
+  user: { language: string | null };
+};
+
+/** Send a string of HTML with the given status code. */
+function renderHtml(reply: FastifyReply, statusCode: number, html: string): FastifyReply {
+  return reply
+    .code(statusCode)
+    .header('content-type', 'text/html; charset=utf-8')
+    .header('cache-control', 'no-store')
+    .send(html);
+}
+
+async function handleApprove(
+  app: FastifyInstance,
+  reply: FastifyReply,
+  order: NonNullable<OrderWithUserLang>,
+  lang: Language,
+  refundAmountPaise: number,
+): Promise<FastifyReply> {
+  if (!order.razorpayPaymentId) {
+    return renderHtml(reply, 400, renderRefundDecisionPage({
+      status: 'razorpay_error',
+      shortId: order.shortId ?? undefined,
+      detail: 'Order has no razorpayPaymentId — cannot issue Razorpay refund. Likely a free order.',
+    }));
+  }
+  if (refundAmountPaise <= 0) {
+    return renderHtml(reply, 400, renderRefundDecisionPage({
+      status: 'razorpay_error',
+      shortId: order.shortId ?? undefined,
+      detail: 'Order amount is zero — nothing to refund.',
+    }));
+  }
+
+  let razorpayRefundId: string | null = null;
+  let razorpayError: string | null = null;
+  try {
+    const result = await issueRefund(
+      order.razorpayPaymentId,
+      refundAmountPaise,
+      order.refundReason ?? 'Customer-requested refund',
+    );
+    razorpayRefundId = result.refundId;
+  } catch (err) {
+    razorpayError = err instanceof Error ? err.message : String(err);
+    app.log.error({ orderId: order.id, err: razorpayError }, 'Razorpay refund issuance failed');
+  }
+
+  // Record the decision regardless of Razorpay outcome — once the founder
+  // clicks Approve, the refundStatus is locked. razorpayRefundError gives
+  // the founder a clear "retry the API call" signal without rewriting state.
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      refundStatus: 'approved',
+      refundDecidedAt: new Date(),
+      refundDecisionNote: 'Approved via magic link',
+      razorpayRefundId,
+      razorpayRefundError: razorpayError,
+    },
+  });
+
+  if (razorpayError) {
+    return renderHtml(reply, 502, renderRefundDecisionPage({
+      status: 'razorpay_error',
+      shortId: order.shortId ?? undefined,
+      detail: razorpayError,
+    }));
+  }
+
+  // Notify the user — failures here render a warning page so the founder can
+  // follow up manually rather than leaving them in the dark.
+  const notifyErr = await notifyUser(
+    order.phoneNumber,
+    msgRefundApproved(refundAmountPaise, lang, order.shortId ?? undefined),
+  );
+  if (notifyErr) {
+    app.log.warn({ orderId: order.id, err: notifyErr }, 'Refund approved but WhatsApp notification failed');
+    return renderHtml(reply, 207, renderRefundDecisionPage({
+      status: 'whatsapp_error',
+      shortId: order.shortId ?? undefined,
+      detail: notifyErr,
+    }));
+  }
+
+  app.log.info({ orderId: order.id, refundId: razorpayRefundId, amountPaise: refundAmountPaise },
+    'Refund approved via magic link');
+  return renderHtml(reply, 200, renderRefundDecisionPage({
+    status: 'approved',
+    shortId: order.shortId ?? undefined,
+    amountRupees: Math.round(refundAmountPaise / 100),
+  }));
+}
+
+async function handleDeny(
+  app: FastifyInstance,
+  reply: FastifyReply,
+  order: NonNullable<OrderWithUserLang>,
+  lang: Language,
+): Promise<FastifyReply> {
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      refundStatus: 'denied',
+      refundDecidedAt: new Date(),
+      refundDecisionNote: 'Denied via magic link',
+    },
+  });
+
+  const supportPhone = process.env['SUPPORT_PHONE_NUMBER'];
+  const userMsg = msgRefundDenied(null, lang, order.shortId ?? undefined, supportPhone);
+  const notifyErr = await notifyUser(order.phoneNumber, userMsg);
+  if (notifyErr) {
+    app.log.warn({ orderId: order.id, err: notifyErr }, 'Refund denied but WhatsApp notification failed');
+    return renderHtml(reply, 207, renderRefundDecisionPage({
+      status: 'whatsapp_error',
+      shortId: order.shortId ?? undefined,
+      detail: notifyErr,
+    }));
+  }
+
+  app.log.info({ orderId: order.id }, 'Refund denied via magic link');
+  return renderHtml(reply, 200, renderRefundDecisionPage({
+    status: 'denied',
+    shortId: order.shortId ?? undefined,
+  }));
+}
+
+/**
+ * Best-effort WhatsApp send. Returns null on success, an error string on failure.
+ * Constructed inline so we don't share a client across requests (small volume,
+ * trivial cost).
+ */
+async function notifyUser(phoneNumber: string, body: string): Promise<string | null> {
+  try {
+    const config = getConfig();
+    const wa = new WhatsAppClient({
+      accessToken: config.WHATSAPP_ACCESS_TOKEN,
+      phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
+    });
+    await wa.sendText(phoneNumber, body);
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
+}
+
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
-  // Auth guard: require x-admin-secret header in production
+  // Auth guard: require x-admin-secret header in production.
+  // EXCEPTION: the refund-decision magic link is authenticated by JWT in the
+  // URL (signed by REFUND_DECISION_SECRET) and is opened from the founder's
+  // email client, which has no way to set custom headers. The JWT verification
+  // inside that route is the auth — skip the secret check here.
   app.addHook('preHandler', async (req: FastifyRequest, reply: FastifyReply) => {
+    if (req.url.startsWith('/admin/refunds/decide')) return;
+
     const config = getConfig();
     if (config.NODE_ENV === 'production') {
       const secret = req.headers['x-admin-secret'];
@@ -103,170 +267,75 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // -----------------------------------------------------------------------
-  // Phase 15 — refund review
+  // Phase 15c — magic-link refund decision
   //
-  // Three endpoints, all require x-admin-secret in production:
-  //   GET  /admin/refunds                       — list pending refund requests
-  //   POST /admin/refunds/:orderId/approve      — Razorpay refund + WA notify
-  //   POST /admin/refunds/:orderId/deny         — mark denied + WA notify
+  //   GET /admin/refunds/decide?token=<jwt>
   //
-  // The user's refundStatus transitions: null → 'pending' (handler) →
-  // 'approved' | 'denied' (here). We refuse to approve/deny anything that
-  // isn't currently 'pending' so retries are idempotent-ish.
+  // The founder clicks an Approve or Deny button in the refund-request email.
+  // The button URL is a signed JWT (HS256, 30-day TTL) containing the orderId
+  // and the action. We verify the signature here, check idempotency against
+  // refundStatus, run the side effects (Razorpay refund on approve, WhatsApp
+  // notification either way), and render a minimal status page.
+  //
+  // No admin UI for listing pending refunds — review happens via email. See
+  // docs/runbooks/payments-refunds.md for the operational story.
   // -----------------------------------------------------------------------
 
-  app.get('/admin/refunds', async (_req: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const orders = await prisma.order.findMany({
-        where: { refundStatus: 'pending' },
-        select: {
-          id: true,
-          phoneNumber: true,
-          amountPaise: true,
-          amount: true,
-          refundReason: true,
-          refundReasonVoiceUrl: true,
-          refundRequestedAt: true,
-          razorpayPaymentId: true,
-          stylesOrdered: true,
-          outputImageUrls: true,
-          createdAt: true,
-          user: { select: { name: true, language: true, brandName: true } },
-        },
-        orderBy: { refundRequestedAt: 'asc' },
-      });
-      return reply.send({ ok: true, count: orders.length, refunds: orders });
-    } catch (err) {
-      app.log.error({ err }, 'List pending refunds failed');
-      return reply.code(500).send({ ok: false, error: String(err) });
+  app.get('/admin/refunds/decide', async (req: FastifyRequest, reply: FastifyReply) => {
+    const { token } = (req.query as { token?: string }) ?? {};
+    if (!token) {
+      return renderHtml(reply, 400, renderRefundDecisionPage({ status: 'token_invalid' }));
     }
-  });
 
-  app.post('/admin/refunds/:orderId/approve', async (req: FastifyRequest, reply: FastifyReply) => {
-    const { orderId } = req.params as { orderId: string };
-    const body = (req.body ?? {}) as { reviewedBy?: string; note?: string };
-
+    let decoded: { orderId: string; action: 'approve' | 'deny' };
     try {
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: { user: { select: { language: true } } },
-      });
-
-      if (!order) return reply.code(404).send({ ok: false, error: 'Order not found' });
-      if (order.refundStatus !== 'pending') {
-        return reply.code(409).send({
-          ok: false,
-          error: `Order is not in 'pending' refund state (current: ${order.refundStatus ?? 'none'})`,
-        });
-      }
-      if (!order.razorpayPaymentId) {
-        return reply.code(400).send({
-          ok: false,
-          error: 'Order has no razorpayPaymentId — cannot issue Razorpay refund',
-        });
-      }
-
-      // Use amountPaise (Phase 8 source of truth) and fall back to legacy amount.
-      const refundAmount = order.amountPaise > 0 ? order.amountPaise : order.amount;
-      if (refundAmount <= 0) {
-        return reply.code(400).send({ ok: false, error: 'Order amount is zero — nothing to refund' });
-      }
-
-      const refundResult = await issueRefund(
-        order.razorpayPaymentId,
-        refundAmount,
-        order.refundReason ?? 'Customer-requested refund',
-      );
-
-      await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          refundStatus: 'approved',
-          refundDecidedAt: new Date(),
-          refundDecisionNote: body.reviewedBy
-            ? `Approved by ${body.reviewedBy}${body.note ? `: ${body.note}` : ''}`
-            : body.note ?? null,
-        },
-      });
-
-      // Notify user — best-effort; we do not want to surface WA failures as
-      // refund failures because Razorpay has already moved money.
-      try {
-        const config = getConfig();
-        const wa = new WhatsAppClient({
-          accessToken: config.WHATSAPP_ACCESS_TOKEN,
-          phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
-        });
-        const lang = (order.user.language as Language) || 'hi';
-        await wa.sendText(order.phoneNumber, msgRefundApproved(refundAmount, lang));
-      } catch (notifyErr) {
-        app.log.warn({ orderId, err: notifyErr }, 'Refund approved but user notification failed');
-      }
-
-      app.log.info(
-        { orderId, refundId: refundResult.refundId, amountPaise: refundAmount },
-        'Refund approved + Razorpay refund issued',
-      );
-      return reply.send({
-        ok: true,
-        refundId: refundResult.refundId,
-        razorpayStatus: refundResult.status,
-        amountPaise: refundAmount,
-      });
+      decoded = await verifyRefundDecisionToken(token);
     } catch (err) {
-      app.log.error({ err, orderId }, 'Approve refund failed');
-      return reply.code(500).send({ ok: false, error: String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      const status: RefundDecisionPageStatus = /expired/i.test(message)
+        ? 'token_expired'
+        : 'token_invalid';
+      app.log.warn({ err: message }, 'Refund-decision token rejected');
+      return renderHtml(reply, 401, renderRefundDecisionPage({ status, detail: message }));
     }
-  });
 
-  app.post('/admin/refunds/:orderId/deny', async (req: FastifyRequest, reply: FastifyReply) => {
-    const { orderId } = req.params as { orderId: string };
-    const body = (req.body ?? {}) as { reason?: string; reviewedBy?: string };
+    const order = await prisma.order.findUnique({
+      where: { id: decoded.orderId },
+      include: { user: { select: { language: true } } },
+    });
+    if (!order) {
+      return renderHtml(reply, 404, renderRefundDecisionPage({
+        status: 'token_invalid',
+        detail: 'Order not found',
+      }));
+    }
 
-    try {
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: { user: { select: { language: true } } },
-      });
+    // Idempotency — if a decision is already in place, surface it as a
+    // successful "already decided" page rather than retrying side effects.
+    if (order.refundStatus && order.refundStatus !== 'pending') {
+      return renderHtml(reply, 200, renderRefundDecisionPage({
+        status: 'already_decided',
+        shortId: order.shortId ?? undefined,
+        previousStatus: order.refundStatus as 'approved' | 'denied',
+        previousDecidedAt: order.refundDecidedAt?.toISOString(),
+      }));
+    }
+    if (order.refundStatus === null) {
+      // User never submitted a reason but founder is somehow clicking. Treat
+      // it as an attempt to short-circuit; refuse.
+      return renderHtml(reply, 409, renderRefundDecisionPage({
+        status: 'token_invalid',
+        detail: 'Order has no pending refund request',
+      }));
+    }
 
-      if (!order) return reply.code(404).send({ ok: false, error: 'Order not found' });
-      if (order.refundStatus !== 'pending') {
-        return reply.code(409).send({
-          ok: false,
-          error: `Order is not in 'pending' refund state (current: ${order.refundStatus ?? 'none'})`,
-        });
-      }
+    const lang = (order.user.language as Language) || 'hi';
+    const refundAmountPaise = order.amountPaise > 0 ? order.amountPaise : order.amount;
 
-      const denialReason = (body.reason ?? '').trim() || null;
-
-      await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          refundStatus: 'denied',
-          refundDecidedAt: new Date(),
-          refundDecisionNote: body.reviewedBy
-            ? `Denied by ${body.reviewedBy}${denialReason ? `: ${denialReason}` : ''}`
-            : denialReason,
-        },
-      });
-
-      try {
-        const config = getConfig();
-        const wa = new WhatsAppClient({
-          accessToken: config.WHATSAPP_ACCESS_TOKEN,
-          phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
-        });
-        const lang = (order.user.language as Language) || 'hi';
-        await wa.sendText(order.phoneNumber, msgRefundDenied(denialReason, lang));
-      } catch (notifyErr) {
-        app.log.warn({ orderId, err: notifyErr }, 'Refund denied but user notification failed');
-      }
-
-      app.log.info({ orderId, denialReason }, 'Refund denied');
-      return reply.send({ ok: true });
-    } catch (err) {
-      app.log.error({ err, orderId }, 'Deny refund failed');
-      return reply.code(500).send({ ok: false, error: String(err) });
+    if (decoded.action === 'approve') {
+      return handleApprove(app, reply, order, lang, refundAmountPaise);
+    } else {
+      return handleDeny(app, reply, order, lang);
     }
   });
 

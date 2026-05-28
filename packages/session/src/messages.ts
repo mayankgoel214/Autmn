@@ -2133,6 +2133,26 @@ export function msgRatingThanks(rating: number, lang: Lang): string {
 
 
 // ---------------------------------------------------------------------------
+// PHASE 15b' — free-order refund short-circuit
+// ---------------------------------------------------------------------------
+
+/**
+ * Sent when the user taps "Request refund" on a free order. There's no
+ * charge to reverse, so we redirect them to "Send new product" instead.
+ */
+export function msgFreeOrderNoRefund(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'यह free order था — कोई charge नहीं हुआ. नया product भेजना चाहेंगे? Delivery menu में "Send new product" tap करें.';
+    case 'hinglish':
+      return 'Yeh free order tha — koi charge nahi hua. Naya product bhejna chahein? Delivery menu mein "Send new product" tap karein.';
+    case 'en':
+    default:
+      return "This was a free order — there's no charge to refund. Want to send a new product? Tap \"Send new product\" in the delivery menu.";
+  }
+}
+
+// ---------------------------------------------------------------------------
 // PHASE 15 — refund request flow (reason capture + admin review + Razorpay)
 // ---------------------------------------------------------------------------
 
@@ -2162,31 +2182,61 @@ export function msgRefundReasonReceived(lang: Lang): string {
   }
 }
 
-/** Sent by the admin route when a refund is approved (Razorpay refund issued). */
-export function msgRefundApproved(amountPaise: number, lang: Lang): string {
+/**
+ * Sent by the magic-link endpoint when a refund is approved (Razorpay refund
+ * issued). Phase 15c added the optional shortId so the user can correlate the
+ * notification with the order without scrolling back.
+ */
+export function msgRefundApproved(amountPaise: number, lang: Lang, shortId?: string): string {
   const amountRs = (amountPaise / 100).toFixed(0);
+  const tail = shortId ? ` Order #${shortId}.` : '';
   switch (lang) {
     case 'hi':
-      return `Refund approved ✅ ₹${amountRs} आपके original payment method पर वापस मिलेंगे (3-5 business days).`;
+      return `Refund approved ✅ ₹${amountRs} आपके original payment method पर वापस मिलेंगे (3-5 business days).${tail}`;
     case 'hinglish':
-      return `Refund approved ✅ ₹${amountRs} aapke original payment method par wapas milenge (3-5 business days).`;
+      return `Refund approved ✅ ₹${amountRs} aapke original payment method par wapas milenge (3-5 business days).${tail}`;
     case 'en':
     default:
-      return `Refund approved ✅ ₹${amountRs} returned to original payment method (3-5 business days).`;
+      return `Refund approved ✅ ₹${amountRs} returned to original payment method (3-5 business days).${tail}`;
   }
 }
 
-/** Sent by the admin route when a refund is denied (with optional reason). */
-export function msgRefundDenied(reason: string | null, lang: Lang): string {
-  const tail = reason ? `\n\n${reason}` : '';
+/**
+ * Sent by the magic-link endpoint when a refund is denied. Phase 15c expanded
+ * this to include the support phone number + the requirement to quote the
+ * short order id when messaging support — so the denial doesn't feel like a
+ * dead end.
+ *
+ * `reason` is the optional free-text denial note from the founder.
+ * `shortId` is the order's human-readable short id (always set post-15b').
+ * `supportPhone` defaults to the SUPPORT_PHONE_NUMBER env var at call site;
+ * if it's unset we drop the contact section entirely rather than ship a
+ * broken link.
+ */
+export function msgRefundDenied(
+  reason: string | null,
+  lang: Lang,
+  shortId?: string,
+  supportPhone?: string,
+): string {
+  const orderRef = shortId ? ` for order #${shortId}` : '';
+  const reasonBlock = reason ? `\n\n${reason.trim()}` : '';
+  const supportBlock = supportPhone
+    ? lang === 'hi'
+      ? `\n\nयदि आप इस पर चर्चा करना चाहते हैं, हमें ${supportPhone} पर message करें${shortId ? ` और order #${shortId} mention करें` : ''}. हमारी team जल्दी reply करेगी.`
+      : lang === 'hinglish'
+        ? `\n\nAgar aap is par charcha karna chahte hain, hume ${supportPhone} par message karein${shortId ? ` aur order #${shortId} mention karein` : ''}. Hamari team jaldi reply karegi.`
+        : `\n\nIf you'd like to discuss this further, message us at ${supportPhone}${shortId ? ` and mention order #${shortId}` : ''}. A team member will get back to you.`
+    : '';
+
   switch (lang) {
     case 'hi':
-      return `Review करने के बाद, हम यह refund process नहीं कर सकते.${tail}`;
+      return `Review के बाद, हम यह refund process नहीं कर सकते${orderRef}.${reasonBlock}${supportBlock}`;
     case 'hinglish':
-      return `Review karne ke baad, hum yeh refund process nahi kar sakte.${tail}`;
+      return `Review ke baad, hum yeh refund process nahi kar sakte${orderRef}.${reasonBlock}${supportBlock}`;
     case 'en':
     default:
-      return `After review, we cannot process this refund.${tail}`;
+      return `After review, we cannot process a refund${orderRef}.${reasonBlock}${supportBlock}`;
   }
 }
 

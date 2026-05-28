@@ -2,7 +2,7 @@
 export { getRazorpayClient } from './client.js';
 
 // Payment Links
-export { createPaymentLink } from './payment-link.js';
+export { createPaymentLink, buildPaymentLinkPayload } from './payment-link.js';
 export type { CreatedPaymentLink } from './payment-link.js';
 
 // Webhook verification and parsing
@@ -20,6 +20,7 @@ export type { RefundResult } from './refund.js';
 // Shared types
 export type {
   CreatePaymentLinkParams,
+  PaymentMethodsConfig,
   PaymentLinkResponse,
   RazorpayWebhookEvent,
   PaymentLinkStatus,

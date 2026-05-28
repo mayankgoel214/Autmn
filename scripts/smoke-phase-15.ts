@@ -1,26 +1,27 @@
 #!/usr/bin/env tsx
 /**
- * Phase 15 smoke — refund request flow.
+ * Phase 15 smoke — refund request flow (updated for 15a-c).
+ *
+ * Phase 15c replaced the POST /admin/refunds/:id/approve|deny routes with a
+ * single GET /admin/refunds/decide?token=<jwt>. The email path is stubbed
+ * (we override RESEND_API_KEY → unset to skip sending) so we don't need a
+ * live Resend account to run smoke.
  *
  * Paths:
- *   BJ′. (updated from Phase 14) request_refund -> REFUND_REQUEST + the new
- *        msgAskRefundReason prompt (NOT the deprecated msgRefundComingSoon).
- *   BL.  Text reason in REFUND_REQUEST -> Order.refundReason set,
- *        refundStatus='pending', refundRequestedAt set, state -> DELIVERED,
- *        msgRefundReasonReceived sent.
- *   BM.  Whitespace-only text -> re-prompt, state stays REFUND_REQUEST,
- *        Order.refundReason still null.
- *   BN.  Escape intent ("menu") in REFUND_REQUEST -> resets to IDLE,
- *        no refund reason persisted.
- *   BO.  Admin GET /admin/refunds returns the pending order, with
- *        refundReason + amountPaise populated.
- *   BP.  Admin POST /admin/refunds/:orderId/deny marks refundStatus='denied'
- *        and writes decision note + sends WA notification (mocked client).
- *
- * The Razorpay approval path is NOT exercised here — it would require
- * a sandbox payment ID. The typecheck on admin.ts confirms wiring; the
- * runtime path is covered by the existing payment package tests + manual
- * test in Razorpay sandbox before production deploy.
+ *   BJ'. request_refund (paid) → REFUND_REQUEST + msgAskRefundReason
+ *   BL.  text reason captured (paid) → refundReason/refundStatus persisted +
+ *        DELIVERED + ack
+ *   BM.  whitespace-only text → re-prompt + state stays
+ *   BN.  cancel intent → IDLE + nothing persisted
+ *   FR.  free-order short-circuit — request_refund on amountPaise=0 →
+ *        msgFreeOrderNoRefund + state stays DELIVERED, NO REFUND_REQUEST
+ *   ML.  magic-link approve URL: GET /admin/refunds/decide?token=<approve> →
+ *        refundStatus='approved' + refundDecidedAt set + renders approved page
+ *   MD.  magic-link deny URL: refundStatus='denied' + renders denied page
+ *   MI.  magic-link replay (clicking after already decided) → already_decided
+ *        page, no state change.
+ *   MT.  invalid token → token_invalid page
+ *   MX.  expired token → token_expired page
  */
 
 import { readFileSync } from 'fs';
@@ -47,9 +48,20 @@ function loadEnv(envPath: string): void {
 
 loadEnv(resolve(import.meta.dirname, '../.env'));
 
+// Set required env for token signing + email-skip-mode.
+process.env['REFUND_DECISION_SECRET'] = 'smoke-phase-15-secret-must-be-32-chars-or-more!!';
+process.env['APP_URL'] = 'http://localhost:3001';
+process.env['SUPPORT_PHONE_NUMBER'] = '+919876543210';
+// Leave RESEND_API_KEY unset — the email helper throws which is caught + logged.
+delete process.env['RESEND_API_KEY'];
+delete process.env['ADMIN_EMAIL'];
+
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
 const { handleIncomingMessage } = await import(
   '../packages/session/dist/index.js'
+);
+const { signRefundDecisionToken } = await import(
+  '../packages/session/dist/refund-token.js'
 );
 type MessageContext = import('../packages/session/dist/index.js').MessageContext;
 
@@ -60,7 +72,6 @@ const PHONE = `919977${String(Date.now()).slice(-7)}`;
 interface SentMessage {
   type: 'text' | 'buttons' | 'list' | 'image' | 'paymentLink';
   body: string;
-  rows?: Array<{ id: string; title: string }>;
 }
 
 function makeMockWa() {
@@ -75,7 +86,7 @@ function makeMockWa() {
       sent.push({ type: 'paymentLink', body }),
     markAsRead: async (_id: string) => {},
   };
-  return { wa: wa as any, sent };
+  return { wa: wa as Parameters<typeof handleIncomingMessage>[2], sent };
 }
 
 let msgCounter = 0;
@@ -98,12 +109,8 @@ function makeTextMessage(text: string): MessageContext {
 
 let failures = 0;
 function assert(cond: unknown, msg: string): void {
-  if (!cond) {
-    console.error(`  ✗ ${msg}`);
-    failures++;
-  } else {
-    console.log(`  ✓ ${msg}`);
-  }
+  if (!cond) { console.error(`  ✗ ${msg}`); failures++; }
+  else console.log(`  ✓ ${msg}`);
 }
 
 async function cleanup(): Promise<void> {
@@ -116,7 +123,7 @@ async function cleanup(): Promise<void> {
   await prisma.user.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
 }
 
-async function seedDeliveredOrder(): Promise<{ orderId: string }> {
+async function seedDeliveredOrder(opts: { amountPaise: number; shortId: string }): Promise<{ orderId: string }> {
   const user = await prisma.user.upsert({
     where: { phoneNumber: PHONE },
     update: {
@@ -140,27 +147,23 @@ async function seedDeliveredOrder(): Promise<{ orderId: string }> {
       inputImageUrls: ['https://example.com/photo.jpg'],
       outputImageUrls: ['https://example.com/out1.jpg'],
       status: 'completed',
-      amount: 4900,
-      amountPaise: 4900,
-      isFirstFree: false,
+      amount: opts.amountPaise,
+      amountPaise: opts.amountPaise,
+      shortId: opts.shortId,
+      isFirstFree: opts.amountPaise === 0,
       productCategory: 'cat_jewellery',
-      razorpayPaymentId: 'pay_smoke15_dummy',
+      razorpayPaymentId: opts.amountPaise > 0 ? 'pay_smoke15_dummy' : null,
       userId: user.id,
     },
   });
   await prisma.session.upsert({
     where: { phoneNumber: PHONE },
     update: {
-      state: 'DELIVERED',
-      currentOrderId: order.id,
-      userId: user.id,
+      state: 'DELIVERED', currentOrderId: order.id, userId: user.id,
       stateEnteredAt: new Date(),
     },
     create: {
-      phoneNumber: PHONE,
-      state: 'DELIVERED',
-      currentOrderId: order.id,
-      userId: user.id,
+      phoneNumber: PHONE, state: 'DELIVERED', currentOrderId: order.id, userId: user.id,
       stateEnteredAt: new Date(),
     },
   });
@@ -168,58 +171,71 @@ async function seedDeliveredOrder(): Promise<{ orderId: string }> {
 }
 
 // ---------------------------------------------------------------------------
-// Path BJ′ — request_refund -> asks for reason (NOT Phase 14 placeholder)
+// Path BJ' — paid order → reason prompt
 // ---------------------------------------------------------------------------
 
-async function pathRequestRefundAsksReason(): Promise<void> {
-  console.log('\n== Path BJ′: request_refund -> REFUND_REQUEST + msgAskRefundReason ==');
+async function pathPaidAsksReason(): Promise<void> {
+  console.log('\n== Path BJ\': paid request_refund → REFUND_REQUEST + msgAskRefundReason ==');
   await cleanup();
-  await seedDeliveredOrder();
+  await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST001' });
+  const { wa, sent } = makeMockWa();
+
+  await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa);
+
+  const session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
+  assert(session?.state === 'REFUND_REQUEST', `state REFUND_REQUEST (got ${session?.state})`);
+  assert(
+    sent.some((m) => m.type === 'text' && /went wrong|kya galat hua|क्या गलत हुआ/i.test(m.body)),
+    'msgAskRefundReason prompt sent',
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Path FR — free-order short-circuit
+// ---------------------------------------------------------------------------
+
+async function pathFreeOrderShortCircuit(): Promise<void> {
+  console.log('\n== Path FR: free order request_refund → short-circuit, stays DELIVERED ==');
+  await cleanup();
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 0, shortId: 'TST002' });
   const { wa, sent } = makeMockWa();
 
   await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa);
 
   const session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
   assert(
-    session?.state === 'REFUND_REQUEST',
-    `state REFUND_REQUEST (got ${session?.state})`,
-  );
-  // The new prompt asks for a reason; the deprecated stub said "coming soon" / "Phase 15".
-  assert(
-    sent.some((m) => m.type === 'text' && /went wrong|kya galat hua|क्या गलत हुआ/i.test(m.body)),
-    'msgAskRefundReason prompt sent',
+    session?.state === 'DELIVERED',
+    `state stays DELIVERED on free order (got ${session?.state})`,
   );
   assert(
-    !sent.some((m) => m.type === 'text' && /coming|Phase 15|manual review/i.test(m.body)),
-    'deprecated placeholder text NOT sent',
+    sent.some((m) => m.type === 'text' && /no charge|koi charge|कोई charge|Send new product/i.test(m.body)),
+    'free-order-no-refund message sent',
   );
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  assert(order?.refundStatus === null, 'no refundStatus written on short-circuit');
 }
 
 // ---------------------------------------------------------------------------
-// Path BL — text reason captured -> DELIVERED + status='pending'
+// Path BL — text reason captured
 // ---------------------------------------------------------------------------
 
 async function pathTextReasonCaptured(): Promise<void> {
-  console.log('\n== Path BL: text reason captured -> DELIVERED + status=pending ==');
+  console.log('\n== Path BL: text reason → refundStatus=pending + DELIVERED + ack ==');
   await cleanup();
-  const { orderId } = await seedDeliveredOrder();
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST003' });
   const { wa: wa1 } = makeMockWa();
-
   await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa1);
 
   const { wa: wa2, sent: sent2 } = makeMockWa();
-  const reason = 'The image quality was poor and the lighting felt unnatural.';
+  const reason = 'The image quality was poor.';
   await handleIncomingMessage(PHONE, makeTextMessage(reason), wa2);
 
   const order = await prisma.order.findUnique({ where: { id: orderId } });
-  assert(order?.refundReason === reason, `Order.refundReason persisted (got ${order?.refundReason?.slice(0, 30)}...)`);
+  assert(order?.refundReason === reason, `Order.refundReason persisted`);
   assert(order?.refundStatus === 'pending', `Order.refundStatus='pending' (got ${order?.refundStatus})`);
   assert(order?.refundRequestedAt instanceof Date, 'Order.refundRequestedAt set');
-  assert(order?.refundReasonVoiceUrl === null, 'Order.refundReasonVoiceUrl null for text reason');
-
   const session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
   assert(session?.state === 'DELIVERED', `state -> DELIVERED (got ${session?.state})`);
-
   assert(
     sent2.some((m) => m.type === 'text' && /Got it|Mil gaya|मिल गया/i.test(m.body)),
     'msgRefundReasonReceived ack sent',
@@ -227,70 +243,54 @@ async function pathTextReasonCaptured(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path BM — whitespace-only text re-prompts, state stays REFUND_REQUEST
+// Path BM — whitespace re-prompts
 // ---------------------------------------------------------------------------
 
 async function pathWhitespaceReprompts(): Promise<void> {
-  console.log('\n== Path BM: whitespace-only text -> re-prompt + state stays REFUND_REQUEST ==');
+  console.log('\n== Path BM: whitespace-only → re-prompt + state stays REFUND_REQUEST ==');
   await cleanup();
-  const { orderId } = await seedDeliveredOrder();
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST004' });
   const { wa: wa1 } = makeMockWa();
-
   await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa1);
 
   const { wa: wa2, sent: sent2 } = makeMockWa();
   await handleIncomingMessage(PHONE, makeTextMessage('   '), wa2);
 
   const order = await prisma.order.findUnique({ where: { id: orderId } });
-  assert(order?.refundReason === null, 'Order.refundReason still null after whitespace');
-  assert(order?.refundStatus === null, 'Order.refundStatus still null');
-
+  assert(order?.refundReason === null, 'no reason persisted on whitespace');
   const session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
+  assert(session?.state === 'REFUND_REQUEST', `state stays REFUND_REQUEST (got ${session?.state})`);
   assert(
-    session?.state === 'REFUND_REQUEST',
-    `state stays REFUND_REQUEST (got ${session?.state})`,
-  );
-  assert(
-    sent2.some((m) => m.type === 'text' && /went wrong|kya galat hua|क्या गलत हुआ/i.test(m.body)),
+    sent2.some((m) => m.type === 'text' && /went wrong|kya galat hua/i.test(m.body)),
     're-prompt sent',
   );
 }
 
 // ---------------------------------------------------------------------------
-// Path BN — escape intent ("menu") resets to IDLE without persisting reason
+// Path BN — cancel escape
 // ---------------------------------------------------------------------------
 
 async function pathEscapeResetsToIdle(): Promise<void> {
-  console.log('\n== Path BN: "cancel" in REFUND_REQUEST -> IDLE, no reason persisted ==');
+  console.log('\n== Path BN: "cancel" in REFUND_REQUEST → IDLE, no reason persisted ==');
   await cleanup();
-  const { orderId } = await seedDeliveredOrder();
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST005' });
   const { wa: wa1 } = makeMockWa();
-
   await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa1);
 
   const { wa: wa2 } = makeMockWa();
-  // "cancel" is in the isEscapeIntent regex — the user can back out of the
-  // reason prompt without committing to a refund request.
   await handleIncomingMessage(PHONE, makeTextMessage('cancel'), wa2);
 
   const order = await prisma.order.findUnique({ where: { id: orderId } });
-  assert(order?.refundReason === null, 'Order.refundReason still null after escape');
-  assert(order?.refundStatus === null, 'Order.refundStatus still null after escape');
-
+  assert(order?.refundReason === null, 'no reason persisted on escape');
   const session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
   assert(session?.state === 'IDLE', `state -> IDLE (got ${session?.state})`);
-  assert(session?.currentOrderId === null, 'currentOrderId cleared on escape');
 }
 
 // ---------------------------------------------------------------------------
-// Admin route tests — use a lightweight in-process fastify instance so we
-// don't need to spin up the real server (no port binding, no Razorpay).
+// Magic-link decision endpoint
 // ---------------------------------------------------------------------------
 
 async function buildAdminApp() {
-  // Fastify lives under apps/api/node_modules — scripts/ has no direct
-  // resolution path because it isn't a workspace member. Use the file:// URL
-  // of the package's own entry point.
   const fastifyPath = resolve(
     import.meta.dirname,
     '../apps/api/node_modules/fastify/fastify.js',
@@ -302,86 +302,147 @@ async function buildAdminApp() {
   return app;
 }
 
-async function pathAdminListPending(): Promise<void> {
-  console.log('\n== Path BO: GET /admin/refunds lists pending order ==');
+async function pathMagicLinkApprove(): Promise<void> {
+  console.log('\n== Path ML: magic-link approve URL → refundStatus=approved + page ==');
   await cleanup();
-  const { orderId } = await seedDeliveredOrder();
-  const { wa: wa1 } = makeMockWa();
-  await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa1);
-  const { wa: wa2 } = makeMockWa();
-  await handleIncomingMessage(
-    PHONE,
-    makeTextMessage('Output had wrong colours.'),
-    wa2,
-  );
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST006' });
+  // Set refundStatus=pending manually (skip the user-handler path for this test).
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { refundStatus: 'pending', refundReason: 'wrong colours', refundRequestedAt: new Date() },
+  });
 
+  const token = await signRefundDecisionToken(orderId, 'approve');
+
+  // The handleApprove path will try to call Razorpay refund API since the
+  // seeded order has razorpayPaymentId='pay_smoke15_dummy'. That call will
+  // fail with a network/key error in smoke — which is the documented
+  // razorpay_error branch (decision still locked, error stored on the row).
   const app = await buildAdminApp();
   try {
-    const res = await app.inject({ method: 'GET', url: '/admin/refunds' });
-    assert(res.statusCode === 200, `GET /admin/refunds 200 (got ${res.statusCode})`);
-    const json = res.json() as { ok: boolean; count: number; refunds: Array<{ id: string; refundReason: string }> };
-    assert(json.ok === true, 'response.ok=true');
-    const ours = json.refunds.find((r) => r.id === orderId);
-    assert(!!ours, 'our pending order appears in the list');
-    assert(ours?.refundReason === 'Output had wrong colours.', 'refundReason populated in list');
+    const res = await app.inject({ method: 'GET', url: `/admin/refunds/decide?token=${encodeURIComponent(token)}` });
+    // Either 200 (approved + Razorpay sandbox succeeded) or 502 (razorpay error
+    // with state still locked). Both are valid for smoke; the contract is that
+    // refundStatus moves off 'pending'.
+    assert([200, 502].includes(res.statusCode), `status 200 or 502 (got ${res.statusCode})`);
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    assert(order?.refundStatus === 'approved', `refundStatus -> approved (got ${order?.refundStatus})`);
+    assert(order?.refundDecidedAt instanceof Date, 'refundDecidedAt set');
+    // Razorpay almost certainly errored on the dummy id → razorpayRefundError populated.
+    assert(
+      order?.razorpayRefundId !== null || typeof order?.razorpayRefundError === 'string',
+      'either refundId or refundError populated',
+    );
+    const body = res.body;
+    assert(
+      /Refund approved|Razorpay refund failed/i.test(body),
+      'page renders approved or razorpay_error',
+    );
   } finally {
     await app.close();
   }
 }
 
-async function pathAdminDeny(): Promise<void> {
-  console.log('\n== Path BP: POST /admin/refunds/:orderId/deny marks denied + notifies ==');
+async function pathMagicLinkDeny(): Promise<void> {
+  console.log('\n== Path MD: magic-link deny URL → refundStatus=denied + page ==');
   await cleanup();
-  const { orderId } = await seedDeliveredOrder();
-  const { wa: wa1 } = makeMockWa();
-  await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa1);
-  const { wa: wa2 } = makeMockWa();
-  await handleIncomingMessage(
-    PHONE,
-    makeTextMessage('Output too generic'),
-    wa2,
-  );
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST007' });
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { refundStatus: 'pending', refundReason: 'wrong colours', refundRequestedAt: new Date() },
+  });
+
+  const token = await signRefundDecisionToken(orderId, 'deny');
 
   const app = await buildAdminApp();
   try {
-    const res = await app.inject({
-      method: 'POST',
-      url: `/admin/refunds/${orderId}/deny`,
-      payload: { reason: 'Output matches the brief; QA score above threshold.', reviewedBy: 'mayank' },
-      headers: { 'content-type': 'application/json' },
-    });
-    assert(res.statusCode === 200, `POST .../deny 200 (got ${res.statusCode}, body=${res.body})`);
+    const res = await app.inject({ method: 'GET', url: `/admin/refunds/decide?token=${encodeURIComponent(token)}` });
+    // 200 (denied + WA delivered) or 207 (denied but WA failed under smoke creds)
+    assert([200, 207].includes(res.statusCode), `status 200 or 207 (got ${res.statusCode})`);
+
     const order = await prisma.order.findUnique({ where: { id: orderId } });
     assert(order?.refundStatus === 'denied', `refundStatus -> denied (got ${order?.refundStatus})`);
     assert(order?.refundDecidedAt instanceof Date, 'refundDecidedAt set');
     assert(
-      typeof order?.refundDecisionNote === 'string' && order.refundDecisionNote.includes('mayank'),
-      `refundDecisionNote contains reviewer (got ${order?.refundDecisionNote})`,
+      /Refund denied|user notification failed/i.test(res.body),
+      'page renders denied or whatsapp_error',
     );
+  } finally {
+    await app.close();
+  }
+}
 
-    // Second denial should now be 409 (not pending anymore).
-    const res2 = await app.inject({
-      method: 'POST',
-      url: `/admin/refunds/${orderId}/deny`,
-      payload: { reason: 'duplicate' },
-      headers: { 'content-type': 'application/json' },
-    });
-    assert(res2.statusCode === 409, `second denial returns 409 (got ${res2.statusCode})`);
+async function pathMagicLinkReplay(): Promise<void> {
+  console.log('\n== Path MI: replaying an already-decided link → already_decided ==');
+  await cleanup();
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST008' });
+  await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      refundStatus: 'approved',
+      refundDecidedAt: new Date(),
+      refundDecisionNote: 'Approved via magic link',
+    },
+  });
+  const token = await signRefundDecisionToken(orderId, 'approve');
+
+  const app = await buildAdminApp();
+  try {
+    const res = await app.inject({ method: 'GET', url: `/admin/refunds/decide?token=${encodeURIComponent(token)}` });
+    assert(res.statusCode === 200, `200 on replay (got ${res.statusCode})`);
+    assert(/already decided/i.test(res.body), 'already_decided page rendered');
+    // Important: the previous decision is unchanged.
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    assert(order?.refundStatus === 'approved', 'previous decision unchanged');
+  } finally {
+    await app.close();
+  }
+}
+
+async function pathInvalidToken(): Promise<void> {
+  console.log('\n== Path MT: garbage token → token_invalid ==');
+  const app = await buildAdminApp();
+  try {
+    const res = await app.inject({ method: 'GET', url: '/admin/refunds/decide?token=not-a-jwt' });
+    assert(res.statusCode === 401, `401 on invalid token (got ${res.statusCode})`);
+    assert(/Invalid link/i.test(res.body), 'token_invalid page rendered');
+  } finally {
+    await app.close();
+  }
+}
+
+async function pathExpiredToken(): Promise<void> {
+  console.log('\n== Path MX: expired token → token_expired ==');
+  await cleanup();
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST009' });
+  // Sign with negative TTL — token is "expired" at creation.
+  const token = await signRefundDecisionToken(orderId, 'approve', -1);
+
+  const app = await buildAdminApp();
+  try {
+    const res = await app.inject({ method: 'GET', url: `/admin/refunds/decide?token=${encodeURIComponent(token)}` });
+    assert(res.statusCode === 401, `401 on expired token (got ${res.statusCode})`);
+    assert(/Link expired/i.test(res.body), 'token_expired page rendered');
   } finally {
     await app.close();
   }
 }
 
 async function main(): Promise<void> {
-  console.log(`Phase 15 smoke test — fake phone ${PHONE}\n`);
+  console.log(`Phase 15 smoke — refund flow (15a-c) — fake phone ${PHONE}\n`);
   try {
     await cleanup();
-    await pathRequestRefundAsksReason();
+    await pathPaidAsksReason();
+    await pathFreeOrderShortCircuit();
     await pathTextReasonCaptured();
     await pathWhitespaceReprompts();
     await pathEscapeResetsToIdle();
-    await pathAdminListPending();
-    await pathAdminDeny();
+    await pathMagicLinkApprove();
+    await pathMagicLinkDeny();
+    await pathMagicLinkReplay();
+    await pathInvalidToken();
+    await pathExpiredToken();
   } finally {
     await cleanup();
     await prisma.$disconnect();

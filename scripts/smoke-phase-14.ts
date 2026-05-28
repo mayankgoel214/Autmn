@@ -135,9 +135,13 @@ async function seedDeliveredOrder(): Promise<{ orderId: string }> {
         'https://example.com/out3.jpg',
       ],
       status: 'completed',
-      amount: 0,
-      amountPaise: 0,
-      isFirstFree: true,
+      // Phase 15b' added a free-order short-circuit on Request refund. The
+      // delivery menu tests below assume a paid order so the request_refund
+      // path actually transitions to REFUND_REQUEST. Seed a real amount.
+      amount: 14700,
+      amountPaise: 14700,
+      isFirstFree: false,
+      razorpayPaymentId: 'pay_smoke14_dummy',
       productCategory: 'cat_jewellery',
       userId: user.id,
     },

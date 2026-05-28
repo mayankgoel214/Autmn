@@ -5,6 +5,20 @@ export type PaymentLinkStatus =
   | 'expired'
   | 'cancelled';
 
+/**
+ * Restricts which payment methods the Razorpay hosted page offers.
+ * Phase 12a — defaults to UPI-only because that's the only method we accept.
+ * Pass overrides if you ever need to test cards on staging.
+ */
+export interface PaymentMethodsConfig {
+  upi?: boolean;
+  card?: boolean;
+  wallet?: boolean;
+  netbanking?: boolean;
+  emi?: boolean;
+  paylater?: boolean;
+}
+
 export interface CreatePaymentLinkParams {
   /** Internal order ID used as the Razorpay reference_id for deduplication */
   orderId: string;
@@ -16,6 +30,14 @@ export interface CreatePaymentLinkParams {
   description?: string;
   /** How long until the link expires. Defaults to 30 minutes. */
   expiresInMinutes?: number;
+  /**
+   * Phase 12a — payment methods the hosted page exposes. Defaults to UPI-only
+   * (`{ upi: true }` plus everything else `false`). Razorpay's hosted page,
+   * when restricted to UPI only, surfaces the UPI app icons (GPay / PhonePe
+   * / Paytm / Amazon Pay UPI / WhatsApp Pay / BHIM) at the top + a UPI ID
+   * input below, and on mobile fires the platform UPI intent natively.
+   */
+  paymentMethods?: PaymentMethodsConfig;
 }
 
 export interface PaymentLinkResponse {

@@ -21,10 +21,9 @@
  *   7. User sends a text reason → Order.refundReason persisted,
  *      refundStatus='pending', refundRequestedAt set, state back to
  *      DELIVERED, msgRefundReasonReceived ack.
- *   8. Admin route GET /admin/refunds lists this order with the reason.
- *   9. Admin route POST /admin/refunds/:id/deny → refundStatus='denied'
- *      + decision note + WA notification path runs (mocked).
- *  10. Second deny attempt returns 409 (state machine guard intact).
+ *   8. Magic-link GET /admin/refunds/decide?token=<deny> → refundStatus='denied'
+ *      + decision note + WA notification path runs.
+ *   9. Clicking the same magic link again → already_decided page, no state change.
  */
 
 import { readFileSync } from 'fs';
@@ -250,39 +249,32 @@ async function runHappyPath(): Promise<void> {
     'Step 7: msgRefundReasonReceived ack sent',
   );
 
-  // ---- Step 8: admin route lists pending ----
+  // ---- Step 8: magic-link deny → refundStatus=denied ----
+  const { signRefundDecisionToken } = await import('../packages/session/dist/refund-token.js');
+  process.env['REFUND_DECISION_SECRET'] = 'phase16-e2e-test-secret-must-be-32-chars!!';
+  process.env['APP_URL'] = 'http://localhost:3001';
+
   const app = await buildAdminApp();
   try {
-    const listRes = await app.inject({ method: 'GET', url: '/admin/refunds' });
-    assert(listRes.statusCode === 200, `Step 8: GET /admin/refunds 200 (got ${listRes.statusCode})`);
-    const listJson = listRes.json() as { ok: boolean; refunds: Array<{ id: string; refundReason: string }> };
-    const ours = listJson.refunds.find((r) => r.id === orderId2);
-    assert(!!ours, 'Step 8: our order in pending-list');
-    assert(ours?.refundReason === reason, 'Step 8: reason text round-trips');
-
-    // ---- Step 9: deny + decision note + WA notification path ----
+    const denyToken = await signRefundDecisionToken(orderId2, 'deny');
     const denyRes = await app.inject({
-      method: 'POST',
-      url: `/admin/refunds/${orderId2}/deny`,
-      payload: { reason: 'QA score exceeds threshold; output matches brief.', reviewedBy: 'mayank' },
-      headers: { 'content-type': 'application/json' },
+      method: 'GET',
+      url: `/admin/refunds/decide?token=${encodeURIComponent(denyToken)}`,
     });
-    assert(denyRes.statusCode === 200, `Step 9: POST .../deny 200 (got ${denyRes.statusCode})`);
+    // 200 or 207 (denied page or whatsapp_error page if WA send fails under
+    // smoke creds). Either way the order should be denied.
+    assert([200, 207].includes(denyRes.statusCode), `Step 8: 200 or 207 (got ${denyRes.statusCode})`);
     order = await prisma.order.findUnique({ where: { id: orderId2 } });
-    assert(order?.refundStatus === 'denied', `Step 9: refundStatus=denied (got ${order?.refundStatus})`);
-    assert(
-      typeof order?.refundDecisionNote === 'string' && order.refundDecisionNote.includes('mayank'),
-      `Step 9: decision note contains reviewer (got ${order?.refundDecisionNote})`,
-    );
+    assert(order?.refundStatus === 'denied', `Step 8: refundStatus=denied (got ${order?.refundStatus})`);
+    assert(order?.refundDecidedAt instanceof Date, 'Step 8: refundDecidedAt set');
 
-    // ---- Step 10: second deny → 409 idempotency guard ----
+    // ---- Step 9: same link clicked again → already_decided idempotency ----
     const dup = await app.inject({
-      method: 'POST',
-      url: `/admin/refunds/${orderId2}/deny`,
-      payload: { reason: 'duplicate attempt' },
-      headers: { 'content-type': 'application/json' },
+      method: 'GET',
+      url: `/admin/refunds/decide?token=${encodeURIComponent(denyToken)}`,
     });
-    assert(dup.statusCode === 409, `Step 10: second deny returns 409 (got ${dup.statusCode})`);
+    assert(dup.statusCode === 200, `Step 9: replay returns 200 (got ${dup.statusCode})`);
+    assert(/already decided/i.test(dup.body), 'Step 9: already_decided page rendered');
   } finally {
     await app.close();
   }

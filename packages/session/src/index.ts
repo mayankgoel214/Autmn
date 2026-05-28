@@ -8,3 +8,11 @@ export { CONVERSATION_STATES, ButtonIds, ListIds } from './types.js';
 export { fetchBrandContextForUser } from './brand-context.js';
 export { clearReturningMenuDedupe } from './handlers/onboarding.js';
 export { mapInstructionsByPosition, type PositionMapResult } from './instructions-mapping.js';
+export {
+  signRefundDecisionToken,
+  verifyRefundDecisionToken,
+  buildRefundDecisionUrl,
+  type RefundDecisionAction,
+  type RefundDecisionTokenPayload,
+} from './refund-token.js';
+export { generateShortId, generateUniqueShortId } from './short-id.js';

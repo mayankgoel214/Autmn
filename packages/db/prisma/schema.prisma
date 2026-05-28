@@ -188,6 +188,18 @@ model Order {
   refundStatus            String?     @map("refund_status")  // 'pending' | 'approved' | 'denied'
   refundDecidedAt         DateTime?   @map("refund_decided_at")
   refundDecisionNote      String?     @map("refund_decision_note")
+  // Phase 15c — set when the magic-link approve URL fires the Razorpay
+  // refund API. razorpayRefundError is set if the API call fails after
+  // refundStatus is already 'approved' (decision is locked but refund
+  // needs manual retry).
+  razorpayRefundId        String?     @map("razorpay_refund_id")
+  razorpayRefundError     String?     @map("razorpay_refund_error")
+  // Phase 15b' — 6-char human-readable id surfaced in emails + WhatsApp
+  // messages. Generated on order creation; collisions are rare enough
+  // (~3.5B combinations) but the @unique constraint catches them and
+  // we retry one level up. Optional during the migration backfill window;
+  // application code requires it.
+  shortId                 String?     @unique @map("short_id")
   rating                  Int?        // 1..5
   ratedAt                 DateTime?   @map("rated_at")
 

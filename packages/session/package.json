@@ -11,12 +11,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@autmn/db": "workspace:*",
-    "@autmn/whatsapp": "workspace:*",
-    "@autmn/queue": "workspace:*",
-    "@autmn/payment": "workspace:*",
-    "@autmn/storage": "workspace:*",
     "@autmn/ai": "workspace:*",
+    "@autmn/db": "workspace:*",
+    "@autmn/email": "workspace:*",
+    "@autmn/payment": "workspace:*",
+    "@autmn/queue": "workspace:*",
+    "@autmn/storage": "workspace:*",
+    "@autmn/whatsapp": "workspace:*",
+    "jose": "^6.2.3",
     "zod": "^3.23.0"
   }
 }
