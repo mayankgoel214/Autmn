@@ -27,6 +27,7 @@ import {
 import { handleChangeSettingsMenu } from './handlers/change-settings.js';
 import { handleBrandDetailsCollecting } from './handlers/brand-details.js';
 import { handleBrandDetailsEditing } from './handlers/brand-details-edit.js';
+import { matchFaqIntent, faqResponse } from './handlers/faq.js';
 import { handleSetupStyle } from './handlers/style.js';
 import { handleAwaitingPhoto } from './handlers/images.js';
 import { handleAwaitingPayment } from './handlers/payment.js';
@@ -160,6 +161,32 @@ export async function handleIncomingMessage(
 
     logger.info('Language switched', { phoneNumber, newLang: langSwitch, state: session.state });
     return;
+  }
+
+  // 5c. Phase 6 — FAQ dispatcher. Fires only in IDLE / CHANGE_SETTINGS_MENU
+  // for plain text. Sends the canned answer and FALLS THROUGH to the state
+  // handler so the user also sees the menu/picker afterwards (matching the
+  // plan's "reply + re-show menu" UX). Other states are unaffected — users
+  // mid-flow (uploading photos, mid-edit) don't get FAQ interruptions.
+  if (
+    message.messageType === 'text' &&
+    message.text &&
+    (session.state === 'IDLE' || session.state === 'CHANGE_SETTINGS_MENU')
+  ) {
+    const faqIntent = matchFaqIntent(message.text);
+    if (faqIntent) {
+      try {
+        const lang = user.language as Language;
+        await wa.sendText(phoneNumber, faqResponse(faqIntent, lang));
+        logger.info('FAQ intent matched', { phoneNumber, state: session.state, intent: faqIntent });
+      } catch (faqErr) {
+        logger.warn('FAQ response send failed (continuing to state handler)', {
+          phoneNumber,
+          intent: faqIntent,
+          error: String(faqErr),
+        });
+      }
+    }
   }
 
   // 5. Route based on current state
