@@ -41,7 +41,9 @@ function loadEnv(envPath: string): void {
 loadEnv(resolve(import.meta.dirname, '../.env'));
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
-const { handleIncomingMessage } = await import('../packages/session/dist/index.js');
+const { handleIncomingMessage, clearReturningMenuDedupe } = await import(
+  '../packages/session/dist/index.js'
+);
 // matchFaqIntent isn't re-exported from session/index.ts (kept internal to the
 // handler). Import directly from the compiled handler file.
 const { matchFaqIntent } = await import('../packages/session/dist/handlers/faq.js');
@@ -129,6 +131,10 @@ async function cleanup(): Promise<void> {
     where: { messageId: { startsWith: `smoke6-${PHONE}-` } },
   }).catch(() => {});
   await prisma.user.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
+  // Phase 7's returning-user-menu dedupe Map is process-local, so paths that
+  // re-use the same phone within one smoke run would otherwise get their
+  // second "hi" silently suppressed. Reset so each path starts clean.
+  clearReturningMenuDedupe();
 }
 
 async function onboardThenForceIdle(wa: any): Promise<void> {

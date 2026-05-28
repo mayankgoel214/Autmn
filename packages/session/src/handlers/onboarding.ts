@@ -51,6 +51,15 @@ setInterval(() => {
   // Nuclear option for unexpected growth.
   if (lastReturningMenuSentAt.size > 10_000) lastReturningMenuSentAt.clear();
 }, 60_000).unref();
+
+/**
+ * Test-only: reset the dedupe Map so smoke tests that reuse the same phone
+ * across multiple paths can re-trigger the menu send on the second call.
+ * Not exported through the regular session index — smoke imports it directly.
+ */
+export function clearReturningMenuDedupe(): void {
+  lastReturningMenuSentAt.clear();
+}
 import { ListIds, ButtonIds, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
 import { selectStylesForOrder } from '../auto-styles.js';
 import type { Language } from '../types.js';

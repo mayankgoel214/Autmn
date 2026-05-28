@@ -6,3 +6,4 @@ export { msgProcessingDelay, msgProcessingStarted, msgProgressProductAnalyzed, m
 export type { ConversationState, MessageContext, SessionContext, Language } from './types.js';
 export { CONVERSATION_STATES, ButtonIds, ListIds } from './types.js';
 export { fetchBrandContextForUser } from './brand-context.js';
+export { clearReturningMenuDedupe } from './handlers/onboarding.js';

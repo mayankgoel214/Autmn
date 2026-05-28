@@ -416,10 +416,13 @@ async function handleLoveIt(
     ? { ...currentHistory, [styleId]: (currentHistory[styleId] ?? 0) + 1 }
     : currentHistory;
 
+  // Pre-Phase-8 #2: orderCount is now incremented in createOrderAndSendPayment
+  // (at order creation, not on Save & finish), so a user who never tapped this
+  // feedback button no longer gets unlimited free orders. totalImages /
+  // lastStyleUsed / styleHistory are still per-delivery and stay here.
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      orderCount: { increment: 1 },
       totalImages: { increment: order?.imageCount ?? 0 },
       ...(styleId ? { lastStyleUsed: styleId } : {}),
       styleHistory: updatedHistory,
@@ -840,10 +843,13 @@ async function handleSaveAndFinish(
     ? { ...currentHistory, [styleId]: (currentHistory[styleId] ?? 0) + 1 }
     : currentHistory;
 
+  // Pre-Phase-8 #2: orderCount is now incremented in createOrderAndSendPayment
+  // (at order creation, not on Save & finish), so a user who never tapped this
+  // feedback button no longer gets unlimited free orders. totalImages /
+  // lastStyleUsed / styleHistory are still per-delivery and stay here.
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      orderCount: { increment: 1 },
       totalImages: { increment: order?.imageCount ?? 0 },
       ...(styleId ? { lastStyleUsed: styleId } : {}),
       styleHistory: updatedHistory,

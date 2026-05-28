@@ -66,14 +66,27 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
   const phoneNumber = session.phoneNumber;
 
   // Deliver exactly the styles the user chose — no auto-padding.
-  // Smart Pack always passes 3; custom pickers pass 1-3. Fall back to auto-select
-  // only when the session has zero styles (should not happen in normal flow).
+  // Smart Pack always passes 3; custom pickers pass 1-3.
+  //
+  // Pre-Phase-8 #3: pin the 0-styles semantics. Zero picks → auto-select
+  // Smart Pack (3 ads). This branch is now the documented contract, not a
+  // "should not happen" fallback. Phase 9's Flow picker explicitly allows
+  // a 0-pick submission, so this code path becomes load-bearing then.
   const normalizedStyles =
     styleSelections.length > 0
       ? styleSelections.slice(0, OUTPUT_STYLES_PER_ORDER)
       : selectStylesForOrder(user.businessType, OUTPUT_STYLES_PER_ORDER);
 
+  // Hard assertion — Smart Pack auto-select is defined as 3 styles, custom
+  // pickers cap at OUTPUT_STYLES_PER_ORDER. Anything outside [1, 3] is a bug.
+  if (normalizedStyles.length < 1 || normalizedStyles.length > OUTPUT_STYLES_PER_ORDER) {
+    throw new Error(
+      `createOrderAndSendPayment: expected 1..${OUTPUT_STYLES_PER_ORDER} styles, got ${normalizedStyles.length}`,
+    );
+  }
+
   const primaryStyleId = normalizedStyles[0] ?? 'style_clean_white';
+  // Pre-Phase-8 #2: freemium flag is computed BEFORE the orderCount increment.
   const isFreeOrder = user.orderCount === 0;
   const amount = isFreeOrder ? 0 : PRICE_PER_ORDER_PAISE;
 
@@ -92,6 +105,24 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
       productCategory: user.businessType ?? 'general',
       userId: user.id,
     },
+  });
+
+  // Pre-Phase-8 #2: increment orderCount at order-creation time (AFTER the
+  // order row is successfully written, so a creation failure doesn't burn the
+  // user's free-order eligibility). Previously orderCount only incremented in
+  // delivery.ts handleSaveAndFinish — a user who never tapped Save & finish
+  // kept orderCount=0 and got unlimited free orders. Failing this update
+  // silently is non-fatal: worst case, the user's NEXT order is also free —
+  // matches the previous (buggy) behaviour, not worse.
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { orderCount: { increment: 1 } },
+  }).catch((err) => {
+    logger.warn('Failed to increment user.orderCount after order create', {
+      phoneNumber,
+      orderId: order.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 
   if (isFreeOrder) {
