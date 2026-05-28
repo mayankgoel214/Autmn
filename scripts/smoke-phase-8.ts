@@ -42,10 +42,11 @@ function loadEnv(envPath: string): void {
 loadEnv(resolve(import.meta.dirname, '../.env'));
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
-const { handleIncomingMessage, clearReturningMenuDedupe, ButtonIds } = await import(
+const { clearReturningMenuDedupe, ButtonIds } = await import(
   '../packages/session/dist/index.js'
 );
-type MessageContext = import('../packages/session/dist/index.js').MessageContext;
+// MessageContext type import retired — Phase 8 smoke no longer drives the
+// state machine directly (paths AU/AV moved to Phase 14 smoke).
 
 const prisma = new PrismaClient({ log: ['error'] });
 
@@ -73,23 +74,9 @@ function makeMockWa() {
   return { wa: wa as any, sent };
 }
 
-let msgCounter = 0;
-function makeTextMessage(text: string): MessageContext {
-  return {
-    messageId: `smoke8-${PHONE}-${msgCounter++}`,
-    messageType: 'text',
-    text,
-    timestamp: Date.now(),
-  };
-}
-function makeButtonMessage(buttonReplyId: string): MessageContext {
-  return {
-    messageId: `smoke8-${PHONE}-${msgCounter++}`,
-    messageType: 'interactive',
-    buttonReplyId,
-    timestamp: Date.now(),
-  };
-}
+// Phase 8's smoke now only exercises column existence + ButtonIds cleanup;
+// the message helpers used by the retired AU/AV paths were deleted in the
+// Phase 14 supersession (see header comment).
 
 let failures = 0;
 function assert(cond: unknown, msg: string): void {

@@ -2131,21 +2131,6 @@ export function msgRatingThanks(rating: number, lang: Lang): string {
   }
 }
 
-/**
- * @deprecated Phase 15 wired the real refund flow. Kept for one phase so
- * stale code paths don't break; Phase 16 polish will remove it.
- */
-export function msgRefundComingSoon(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'Refund flow जल्द आ रहा है. कृपया support से संपर्क करें.';
-    case 'hinglish':
-      return 'Refund flow jaldi aa raha hai. Kripya support se contact karein.';
-    case 'en':
-    default:
-      return 'Refund flow coming soon — please contact support.';
-  }
-}
 
 // ---------------------------------------------------------------------------
 // PHASE 15 — refund request flow (reason capture + admin review + Razorpay)
