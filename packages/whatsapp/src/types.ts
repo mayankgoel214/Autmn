@@ -308,6 +308,49 @@ export interface SendListPayload extends SendPayloadBase {
   };
 }
 
+/**
+ * Phase 9 — WhatsApp Flow message payload.
+ *
+ * Sends a published Flow (configured in Meta Business Manager) to the user.
+ * When the user completes the Flow, Meta delivers a webhook event with
+ * `interactive.type: 'nfm_reply'` containing `response_json` — a JSON string
+ * with the form values. We parse it into MessageContext.flowResponse.
+ *
+ * Flows are gated by env WHATSAPP_FLOWS_ENABLED to keep the legacy list
+ * picker as the active path until dashboard activation is complete.
+ *
+ * Reference: https://developers.facebook.com/docs/whatsapp/flows/reference/sending
+ */
+export interface SendFlowPayload extends SendPayloadBase {
+  type: "interactive";
+  interactive: {
+    type: "flow";
+    header?: { type: "text"; text: string };
+    body: { text: string };
+    footer?: { text: string };
+    action: {
+      name: "flow";
+      parameters: {
+        /** Stable opaque token — we use the order id or session id so the response can be correlated. */
+        flow_token: string;
+        /** Flow ID from Meta Business Manager. */
+        flow_id: string;
+        /** CTA button label (max 20 chars). */
+        flow_cta: string;
+        /** "published" (production) or "draft" (during dashboard testing). */
+        mode?: "published" | "draft";
+        /** Action that fires when the user taps the CTA. We always use "navigate". */
+        flow_action: "navigate" | "data_exchange";
+        /** Initial screen to land on + any seed data for that screen. */
+        flow_action_payload: {
+          screen: string;
+          data?: Record<string, unknown>;
+        };
+      };
+    };
+  };
+}
+
 /** CTA URL button message (call-to-action with external link). */
 export interface SendCtaUrlPayload extends SendPayloadBase {
   type: "interactive";

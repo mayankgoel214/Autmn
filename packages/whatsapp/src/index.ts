@@ -29,7 +29,19 @@ export type {
   SendButtonsPayload,
   SendListPayload,
   SendCtaUrlPayload,
+  SendFlowPayload,
   SendTemplatePayload,
+} from "./types.js";
+
+// Phase 9 — Flow JSON builders + response parsers
+export {
+  StylePickerFlow,
+  buildStylePickerFlowJson,
+  parseStylePickerFlowResponse,
+  type StylePickerFlowResponse,
+} from "./flows.js";
+
+export type {
   TemplateComponent,
   TemplateParameter,
   MarkAsReadPayload,

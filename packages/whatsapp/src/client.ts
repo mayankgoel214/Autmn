@@ -6,6 +6,7 @@ import type {
   SendButtonsPayload,
   SendListPayload,
   SendCtaUrlPayload,
+  SendFlowPayload,
   SendTemplatePayload,
   MarkAsReadPayload,
 } from "./types.js";
@@ -255,6 +256,64 @@ export class WhatsAppClient {
           parameters: {
             display_text: buttonText,
             url,
+          },
+        },
+      },
+    };
+    return this._send("messages", payload);
+  }
+
+  /**
+   * Phase 9 — send a WhatsApp Flow message.
+   *
+   * The Flow itself must be created and published in Meta Business Manager.
+   * This call references it by `flowId` and delivers the embedded form to the
+   * user. When the user submits, Meta sends a webhook with
+   * interactive.type='nfm_reply' that the API webhook parses into
+   * MessageContext.flowResponse.
+   *
+   * @param to                  Recipient phone number.
+   * @param body                Body text shown above the CTA (max 1024 chars).
+   * @param flowId              Flow ID from Meta Business Manager.
+   * @param flowToken           Opaque correlation token (we use order/session id).
+   * @param flowCtaText         Button label (max 20 chars), e.g. "Pick styles".
+   * @param initialScreen       Name of the screen to land on.
+   * @param initialData         Optional seed data for the first screen.
+   * @param mode                "published" in production, "draft" during dashboard testing.
+   * @param footerText          Optional footer caption.
+   */
+  async sendFlow(
+    to: string,
+    body: string,
+    flowId: string,
+    flowToken: string,
+    flowCtaText: string,
+    initialScreen: string,
+    initialData?: Record<string, unknown>,
+    mode: "published" | "draft" = "published",
+    footerText?: string,
+  ): Promise<SendMessageResponse> {
+    const payload: SendFlowPayload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "flow",
+        body: { text: body },
+        ...(footerText ? { footer: { text: footerText } } : {}),
+        action: {
+          name: "flow",
+          parameters: {
+            flow_token: flowToken,
+            flow_id: flowId,
+            flow_cta: flowCtaText,
+            mode,
+            flow_action: "navigate",
+            flow_action_payload: {
+              screen: initialScreen,
+              ...(initialData ? { data: initialData } : {}),
+            },
           },
         },
       },

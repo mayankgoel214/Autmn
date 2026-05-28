@@ -106,6 +106,13 @@ export interface MessageContext {
   documentMimeType?: string;
   documentFilename?: string;
   documentFileSize?: number; // bytes; used by the brand-details cost rail
+  // Phase 9 — WhatsApp Flow completion response. Populated when Meta delivers
+  // a nfm_reply webhook (user submitted a Flow form). `flowResponse` is the
+  // parsed response_json object; `flowToken` is the opaque correlation token
+  // we passed when sending the Flow (usually order id or session id).
+  flowResponse?: Record<string, unknown>;
+  flowToken?: string;
+  flowName?: string;       // Meta provides this as response_json.flow_name
   timestamp: number;
 }
 

@@ -688,6 +688,20 @@ export async function sendStyleList(
   ].filter(row => !alreadyPicked.includes(row.id));
 
   if (alreadyPicked.length === 0 && !customMode) {
+    // Phase 9 — when WhatsApp Flows are activated, try to send the single-
+    // screen Flow picker instead of the 2-option list. Env-gated; falls
+    // through to the legacy list if the flag is off or no Flow ID is
+    // configured. We import lazily so dist users without @autmn/whatsapp's
+    // flows export don't crash at import time.
+    try {
+      const { sendStylePickerFlow } = await import('./style-picker-flow.js');
+      const flowSent = await sendStylePickerFlow(phoneNumber, lang, wa, `style:${phoneNumber}`);
+      if (flowSent) return;
+    } catch {
+      // Falls through to the legacy list below — silent because the dynamic
+      // import path is documented and the env flag is the explicit gate.
+    }
+
     // Initial 2-option list: Smart Pack or Custom.
     // Phase 7 — upfront copy explains the order shape so users don't think
     // they're locked into picking exactly 3 styles up front.

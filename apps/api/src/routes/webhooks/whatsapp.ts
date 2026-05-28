@@ -267,6 +267,30 @@ export async function whatsappWebhookRoutes(app: FastifyInstance): Promise<void>
           message.type === 'interactive' && msg.interactive?.type === 'list_reply'
             ? msg.interactive.list_reply?.id
             : undefined,
+        // Phase 9 — WhatsApp Flow completion response. Meta delivers the
+        // form submission as interactive.type='nfm_reply'. The response is
+        // a JSON-stringified object inside response_json; flow_name + flow
+        // token come as siblings. We deserialise here so the session machine
+        // sees structured data.
+        ...(message.type === 'interactive' && (msg.interactive as { type?: string } | undefined)?.type === 'nfm_reply'
+          ? (() => {
+              const nfm = (msg.interactive as unknown as {
+                nfm_reply?: { response_json?: string; name?: string; body?: string };
+              }).nfm_reply;
+              let parsed: Record<string, unknown> | undefined;
+              try {
+                parsed = nfm?.response_json ? JSON.parse(nfm.response_json) : undefined;
+              } catch (err) {
+                app.log.warn({ err, raw: nfm?.response_json }, 'Failed to parse Flow response_json');
+              }
+              const token = parsed && typeof parsed['flow_token'] === 'string' ? (parsed['flow_token'] as string) : undefined;
+              return {
+                flowResponse: parsed,
+                flowToken: token,
+                flowName: nfm?.name,
+              };
+            })()
+          : {}),
       };
 
       // Mark as read
