@@ -2129,16 +2129,77 @@ export function msgRatingThanks(rating: number, lang: Lang): string {
   }
 }
 
-/** Phase 15 placeholder — real refund-request flow lands in Phase 15. */
+/**
+ * @deprecated Phase 15 wired the real refund flow. Kept for one phase so
+ * stale code paths don't break; Phase 16 polish will remove it.
+ */
 export function msgRefundComingSoon(lang: Lang): string {
   switch (lang) {
     case 'hi':
-      return 'Refund flow Phase 15 mein aa raha hai. Filhaal manual review hoga — Mayank se contact karein.';
+      return 'Refund flow जल्द आ रहा है. कृपया support से संपर्क करें.';
     case 'hinglish':
-      return 'Refund flow Phase 15 mein aa raha hai. Filhaal manual review hoga — Mayank se contact karein.';
+      return 'Refund flow jaldi aa raha hai. Kripya support se contact karein.';
     case 'en':
     default:
-      return 'Refund flow ships in Phase 15. For now it is manual — please contact Mayank.';
+      return 'Refund flow coming soon — please contact support.';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 15 — refund request flow (reason capture + admin review + Razorpay)
+// ---------------------------------------------------------------------------
+
+/** Opening prompt when the user taps "Request refund" in the delivery menu. */
+export function msgAskRefundReason(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'कृपया बताएं क्या गलत हुआ. Text या voice note भेज सकते हैं.';
+    case 'hinglish':
+      return 'Kripya bataiye kya galat hua. Text ya voice note bhej sakte hain.';
+    case 'en':
+    default:
+      return 'Tell us what went wrong — text or voice note.';
+  }
+}
+
+/** Confirmation after reason captured. */
+export function msgRefundReasonReceived(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'मिल गया. हमारी टीम 24 घंटे में review करके reply करेगी.';
+    case 'hinglish':
+      return 'Mil gaya. Hamari team 24 ghante mein review karke reply karegi.';
+    case 'en':
+    default:
+      return 'Got it. Our team will review and reply within 24 hours.';
+  }
+}
+
+/** Sent by the admin route when a refund is approved (Razorpay refund issued). */
+export function msgRefundApproved(amountPaise: number, lang: Lang): string {
+  const amountRs = (amountPaise / 100).toFixed(0);
+  switch (lang) {
+    case 'hi':
+      return `Refund approved ✅ ₹${amountRs} आपके original payment method पर वापस मिलेंगे (3-5 business days).`;
+    case 'hinglish':
+      return `Refund approved ✅ ₹${amountRs} aapke original payment method par wapas milenge (3-5 business days).`;
+    case 'en':
+    default:
+      return `Refund approved ✅ ₹${amountRs} returned to original payment method (3-5 business days).`;
+  }
+}
+
+/** Sent by the admin route when a refund is denied (with optional reason). */
+export function msgRefundDenied(reason: string | null, lang: Lang): string {
+  const tail = reason ? `\n\n${reason}` : '';
+  switch (lang) {
+    case 'hi':
+      return `Review करने के बाद, हम यह refund process नहीं कर सकते.${tail}`;
+    case 'hinglish':
+      return `Review karne ke baad, hum yeh refund process nahi kar sakte.${tail}`;
+    case 'en':
+    default:
+      return `After review, we cannot process this refund.${tail}`;
   }
 }
 

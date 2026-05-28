@@ -222,7 +222,7 @@ async function pathSendNewProduct(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function pathRequestRefund(): Promise<void> {
-  console.log('\n== Path BJ: request_refund -> REFUND_REQUEST + Phase 15 placeholder ==');
+  console.log('\n== Path BJ: request_refund -> REFUND_REQUEST + reason prompt ==');
   await cleanup();
   await seedDeliveredOrder();
   const { wa, sent } = makeMockWa();
@@ -234,9 +234,12 @@ async function pathRequestRefund(): Promise<void> {
     session?.state === 'REFUND_REQUEST',
     `state REFUND_REQUEST (got ${session?.state})`,
   );
+  // Phase 15 replaced the Phase 14 placeholder with the real reason prompt.
+  // We only verify the menu→state transition + that *some* prompt fired here;
+  // the prompt's full surface is covered by smoke-phase-15.ts.
   assert(
-    sent.some((m) => m.type === 'text' && /Phase 15|coming|manual/i.test(m.body)),
-    'placeholder text sent',
+    sent.some((m) => m.type === 'text' && m.body.length > 0),
+    'refund prompt text sent',
   );
 }
 

@@ -43,7 +43,8 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Matches Buckets constant in packages/storage/src/buckets.ts.
-// brand-assets is PRIVATE (signed URLs only); all others are public-read.
+// brand-assets and refund-reasons are PRIVATE (signed URLs only); others
+// are public-read.
 const buckets: Array<{ name: string; public: boolean }> = [
   { name: 'raw-images', public: true },
   { name: 'processed-images', public: true },
@@ -51,6 +52,7 @@ const buckets: Array<{ name: string; public: boolean }> = [
   { name: 'cutouts', public: true },
   { name: 'videos', public: true },
   { name: 'brand-assets', public: false },
+  { name: 'refund-reasons', public: false },
 ];
 
 async function main() {

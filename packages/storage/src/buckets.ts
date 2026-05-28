@@ -5,6 +5,7 @@ export const Buckets = {
   CUTOUTS: "cutouts",
   VIDEOS: "videos",
   BRAND_ASSETS: "brand-assets",
+  REFUND_REASONS: "refund-reasons",
 } as const;
 
 export type Bucket = (typeof Buckets)[keyof typeof Buckets];

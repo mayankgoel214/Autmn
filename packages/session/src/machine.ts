@@ -27,6 +27,7 @@ import {
 import { handleChangeSettingsMenu } from './handlers/change-settings.js';
 import { handleBrandDetailsCollecting } from './handlers/brand-details.js';
 import { handleBrandDetailsEditing } from './handlers/brand-details-edit.js';
+import { handleRefundRequest } from './handlers/refund.js';
 import { matchFaqIntent, faqResponse } from './handlers/faq.js';
 import { handleSetupStyle } from './handlers/style.js';
 import { handleAwaitingPhoto } from './handlers/images.js';
@@ -437,9 +438,6 @@ export async function handleIncomingMessage(
       // switch's default arm below and get reset to IDLE.
 
       case 'REFUND_REQUEST': {
-        // Phase 14 placeholder — the real reason-capture + admin-review +
-        // Razorpay-refund flow lands in Phase 15. For now we just bounce the
-        // user back to IDLE on any input so they aren't stuck.
         if (isEscapeIntent(message)) {
           logger.info('Escape intent in REFUND_REQUEST — resetting to IDLE', { phoneNumber });
           await transitionTo(phoneNumber, 'IDLE', {
@@ -450,14 +448,7 @@ export async function handleIncomingMessage(
           if (freshSession) await handleIdle(freshSession, user, message, wa);
           break;
         }
-        // Acknowledge and route to IDLE so the chat isn't stuck.
-        const lang = user.language as Language;
-        await wa.sendText(phoneNumber, isHindi(lang)
-          ? 'Refund team se sampark karein. Filhaal IDLE mein wapas le ja rahe hain.'
-          : 'Please contact the refund team. Returning you to the main menu.');
-        await transitionTo(phoneNumber, 'IDLE');
-        const freshSession = await getSession(phoneNumber);
-        if (freshSession) await handleIdle(freshSession, user, message, wa);
+        await handleRefundRequest(session, user, message, wa);
         break;
       }
 

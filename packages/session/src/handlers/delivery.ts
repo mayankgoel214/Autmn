@@ -23,7 +23,7 @@ import {
   rowSendNewProduct,
   rowRequestRefund,
   msgRatingThanks,
-  msgRefundComingSoon,
+  msgAskRefundReason,
   styleDisplayName,
   msgSendProductPhotos,
 } from '../messages.js';
@@ -354,8 +354,10 @@ async function handleRequestRefund(
   lang: Language,
 ): Promise<void> {
   await transitionTo(session.phoneNumber, 'REFUND_REQUEST');
-  // Phase 15 will replace this stub with the full reason-capture flow.
-  await wa.sendText(session.phoneNumber, msgRefundComingSoon(lang));
+  // Phase 15 — the user's next message (text or voice) becomes the refund
+  // reason and is processed by handlers/refund.ts. We just send the opening
+  // prompt here and let the state machine route subsequent input.
+  await wa.sendText(session.phoneNumber, msgAskRefundReason(lang));
 }
 
 // ---------------------------------------------------------------------------

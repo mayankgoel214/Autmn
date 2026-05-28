@@ -6,11 +6,15 @@
  *   AS. New Order columns exist + accept writes (amountPaise, isFirstFree,
  *       numStylesPicked, rating, refund*).
  *   AT. New Session columns exist (pendingInstructions, pendingMapping).
- *   AU. Delivery-state "Save and finish" still works via FEEDBACK_GREAT button.
- *   AV. Numbered text replies still navigate ("1" -> Order another, "2" -> Save).
  *   AW. ButtonIds no longer expose FEEDBACK_CHANGE / FEEDBACK_REDO / EDIT_* /
  *       REDO_STYLE_* / CHANGE_SOMETHING (compile-time absence, double-checked
  *       at runtime via the exported constant).
+ *
+ * NOTE: Phase 8 originally also asserted FEEDBACK_GREAT (save-and-finish) and
+ * numbered "1"/"2" text-menu navigation. Phase 14 replaced that menu wholesale
+ * with the 5⭐ rating list + send_new_product + request_refund rows, so those
+ * paths (AU and AV) were dropped. Their replacements are covered by
+ * smoke-phase-14.ts (paths BH/BI/BJ/BK).
  */
 
 import { readFileSync } from 'fs';
@@ -237,48 +241,9 @@ async function pathSessionColumns(): Promise<void> {
 // Path AU — FEEDBACK_GREAT button still triggers Save & finish
 // ---------------------------------------------------------------------------
 
-async function pathFeedbackGreatStillWorks(): Promise<void> {
-  console.log('\n== Path AU: FEEDBACK_GREAT button -> Save and finish ==');
-  await cleanup();
-  await seedDeliveredOrder();
-  const { wa, sent } = makeMockWa();
-
-  await handleIncomingMessage(PHONE, makeButtonMessage('feedback_great'), wa);
-
-  const session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
-  assert(session?.state === 'IDLE', `state IDLE after save (got ${session?.state})`);
-  assert(
-    sent.some((m) => m.type === 'text' && /save/i.test(m.body)),
-    'save-and-finish acknowledgement text sent',
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Path AV — numbered text "1" -> Order another, "2" -> Save
-// ---------------------------------------------------------------------------
-
-async function pathNumberedMenu(): Promise<void> {
-  console.log('\n== Path AV: typed "1" -> Order another, "2" -> Save ==');
-
-  // "1" -> Order another -> AWAITING_PHOTO
-  await cleanup();
-  await seedDeliveredOrder();
-  let mock = makeMockWa();
-  await handleIncomingMessage(PHONE, makeTextMessage('1'), mock.wa);
-  let session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
-  assert(
-    session?.state === 'AWAITING_PHOTO',
-    `typed "1" -> AWAITING_PHOTO (got ${session?.state})`,
-  );
-
-  // "2" -> Save and finish -> IDLE
-  await cleanup();
-  await seedDeliveredOrder();
-  mock = makeMockWa();
-  await handleIncomingMessage(PHONE, makeTextMessage('2'), mock.wa);
-  session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
-  assert(session?.state === 'IDLE', `typed "2" -> IDLE (got ${session?.state})`);
-}
+// Paths AU and AV (FEEDBACK_GREAT save-and-finish + typed "1"/"2" numbered
+// menu) were superseded by the Phase 14 delivery rebuild — see header comment.
+// Their replacements live in smoke-phase-14.ts.
 
 // ---------------------------------------------------------------------------
 // Path AW — removed ButtonIds aren't exposed
@@ -321,8 +286,6 @@ async function main(): Promise<void> {
     await cleanup();
     await pathOrderColumns();
     await pathSessionColumns();
-    await pathFeedbackGreatStillWorks();
-    await pathNumberedMenu();
     await pathButtonIdsScrubbed();
   } finally {
     await cleanup();
