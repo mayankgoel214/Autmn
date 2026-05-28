@@ -1830,3 +1830,125 @@ export function msgSettingsExit(lang: Lang): string {
       return 'Done ✅ Message me anytime to make more ads.';
   }
 }
+
+// ---------------------------------------------------------------------------
+// PHASE 3 — BRAND DETAILS CAPTURE
+// ---------------------------------------------------------------------------
+
+/** Single open prompt that opens the BRAND_DETAILS_COLLECTING state. */
+export function msgAskBrandDetails(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'अपने ब्रांड के बारे में कुछ भी भेजें — लोगो, sample ads, descriptions, website URL.\n\nहो जाए तो "done" लिखें या "skip" करें.';
+    case 'hinglish':
+      return 'Apne brand ke baare mein kuch bhi bhejein — logo, sample ads, descriptions, website URL.\n\nHo jaaye to "done" likhein ya "skip" karein.';
+    case 'en':
+    default:
+      return 'Send anything about your brand — logo, sample ads, descriptions, website URL.\n\nType "done" when finished or "skip" to skip.';
+  }
+}
+
+/** Confirmation after a file (image/document) asset lands. */
+export function msgBrandDetailFileSaved(lang: Lang, count: number, max: number): string {
+  switch (lang) {
+    case 'hi':
+      return `File save हो गई ✅ (${count}/${max})`;
+    case 'hinglish':
+      return `File save ho gayi ✅ (${count}/${max})`;
+    case 'en':
+    default:
+      return `Saved ✅ (${count}/${max})`;
+  }
+}
+
+/** Confirmation after a plain-text note is saved. */
+export function msgBrandDetailTextSaved(lang: Lang, count: number, max: number): string {
+  switch (lang) {
+    case 'hi':
+      return `Note save हो गया ✅ (${count}/${max})`;
+    case 'hinglish':
+      return `Note save ho gaya ✅ (${count}/${max})`;
+    case 'en':
+    default:
+      return `Note saved ✅ (${count}/${max})`;
+  }
+}
+
+/** Confirmation after a website URL is captured. */
+export function msgBrandDetailUrlSaved(lang: Lang, count: number, max: number): string {
+  switch (lang) {
+    case 'hi':
+      return `Website link save हो गया ✅ (${count}/${max})`;
+    case 'hinglish':
+      return `Website link save ho gaya ✅ (${count}/${max})`;
+    case 'en':
+    default:
+      return `Website link saved ✅ (${count}/${max})`;
+  }
+}
+
+/** Rejection — user hit the 10-file cap. */
+export function msgBrandLimitReached(lang: Lang, max: number): string {
+  switch (lang) {
+    case 'hi':
+      return `${max} files max हैं। "done" लिखें save करने के लिए या "skip" करें.`;
+    case 'hinglish':
+      return `${max} files max hain. "done" likhein save ke liye ya "skip" karein.`;
+    case 'en':
+    default:
+      return `${max} files max. Type "done" to save what you have or "skip".`;
+  }
+}
+
+/** Rejection — file exceeds 5 MB. */
+export function msgBrandFileTooLarge(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'File बहुत बड़ी है. 5 MB से छोटी भेजें.';
+    case 'hinglish':
+      return 'File bahut badi hai. 5 MB se chhoti bhejein.';
+    case 'en':
+    default:
+      return 'File too big. Send under 5 MB please.';
+  }
+}
+
+/** Final "saved" message after 'done' — Phase 3b will replace the trailing
+ *  "(AI summary still being built)" line with the structured profile. */
+export function msgBrandProfileSaved(lang: Lang, assetCount: number): string {
+  switch (lang) {
+    case 'hi':
+      return `Brand profile save हो गया ✅\n${assetCount} assets जोड़े गए।`;
+    case 'hinglish':
+      return `Brand profile save ho gaya ✅\n${assetCount} assets jode gaye.`;
+    case 'en':
+    default:
+      return `Brand profile saved ✅\n${assetCount} asset(s) added.`;
+  }
+}
+
+/** Exit message on "skip" from inside brand-details collection. */
+export function msgBrandDetailsSkipped(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'Brand details skip हो गए ✅';
+    case 'hinglish':
+      return 'Brand details skip ho gaye ✅';
+    case 'en':
+    default:
+      return 'Brand details skipped ✅';
+  }
+}
+
+/** Friendly nudge when user sends an unexpected input during collection. */
+export function msgBrandDetailsUnknown(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'Image, PDF, text, या website URL भेजें. "done" या "skip" लिखें finish करने के लिए.';
+    case 'hinglish':
+      return 'Image, PDF, text, ya website URL bhejein. "done" ya "skip" likhein finish karne ke liye.';
+    case 'en':
+    default:
+      return 'Send an image, PDF, text, or website URL. Type "done" or "skip" to finish.';
+  }
+}

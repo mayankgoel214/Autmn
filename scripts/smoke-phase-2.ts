@@ -316,11 +316,12 @@ async function pathChangeCategoryOther(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path I — Brand details coming-soon stub
+// Path I — Brand details row hands off to BRAND_DETAILS_COLLECTING
+//          (Phase 3 wired the real handler; the Phase 2 stub is gone.)
 // ---------------------------------------------------------------------------
 
 async function pathBrandDetailsStub(): Promise<void> {
-  console.log('\n== Path I: brand details → coming-soon stub + stay in menu ==');
+  console.log('\n== Path I: brand details → BRAND_DETAILS_COLLECTING + prompt ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await onboardAndReset(wa);
@@ -331,12 +332,14 @@ async function pathBrandDetailsStub(): Promise<void> {
   sent.length = 0;
   await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
   const s = await getSession();
-  assert(s?.state === 'CHANGE_SETTINGS_MENU', `state stays CHANGE_SETTINGS_MENU (got ${s?.state})`);
   assert(
-    sent.some((m) => m.type === 'text' && /coming soon|jaldi|जल्द/i.test(m.body)),
-    'coming-soon stub text sent',
+    s?.state === 'BRAND_DETAILS_COLLECTING',
+    `state BRAND_DETAILS_COLLECTING (got ${s?.state})`,
   );
-  assert(sent.some((m) => m.type === 'list'), 'menu re-shown for further picks');
+  assert(
+    sent.some((m) => m.type === 'text' && /done|skip|logo/i.test(m.body)),
+    'brand-details prompt sent',
+  );
 }
 
 // ---------------------------------------------------------------------------

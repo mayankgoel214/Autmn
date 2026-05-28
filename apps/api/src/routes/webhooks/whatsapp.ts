@@ -193,8 +193,9 @@ export async function whatsappWebhookRoutes(app: FastifyInstance): Promise<void>
         phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
       });
 
-      // Map to session-expected types
-      const validTypes = ['text', 'image', 'audio', 'interactive', 'unknown'] as const;
+      // Map to session-expected types. 'document' added in Phase 3 so the
+      // brand-details capture can accept PDFs / docs / sheets.
+      const validTypes = ['text', 'image', 'audio', 'interactive', 'document', 'unknown'] as const;
       const messageType = validTypes.includes(rawType as any)
         ? (rawType as typeof validTypes[number])
         : 'unknown';
@@ -239,9 +240,25 @@ export async function whatsappWebhookRoutes(app: FastifyInstance): Promise<void>
             ? msg.image?.id
             : message.type === 'audio'
               ? msg.audio?.id
+              : message.type === 'document'
+                ? msg.document?.id
+                : undefined,
+        caption:
+          message.type === 'image'
+            ? msg.image?.caption
+            : message.type === 'document'
+              ? msg.document?.caption
               : undefined,
-        caption: message.type === 'image' ? msg.image?.caption : undefined,
         isVoiceNote: message.type === 'audio' ? msg.audio?.voice === true : undefined,
+        // Document metadata (Phase 3 brand-details). file_size is not always
+        // in the Cloud API webhook — the handler also re-checks buffer length
+        // after download as the authoritative size for the cost rail.
+        documentMimeType:
+          message.type === 'document' ? msg.document?.mime_type : undefined,
+        documentFilename:
+          message.type === 'document' ? msg.document?.filename : undefined,
+        documentFileSize:
+          message.type === 'document' ? msg.document?.file_size : undefined,
         buttonReplyId:
           message.type === 'interactive' && msg.interactive?.type === 'button_reply'
             ? msg.interactive.button_reply?.id

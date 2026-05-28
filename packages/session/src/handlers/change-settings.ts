@@ -16,8 +16,8 @@ import { sendCategoryList } from './onboarding.js';
 import {
   msgAskLanguage,
   msgAskBrandName,
+  msgAskBrandDetails,
   msgChangeSettingsMenuBody,
-  msgBrandDetailsComingSoon,
   msgSettingsExit,
   rowChangeLanguage,
   rowChangeBrand,
@@ -145,10 +145,11 @@ export async function handleChangeSettingsMenu(
     }
 
     case ListIds.SETTING_BRAND_DETAILS: {
-      // Phase 3 wires the real brand-details flow. Stub for Phase 2: ack and
-      // stay in the menu so the user can pick something else.
-      await wa.sendText(phoneNumber, msgBrandDetailsComingSoon(lang));
-      await sendChangeSettingsMenu(phoneNumber, lang, wa);
+      // Phase 3 entry point — hand off to BRAND_DETAILS_COLLECTING. The
+      // handler routes back to CHANGE_SETTINGS_MENU on "done" / "skip", so
+      // we don't need the inChangeSettings flag here.
+      await transitionTo(phoneNumber, 'BRAND_DETAILS_COLLECTING');
+      await wa.sendText(phoneNumber, msgAskBrandDetails(lang));
       return;
     }
 

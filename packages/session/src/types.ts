@@ -77,6 +77,7 @@ export const CONVERSATION_STATES = [
   'EDIT_PROCESSING',
   'AWAITING_REVISION_PAYMENT',
   'CHANGE_SETTINGS_MENU',
+  'BRAND_DETAILS_COLLECTING',
 ] as const;
 
 export type ConversationState = typeof CONVERSATION_STATES[number];
@@ -92,13 +93,17 @@ export interface SessionContext {
 
 export interface MessageContext {
   messageId: string;
-  messageType: 'text' | 'image' | 'audio' | 'interactive' | 'unknown';
+  messageType: 'text' | 'image' | 'audio' | 'interactive' | 'document' | 'unknown';
   text?: string;
   mediaId?: string;
   caption?: string;        // Image caption text from WhatsApp
   buttonReplyId?: string;
   listReplyId?: string;
   isVoiceNote?: boolean;
+  // Document message fields (PDFs, docs, etc.) — Phase 3 brand-details capture.
+  documentMimeType?: string;
+  documentFilename?: string;
+  documentFileSize?: number; // bytes; used by the brand-details cost rail
   timestamp: number;
 }
 
@@ -144,6 +149,16 @@ export const PHOTO_NUDGE_TIMEOUT_SECONDS = 120;
 
 /** Payment check job delay in milliseconds (2 minutes) */
 export const PAYMENT_CHECK_DELAY_MS = 120_000;
+
+// ---------------------------------------------------------------------------
+// Phase 3 — brand-details collection cost rails
+// ---------------------------------------------------------------------------
+
+/** Maximum number of brand assets a single user may upload. */
+export const MAX_BRAND_ASSETS = 10;
+
+/** Maximum size per brand asset in bytes (5 MB). */
+export const MAX_BRAND_ASSET_BYTES = 5 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Button / list reply IDs
