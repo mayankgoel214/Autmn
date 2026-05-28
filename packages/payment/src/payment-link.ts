@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { getRazorpayClient } from './client.js';
 import type { CreatePaymentLinkParams } from './types.js';
 
-const DEFAULT_EXPIRES_IN_MINUTES = 30;
+// Plan §1: 60-minute link TTL. Long enough for users to switch between
+// WhatsApp and their UPI app without rage-quitting; short enough that a
+// stale link doesn't sit around if the user abandoned the flow.
+const DEFAULT_EXPIRES_IN_MINUTES = 60;
 const DEFAULT_DESCRIPTION = 'Autmn - Professional Product Photo';
 
 const CreatePaymentLinkSchema = z.object({
@@ -85,6 +88,17 @@ export function buildPaymentLinkPayload(
     },
     notify: { sms: false, email: false },
     reminder_enable: false,
+    // Auto-capture funds the moment the payment succeeds. Razorpay defaults
+    // payment-link payments to auto-capture; we set it explicitly so the
+    // behaviour doesn't silently flip if Razorpay changes their default.
+    payment_capture: true,
+    // Surfaces in the Razorpay dashboard's Notes column so the founder can
+    // grep payments by our internal order id or by the customer's phone
+    // without leaving the dashboard.
+    notes: {
+      order_id: orderId,
+      phone: customerPhone,
+    },
     // upi_link fires the UPI Intent Flow from the short_url itself
     // (deep-links into the user's default UPI app on mobile).
     upi_link: methods.upi === true,

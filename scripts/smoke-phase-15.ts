@@ -287,6 +287,55 @@ async function pathEscapeResetsToIdle(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Path AR — plan §2 anti-abuse: refund already requested
+// ---------------------------------------------------------------------------
+
+async function pathAlreadyRequestedGuard(): Promise<void> {
+  console.log('\n== Path AR: second request_refund tap → "already requested" + no overwrite ==');
+  await cleanup();
+  const { orderId } = await seedDeliveredOrder({ amountPaise: 4900, shortId: 'TST010' });
+
+  // First submission — captures reason, returns to DELIVERED, refundStatus='pending'.
+  const { wa: wa1 } = makeMockWa();
+  await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa1);
+  const { wa: wa2 } = makeMockWa();
+  const originalReason = 'First reason: colours were wrong.';
+  await handleIncomingMessage(PHONE, makeTextMessage(originalReason), wa2);
+
+  let order = await prisma.order.findUnique({ where: { id: orderId } });
+  assert(order?.refundStatus === 'pending', 'precondition: status is pending');
+  assert(order?.refundReason === originalReason, 'precondition: original reason stored');
+
+  // Second tap — should be a no-op + "already requested" message; state stays DELIVERED.
+  const { wa: wa3, sent: sent3 } = makeMockWa();
+  await handleIncomingMessage(PHONE, makeListMessage('request_refund'), wa3);
+  const session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
+  assert(
+    session?.state === 'DELIVERED',
+    `state stays DELIVERED on duplicate request (got ${session?.state})`,
+  );
+  assert(
+    sent3.some((m) =>
+      m.type === 'text' &&
+      // English uses "for this order is under review"; hi/hinglish surface
+      // the "already submitted" phrasing explicitly. Match either.
+      /A refund request for this order|pehle se|पहले से/i.test(m.body),
+    ),
+    'msgRefundAlreadyRequested sent',
+  );
+  // Critical: simulate user trying to send a NEW reason as text — should not
+  // overwrite the original (state is DELIVERED, not REFUND_REQUEST, so the
+  // refund handler isn't reached).
+  const { wa: wa4 } = makeMockWa();
+  await handleIncomingMessage(PHONE, makeTextMessage('Second reason: actually I want my money back NOW.'), wa4);
+  order = await prisma.order.findUnique({ where: { id: orderId } });
+  assert(
+    order?.refundReason === originalReason,
+    `original reason preserved (got "${order?.refundReason?.slice(0, 40)}...")`,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Magic-link decision endpoint
 // ---------------------------------------------------------------------------
 
@@ -438,6 +487,7 @@ async function main(): Promise<void> {
     await pathTextReasonCaptured();
     await pathWhitespaceReprompts();
     await pathEscapeResetsToIdle();
+    await pathAlreadyRequestedGuard();
     await pathMagicLinkApprove();
     await pathMagicLinkDeny();
     await pathMagicLinkReplay();

@@ -2137,6 +2137,33 @@ export function msgRatingThanks(rating: number, lang: Lang): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Plan §2 anti-abuse — sent when the user taps "Request refund" again on
+ * an order that already has a refund decision in flight or recorded. We
+ * surface the current status so it's obvious why the second tap was a no-op.
+ *
+ * `currentStatus` is the existing Order.refundStatus value: 'pending',
+ * 'approved', or 'denied'.
+ */
+export function msgRefundAlreadyRequested(lang: Lang, currentStatus: string): string {
+  const statusLabel = currentStatus === 'pending'
+    ? lang === 'hi' ? 'review में है' : lang === 'hinglish' ? 'review mein hai' : 'is under review'
+    : currentStatus === 'approved'
+      ? lang === 'hi' ? 'approved हो chuka है' : lang === 'hinglish' ? 'approved ho chuka hai' : 'has been approved'
+      : currentStatus === 'denied'
+        ? lang === 'hi' ? 'deny हो chuka है' : lang === 'hinglish' ? 'deny ho chuka hai' : 'has been denied'
+        : currentStatus;
+  switch (lang) {
+    case 'hi':
+      return `इस order के लिए refund request पहले से ${statusLabel}. हम जल्द reply करेंगे.`;
+    case 'hinglish':
+      return `Is order ke liye refund request pehle se ${statusLabel}. Hum jaldi reply karenge.`;
+    case 'en':
+    default:
+      return `A refund request for this order ${statusLabel}. We'll reply soon.`;
+  }
+}
+
+/**
  * Sent when the user taps "Request refund" on a free order. There's no
  * charge to reverse, so we redirect them to "Send new product" instead.
  */

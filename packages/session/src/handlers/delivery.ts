@@ -354,13 +354,24 @@ async function handleRequestRefund(
   wa: WhatsAppClient,
   lang: Language,
 ): Promise<void> {
-  // Phase 15b' — short-circuit free orders. No charge, nothing to refund;
-  // direct the user to "Send new product" instead and stay in DELIVERED.
   if (session.currentOrderId) {
     const order = await prisma.order.findUnique({
       where: { id: session.currentOrderId },
-      select: { amountPaise: true, amount: true },
+      select: { amountPaise: true, amount: true, refundStatus: true },
     });
+
+    // Plan §2 anti-abuse: "One refund request per order. Once refundStatus
+    // is set, additional taps show 'Refund request already submitted'." This
+    // guard MUST run before the free-order short-circuit so a user can't
+    // toggle between menu rows to overwrite an already-submitted reason.
+    if (order?.refundStatus) {
+      const { msgRefundAlreadyRequested } = await import('../messages.js');
+      await wa.sendText(session.phoneNumber, msgRefundAlreadyRequested(lang, order.refundStatus));
+      return;
+    }
+
+    // Phase 15b' — short-circuit free orders. No charge, nothing to refund;
+    // direct the user to "Send new product" instead and stay in DELIVERED.
     const totalPaise = (order?.amountPaise ?? 0) || (order?.amount ?? 0);
     if (totalPaise === 0) {
       const { handleFreeOrderRefundShortCircuit } = await import('./refund.js');

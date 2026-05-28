@@ -102,11 +102,29 @@ function pathTypeExport(): void {
   assert(true, 'PaymentMethodsConfig importable (verified by tsc)');
 }
 
+function pathPlanSpecFields(): void {
+  console.log('\n== Path CM: payload matches plan §1 (capture/notes/60-min TTL) ==');
+  const { payload, expireBy } = buildPaymentLinkPayload({
+    orderId: 'order_test_plan',
+    customerPhone: '919876543210',
+    amount: 4900,
+  });
+  assert(payload['payment_capture'] === true, 'payment_capture: true (auto-capture)');
+  const notes = payload['notes'] as Record<string, unknown> | undefined;
+  assert(notes?.['order_id'] === 'order_test_plan', 'notes.order_id threaded');
+  assert(notes?.['phone'] === '919876543210', 'notes.phone threaded');
+  const now = Math.floor(Date.now() / 1000);
+  const ttl = expireBy - now;
+  // 60 min ± 30s budget for execution drift.
+  assert(ttl >= 3570 && ttl <= 3601, `default expiry ~60 min (got ${ttl}s)`);
+}
+
 async function main(): Promise<void> {
   console.log('Phase 12a smoke — UPI-only payment links\n');
   pathDefaultUpiOnly();
   pathExplicitOverride();
   pathUpiLinkFollowsUpi();
+  pathPlanSpecFields();
   pathTypeExport();
   if (failures === 0) {
     console.log('\nPASS — all Phase 12a smoke assertions green.');
