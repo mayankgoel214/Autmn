@@ -30,6 +30,7 @@ import {
   OUTPUT_STYLES_PER_ORDER,
   EDIT_REVISION_PAISE,
   PAYMENT_CHECK_DELAY_MS,
+  isHindi,
 } from '../types.js';
 import type { MessageContext, Language } from '../types.js';
 import { logger } from '../logger.js';
@@ -96,7 +97,7 @@ export async function handleAwaitingEdit(
         // Ask user to send text/voice — stay in DELIVERED, next text/voice will route back here
         await wa.sendText(
           session.phoneNumber,
-          lang === 'hi'
+          isHindi(lang)
             ? 'Batao kya chahiye — text ya voice note mein.'
             : 'Send text or voice note with what you want.',
         );
@@ -179,7 +180,7 @@ export async function handleAwaitingEdit(
         currentOrderId: order.id,
       });
 
-      const payMsg = lang === 'hi'
+      const payMsg = isHindi(lang)
         ? `Aapke free edits khatam ho gaye. Ek aur edit ke liye Rs 29 pay karein:\n${link.shortUrl}`
         : `You've used your free edits. Pay Rs 29 for another edit:\n${link.shortUrl}`;
       await wa.sendText(session.phoneNumber, payMsg);
@@ -275,7 +276,7 @@ export async function handleAwaitingEdit(
               data: { revisionsUsed: { increment: jobsCreated } },
             });
             await transitionTo(session.phoneNumber, 'EDIT_PROCESSING');
-            await wa.sendText(session.phoneNumber, lang === 'hi'
+            await wa.sendText(session.phoneNumber, isHindi(lang)
               ? `${jobsCreated} photos edit ho rahe hain... thodi der mein ready!`
               : `Editing ${jobsCreated} photos... ready shortly!`);
             return;
@@ -341,7 +342,7 @@ export async function handleAwaitingEdit(
   // No actionable instruction — ask again
   await wa.sendText(
     session.phoneNumber,
-    lang === 'hi'
+    isHindi(lang)
       ? 'Kya badlana hai? Background, roshni, ya kuch aur — batayein.'
       : 'What would you like to change? Background, lighting, or something else?',
   );
@@ -362,7 +363,7 @@ export async function handleEditProcessing(
   // User sent a message while edit is processing — acknowledge
   await wa.sendText(
     session.phoneNumber,
-    lang === 'hi'
+    isHindi(lang)
       ? 'Aapka edit ho raha hai — bas thoda sa wait karein!'
       : 'Your edit is being processed — just a moment!',
   );

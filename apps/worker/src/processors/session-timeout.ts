@@ -12,6 +12,7 @@ import type { Job } from 'bullmq';
 import { prisma } from '@autmn/db';
 import { WhatsAppClient } from '@autmn/whatsapp';
 import { SessionTimeoutJobDataSchema } from '@autmn/queue';
+import type { Language } from '@autmn/session';
 import { getConfig } from '../config.js';
 
 export async function processSessionTimeout(job: Job): Promise<void> {
@@ -34,7 +35,7 @@ export async function processSessionTimeout(job: Job): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { phoneNumber: data.phoneNumber },
   });
-  const lang = (user?.language as 'hi' | 'en') || 'hi';
+  const lang: Language = (user?.language as Language) || 'hi';
 
   const wa = new WhatsAppClient({
     accessToken: config.WHATSAPP_ACCESS_TOKEN,
@@ -53,7 +54,7 @@ export async function processSessionTimeout(job: Job): Promise<void> {
         log('Sending inactivity nudge message');
         await wa.sendText(
           data.phoneNumber,
-          lang === 'hi'
+          (lang === 'hi' || lang === 'hinglish')
             ? 'Kya aap abhi busy hain? Koi baat nahi.\nJab time ho, sirf "Hi" bhejiye — main yahan hun.'
             : 'Are you busy right now? No problem.\nWhen ready, just send "Hi" — I\'m here.',
         );

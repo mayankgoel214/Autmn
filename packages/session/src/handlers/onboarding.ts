@@ -32,6 +32,25 @@ import {
   btnChangeSettings,
 } from '../messages.js';
 import { sendChangeSettingsMenu } from './change-settings.js';
+
+// ---------------------------------------------------------------------------
+// Phase 7 — dedupe rapid "hi" taps that would otherwise re-send the returning-
+// user 2-button menu. Process-local Map; sufficient for the impatient-tap UX
+// guard the plan calls out (cross-process sync isn't required — the user is
+// talking to one API process at a time).
+// ---------------------------------------------------------------------------
+
+const RETURNING_MENU_DEDUPE_MS = 30_000;
+const lastReturningMenuSentAt = new Map<string, number>();
+
+setInterval(() => {
+  const cutoff = Date.now() - RETURNING_MENU_DEDUPE_MS;
+  for (const [phone, ts] of lastReturningMenuSentAt) {
+    if (ts < cutoff) lastReturningMenuSentAt.delete(phone);
+  }
+  // Nuclear option for unexpected growth.
+  if (lastReturningMenuSentAt.size > 10_000) lastReturningMenuSentAt.clear();
+}, 60_000).unref();
 import { ListIds, ButtonIds, OUTPUT_STYLES_PER_ORDER, isHindi } from '../types.js';
 import { selectStylesForOrder } from '../auto-styles.js';
 import type { Language } from '../types.js';
@@ -220,6 +239,21 @@ export async function handleIdle(
     // Phase 2 — 2-button returning-user menu (replaces the 3-button Continue
     // / Change brand / Change category UI). Brand / category / details edits
     // are all reached via Change settings.
+    //
+    // Phase 7 — idempotent "hi": if we sent this menu to the same phone in
+    // the last 30 seconds, suppress the re-send. Button taps don't update the
+    // timestamp, so a user navigating away and coming back later still gets
+    // the menu re-rendered.
+    const now = Date.now();
+    const lastSent = lastReturningMenuSentAt.get(session.phoneNumber) ?? 0;
+    if (now - lastSent < RETURNING_MENU_DEDUPE_MS) {
+      logger.info('Suppressed duplicate returning-user menu within 30s', {
+        phoneNumber: session.phoneNumber,
+        ageMs: now - lastSent,
+      });
+      return;
+    }
+
     const menuBody = msgReturningUserMenu(lang, displayName ?? undefined);
 
     try {
@@ -231,12 +265,14 @@ export async function handleIdle(
           { id: ButtonIds.CHANGE_SETTINGS, title: btnChangeSettings(lang) },
         ],
       );
+      lastReturningMenuSentAt.set(session.phoneNumber, now);
     } catch (btnErr) {
       logger.error('sendButtons failed in handleIdle (returning user), falling back to sendText', {
         phoneNumber: session.phoneNumber,
         error: String(btnErr),
       });
       await wa.sendText(session.phoneNumber, menuBody);
+      lastReturningMenuSentAt.set(session.phoneNumber, now);
     }
     return;
   }
@@ -639,10 +675,16 @@ export async function sendStyleList(
   ].filter(row => !alreadyPicked.includes(row.id));
 
   if (alreadyPicked.length === 0 && !customMode) {
-    // Initial 2-option list: Smart Pack or Custom
+    // Initial 2-option list: Smart Pack or Custom.
+    // Phase 7 — upfront copy explains the order shape so users don't think
+    // they're locked into picking exactly 3 styles up front.
+    const upfront = isHindi(lang)
+      ? '1-3 styles chuniye — hum 3 ads banayenge, baaki AI khud bhar dega.'
+      : "Pick 1-3 styles — we'll generate 3 ads, AI fills in the rest.";
+    const ask = isHindi(lang) ? 'Style chuniye:' : 'Pick your style:';
     await wa.sendList(
       phoneNumber,
-      isHindi(lang) ? 'Style chuniye:' : 'Pick your style:',
+      `${upfront}\n\n${ask}`,
       isHindi(lang) ? 'Chuniye' : 'Choose',
       [
         {
@@ -676,12 +718,16 @@ export async function sendStyleList(
       [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: styleRows }],
     );
   } else {
-    // Picks 2-3: flat checkbox state text + simple style list (no Done accordion)
-    await wa.sendText(phoneNumber, buildCheckboxState(alreadyPicked, lang));
+    // Picks 2-3: single list message — checkbox state + prompt go into the
+    // list body together (Phase 7 polish — was two separate sends before).
+    const checkboxText = buildCheckboxState(alreadyPicked, lang);
+    const promptText = isHindi(lang)
+      ? `Style ${pickNumber} chuniye (optional):`
+      : `Pick style ${pickNumber} (optional):`;
 
     await wa.sendList(
       phoneNumber,
-      isHindi(lang) ? `Style ${pickNumber} chuniye (optional):` : `Pick style ${pickNumber} (optional):`,
+      `${checkboxText}\n\n${promptText}`,
       isHindi(lang) ? 'Chuniye' : 'Choose',
       [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: styleRows }],
     );

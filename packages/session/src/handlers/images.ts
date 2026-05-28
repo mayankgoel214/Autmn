@@ -19,7 +19,7 @@ import type { Session, User } from '@autmn/db';
 import { uploadFile, Buckets } from '@autmn/storage';
 
 import { msgPhotoReadyForProcessing, msgGenericError, msgUnknownMessage, msgAnySpecialInstructions, msgInstructionsAck, msgSendPhotoShort, msgPhotoBeforeInstructions, btnStart, btnAddInstructions, msgDoneOrInstructions } from '../messages.js';
-import { MAX_IMAGES_PER_ORDER, PHOTO_BATCH_TIMEOUT_SECONDS, PHOTO_NUDGE_TIMEOUT_SECONDS } from '../types.js';
+import { MAX_IMAGES_PER_ORDER, PHOTO_BATCH_TIMEOUT_SECONDS, PHOTO_NUDGE_TIMEOUT_SECONDS, isHindi } from '../types.js';
 import { transitionTo } from '../db-helpers.js';
 import { logger } from '../logger.js';
 import type { MessageContext, Language } from '../types.js';
@@ -145,7 +145,7 @@ export async function handleAwaitingPhoto(
           if (updated.count > 0) {
             await wa.sendText(
               phoneNumber,
-              lang === 'hi'
+              isHindi(lang)
                 ? `Maximum ${MAX_IMAGES_PER_ORDER} photos ho gayi hain. Kripya "done" bolein ya button dabayein.`
                 : `Maximum ${MAX_IMAGES_PER_ORDER} photos reached. Please say "done" or tap a button to proceed.`,
             );
@@ -187,7 +187,7 @@ export async function handleAwaitingPhoto(
             mediaId: message.mediaId,
             error: retryErr instanceof Error ? retryErr.message : String(retryErr),
           }));
-          await wa.sendText(phoneNumber, lang === 'hi'
+          await wa.sendText(phoneNumber, isHindi(lang)
             ? 'Photo download nahi ho payi. Kripya dobara bhejiye.'
             : 'Couldn\'t download that photo. Please resend it.');
           return;
@@ -282,7 +282,7 @@ export async function handleAwaitingPhoto(
           if (!interpreted) {
             await wa.sendText(
               phoneNumber,
-              lang === 'hi'
+              isHindi(lang)
                 ? 'आपकी बात पूरी तरह समझ नहीं आई। कृपया दोबारा बोलें या टाइप करके बताएं।'
                 : 'Could not understand clearly. Please type your instruction or try again.',
             );
@@ -298,7 +298,7 @@ export async function handleAwaitingPhoto(
         logger.error('Voice transcription failed', { error: String(err) });
         await wa.sendText(
           phoneNumber,
-          lang === 'hi'
+          isHindi(lang)
             ? 'आपकी बात पूरी तरह समझ नहीं आई। कृपया दोबारा बोलें या टाइप करके बताएं।'
             : "Couldn't understand the voice note. Please send text instructions or say \"done\".",
         );
@@ -380,7 +380,7 @@ export async function handleAwaitingPhoto(
 
   // ---- Text with no photos yet — guide the user ----
   if (message.messageType === 'text' && session.imageStorageUrls.length === 0) {
-    await wa.sendText(phoneNumber, lang === 'hi'
+    await wa.sendText(phoneNumber, isHindi(lang)
       ? 'Pehle ek photo bhejein! \u{1F4F8} Phir "done" bolein.'
       : 'Send a photo first! \u{1F4F8} Then say "done".');
     return;
@@ -458,7 +458,7 @@ export async function onPhotoBatchTimeout(
       return;
     }
 
-    const nudgeMsg = lang === 'hi'
+    const nudgeMsg = isHindi(lang)
       ? `${imageCount} photos ready hain — "done" bolein ya aur photos bhejein.`
       : `${imageCount} photos ready — say "done" or send more photos.`;
 
@@ -501,7 +501,7 @@ async function showPhotoButtons(
   lang: Language,
   wa: WhatsAppClient,
 ): Promise<void> {
-  const countMsg = lang === 'hi'
+  const countMsg = isHindi(lang)
     ? `${imageCount} photo${imageCount > 1 ? 's' : ''} mil gayi \u2705`
     : `${imageCount} photo${imageCount > 1 ? 's' : ''} received \u2705`;
 
@@ -622,7 +622,7 @@ async function advanceToPayment(
     try {
       await wa.sendText(
         phoneNumber,
-        lang === 'hi'
+        isHindi(lang)
           ? 'Kuch problem aayi. Kripya "done" bolein ya dobara try karein.'
           : 'Something went wrong. Please say "done" to try again.',
       );
