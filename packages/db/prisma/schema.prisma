@@ -200,6 +200,10 @@ model Order {
   // we retry one level up. Optional during the migration backfill window;
   // application code requires it.
   shortId                 String?     @unique @map("short_id")
+  // Phase 19 — per-order cost summary written by the worker on completion.
+  // Decimal(10,2) in rupees. Null while processing. Used for margin reports
+  // + Sentry alerts when a single order blows past ₹80 (plan §8).
+  actualCostInr           Decimal?    @db.Decimal(10, 2) @map("actual_cost_inr")
   rating                  Int?        // 1..5
   ratedAt                 DateTime?   @map("rated_at")
 

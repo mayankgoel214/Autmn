@@ -31,18 +31,22 @@ import { geminiGenerateImage } from './gemini-generate.js';
 import { openaiGenerateImage } from './openai-generate.js';
 import { postProcessFinal, addAILabel, downloadBuffer, uploadToStorage } from './fallback.js';
 import { runDeterministicChecks } from '../qa/deterministic-checks.js';
+import { verifyGeneration, shouldRetry, type VerificationResult } from '../qa/verify.js';
+import { processStrictStyle, isStrictStyle, STRICT_COST_INR } from '../strict/index.js';
+import { alertCostCeilingBreach, recordTier2Fire } from '../monitoring/alerts.js';
 import {
-  buildBetaPrompt,
   buildRevisionPrompt,
   type StyleArtDirection,
   type BrandContext,
 } from './style-prompts-v5.js';
+import { buildCreativePrompt, buildAnythingYouWantCreativePrompt } from './prompt-builder.js';
 import { preprocessImage } from './preprocess.js';
 import { generateCreativeBrief, type CreativeBrief } from './creative-brief.js';
 import {
   parsePerStyleInstructions,
   type PerStyleInstructionResult,
 } from '../instructions/parse-per-style.js';
+import { extractNegatives } from '../instructions/extract-negatives.js';
 import type { ProcessImageParams } from './_common/types.js';
 
 // ---------------------------------------------------------------------------
@@ -54,6 +58,7 @@ const COST_INR = {
   openaiGptImage2: 21.00,     // $0.21 standard quality — gpt-image-2
   creativeBrief: 0.10,        // ~$0.001 — gemini-2.5-flash with photos + structured output
   instructionParse: 0.05,     // ~$0.0005 — gemini-2.5-flash text-only
+  verify: 0.10,               // Phase 19 — gemini-2.5-flash vision compare
 } as const;
 
 const RETAIL_PRICE_INR = 99;
@@ -99,6 +104,18 @@ export interface ProductionParams extends ProcessImageParams {
    * as a stylistic anchor. Omit it for parity with pre-Phase-5 generation.
    */
   brandContext?: BrandContext;
+  /**
+   * Optional Light-Analyzer edge-case flags (Phase 21). When supplied, the
+   * matching addenda from EDGE_CASE_RULES fire in the category section of
+   * the prompt. Worker calls lightAnalyze upstream and forwards the booleans
+   * here; production.ts does NOT call lightAnalyze itself to keep cost off
+   * the per-order path.
+   *
+   * Keys map to LightAnalysisSchema bool fields: isTransparent,
+   * isReflectiveMetal, hasEmbroidery, isLowContrastVsBackground,
+   * hasTextOrLogo, isTinyProduct.
+   */
+  edgeCaseFlags?: Record<string, boolean | undefined>;
 }
 
 export interface StyleResult {
@@ -107,7 +124,7 @@ export interface StyleResult {
   outputUrl: string | null;
   tier: 1 | 2 | 'refund';
   model: 'gemini-3-pro-image-preview' | 'gpt-image-2' | 'refund';
-  /** Actual cost incurred for this style (includes failed-tier attempts). */
+  /** Actual cost incurred for this style (includes failed-tier attempts + verifier). */
   costInr: number;
   durationMs: number;
   /** Prompt sent to the winning tier — useful for debugging. */
@@ -115,6 +132,15 @@ export interface StyleResult {
   error: string | null;
   /** Defect check fail reason (when Pro output was rejected before fallback). */
   tier1DefectReason?: string | null;
+  // ---------------------------------------------------------------------
+  // Phase 19 — verification + retry observability
+  // ---------------------------------------------------------------------
+  /** Number of Tier 1 attempts spent on this style. 1 = no retry, 2 = one retry. */
+  attempts?: number;
+  /** Verification result from the winning attempt. Null if verifier didn't run. */
+  verification?: VerificationResult | null;
+  /** True if we accepted the output despite the verifier flagging drift. */
+  acceptedDespiteDrift?: boolean;
 }
 
 export interface ProductionResult {
@@ -204,11 +230,49 @@ async function processStyleWithChain(
   brandName?: string,
   originalVoiceInstructions?: string,
   brandContext?: BrandContext,
+  // Phase 21 — edge-case flags from Light Analyzer drive category addenda
+  // (transparent / reflective metal / embroidery / etc.).
+  edgeCaseFlags?: Record<string, boolean | undefined>,
 ): Promise<StyleResult> {
+  // Phase 21 — extract negatives from the per-style instruction text.
+  // Deterministic regex pass (0ms); the verifier picks up what we miss.
+  const negatives = extractNegatives(userInstructions);
   const styleStart = Date.now();
-  const prompt = originalVoiceInstructions && userInstructions
-    ? buildRevisionPrompt(style, userInstructions, originalVoiceInstructions, productCategory, artDirection, productDescription, brandName, brandContext)
-    : buildBetaPrompt(style, '', userInstructions, productCategory, artDirection, productDescription, brandName, brandContext);
+  // Phase 18 — build creative-track prompt via the new hierarchical builder.
+  // Revision path (dead in Phase 8 but still callable for admin tools) stays
+  // on the legacy revision prompt until Phase 22 moves it over.
+  // Anything-You-Want delegates to its own builder so user description IS
+  // the direction; everything else uses the standard creative prompt.
+  let prompt: string;
+  if (originalVoiceInstructions && userInstructions) {
+    prompt = buildRevisionPrompt(
+      style, userInstructions, originalVoiceInstructions, productCategory,
+      artDirection, productDescription, brandName, brandContext,
+    );
+  } else if (style === 'style_anything_you_want') {
+    prompt = buildAnythingYouWantCreativePrompt({
+      style,
+      productCategory,
+      edgeCaseFlags,
+      productDescription,
+      brandName,
+      brandContext,
+      userInstructions,
+      negativeConstraints: negatives,
+    });
+  } else {
+    prompt = buildCreativePrompt({
+      style,
+      productCategory,
+      edgeCaseFlags,
+      productDescription,
+      brandName,
+      brandContext,
+      artDirection,
+      userInstructions,
+      negativeConstraints: negatives,
+    });
+  }
   let accumulatedCost = 0;
   let tier1DefectReason: string | null = null;
 
@@ -244,7 +308,44 @@ async function processStyleWithChain(
     const defect = await checkOutputForDefects(primaryBuffer, gen.imageBuffer, style);
 
     if (!defect.catastrophic) {
-      const finalized = await finalize(gen.imageBuffer, style);
+      // Phase 19 — LLM drift detection after the deterministic pre-filter.
+      // The deterministic check already rejected blur/blank/severe-color
+      // drift; the LLM looks for nuanced drift (rotated logo, wrong text,
+      // invented secondary objects, explicit-negative violations).
+      let verified: { buffer: Buffer; verification: VerificationResult; attempts: number; acceptedDespiteDrift: boolean };
+      try {
+        verified = await runVerifierWithRetry({
+          orderId,
+          style,
+          prompt,
+          primaryBuffer,
+          referenceBuffers,
+          firstBuffer: gen.imageBuffer,
+          // Phase 21 — negatives from extractNegatives feed the verifier so
+          // it explicitly checks for violations in the output.
+          negatives,
+          category: productCategory,
+        });
+        // Each verifier call + each Tier 1 retry both bump cost.
+        accumulatedCost += COST_INR.verify * verified.attempts;
+        accumulatedCost += COST_INR.geminiProImage * (verified.attempts - 1);
+      } catch (verifyErr) {
+        // Verifier path threw (very rare — even timeout returns a permissive
+        // result). Fall back to the original buffer + a synthetic pass.
+        console.warn(JSON.stringify({
+          event: 'production_verifier_path_failed',
+          orderId, style,
+          reason: verifyErr instanceof Error ? verifyErr.message.slice(0, 200) : String(verifyErr),
+        }));
+        verified = {
+          buffer: gen.imageBuffer,
+          verification: { identityPreserved: true, driftScore: 0, driftReasons: [], negativesViolated: [] },
+          attempts: 1,
+          acceptedDespiteDrift: false,
+        };
+      }
+
+      const finalized = await finalize(verified.buffer, style);
       const outputUrl = await uploadToStorage(
         finalized,
         `production_${orderId}_${style}_tier1_${Date.now()}.jpg`,
@@ -261,6 +362,9 @@ async function processStyleWithChain(
         prompt,
         error: null,
         tier1DefectReason: null,
+        attempts: verified.attempts,
+        verification: verified.verification,
+        acceptedDespiteDrift: verified.acceptedDespiteDrift,
       };
 
       console.info(JSON.stringify({
@@ -271,6 +375,9 @@ async function processStyleWithChain(
         model: TIER1_MODEL,
         costInr,
         durationMs: result.durationMs,
+        attempts: verified.attempts,
+        driftScore: verified.verification.driftScore,
+        acceptedDespiteDrift: verified.acceptedDespiteDrift,
         error: null,
       }));
 
@@ -540,9 +647,41 @@ export async function processOrderProduction(
   }
 
   // ---- Run all styles in parallel -------------------------------------------
+  // Phase 20 — branch on track per style. Strict styles (White Studio) skip
+  // the generative pipeline entirely; on cutout failure they fall through to
+  // the creative chain so we always ship something.
   const styleResults = await Promise.all(
-    params.styles.map(style =>
-      processStyleWithChain(
+    params.styles.map(async (style) => {
+      if (isStrictStyle(style)) {
+        const strict = await processStrictStyle({ orderId, style, primaryBuffer });
+        if (strict.ok) {
+          const finalized = await finalize(strict.buffer, style);
+          const outputUrl = await uploadToStorage(
+            finalized,
+            `production_${orderId}_${style}_strict_${Date.now()}.jpg`,
+          );
+          return {
+            style,
+            outputUrl,
+            tier: 1 as const,                  // strict is implicitly Tier 1
+            model: 'gemini-3-pro-image-preview' as const, // shared StyleResult type; track is implied by costInr
+            costInr: strict.costInr,
+            durationMs: strict.timings.totalMs,
+            prompt: `[strict track] ${style}`,
+            error: null,
+            tier1DefectReason: null,
+            attempts: 1,
+            verification: null,
+            acceptedDespiteDrift: false,
+          };
+        }
+        console.warn(JSON.stringify({
+          event: 'strict_to_creative_fallback',
+          orderId, style, reason: strict.fallbackReason,
+        }));
+        // Fall through to the creative chain so the order still ships.
+      }
+      return processStyleWithChain(
         style,
         primaryBuffer,
         referenceBuffers,
@@ -554,8 +693,12 @@ export async function processOrderProduction(
         params.brandName,
         undefined, // originalVoiceInstructions — not passed in order-level path
         params.brandContext,
-      ),
-    ),
+        // Phase 21 — edge-case flags from caller (worker can call lightAnalyze
+        // upstream and forward them). undefined → category rule fires without
+        // edge-case addenda.
+        params.edgeCaseFlags,
+      );
+    }),
   );
 
   // ---- Aggregate metrics ----------------------------------------------------
@@ -568,6 +711,16 @@ export async function processOrderProduction(
   const tier1Count = styleResults.filter(r => r.tier === 1).length;
   const tier2Count = styleResults.filter(r => r.tier === 2).length;
   const refundCount = styleResults.filter(r => r.tier === 'refund').length;
+
+  // Phase 23 — runaway-cost alert + Tier-2 burst tracker.
+  alertCostCeilingBreach({
+    orderId,
+    totalCostInr,
+    styleCount: params.styles.length,
+  });
+  for (const r of styleResults.filter(r => r.tier === 2)) {
+    recordTier2Fire({ orderId, style: r.style, reason: r.tier1DefectReason ?? undefined });
+  }
 
   const result: ProductionResult = {
     orderId,
@@ -599,4 +752,125 @@ export async function processOrderProduction(
   }));
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 19 — verifier + bounded retry
+// ---------------------------------------------------------------------------
+
+interface VerifierRetryParams {
+  orderId: string;
+  style: string;
+  prompt: string;
+  primaryBuffer: Buffer;
+  referenceBuffers: Buffer[];
+  /** Output from the first Tier 1 attempt (already past deterministic check). */
+  firstBuffer: Buffer;
+  /** Explicit negatives from instruction parser (Phase 21 will populate). */
+  negatives: string[];
+  category: string | undefined;
+}
+
+interface VerifierRetryResult {
+  /** The accepted output buffer (first attempt if no retry, second if retry replaced it). */
+  buffer: Buffer;
+  /** Verification result for the accepted buffer. */
+  verification: VerificationResult;
+  /** Total Tier 1 attempts spent (1 or 2). */
+  attempts: number;
+  /** True when we accepted a drifted output because the retry cap was hit. */
+  acceptedDespiteDrift: boolean;
+}
+
+/**
+ * Run the LLM verifier on the first generation. On drift, retry Tier 1 once.
+ * Whichever output we end up with — verified pass OR second drifted attempt —
+ * is what we ship. Per plan §Locked decisions: "Drift detected after retry →
+ * accept and deliver" (refund is more expensive than minor drift).
+ *
+ * Retry uses the same prompt + reference set (no prompt rewrite — that would
+ * conflate "did the model misbehave" with "did the prompt change"). Caller
+ * accounts for cost.
+ */
+async function runVerifierWithRetry(params: VerifierRetryParams): Promise<VerifierRetryResult> {
+  const { orderId, style, prompt, primaryBuffer, referenceBuffers, firstBuffer, negatives, category } = params;
+
+  // Attempt 1 — verify the buffer the caller already produced.
+  const v1 = await verifyGeneration({
+    inputBuffer: primaryBuffer,
+    outputBuffer: firstBuffer,
+    negatives,
+    hints: { style, category },
+  });
+
+  if (!shouldRetry(v1)) {
+    return { buffer: firstBuffer, verification: v1, attempts: 1, acceptedDespiteDrift: false };
+  }
+
+  console.info(JSON.stringify({
+    event: 'production_verifier_retry_triggered',
+    orderId, style,
+    driftScore: v1.driftScore,
+    driftReasons: v1.driftReasons,
+    negativesViolated: v1.negativesViolated,
+  }));
+
+  // Attempt 2 — single Tier 1 retry. Failures here (safety refusal,
+  // timeout) fall back to the first attempt; better than nothing.
+  let retryBuffer: Buffer | null = null;
+  try {
+    const retryGen = await withTimeout(
+      geminiGenerateImage({
+        inputImageBuffer: primaryBuffer,
+        prompt,
+        temperature: TIER1_TEMPERATURE,
+        referenceImageBuffers: [primaryBuffer, primaryBuffer, ...referenceBuffers],
+        model: TIER1_MODEL,
+      }),
+      GEMINI_TIER_TIMEOUT_MS,
+      `Tier 1 retry (${style})`,
+    );
+
+    const retryDefect = await checkOutputForDefects(primaryBuffer, retryGen.imageBuffer, style);
+    if (retryDefect.catastrophic) {
+      // Retry produced a worse output than the first — keep the first.
+      console.warn(JSON.stringify({
+        event: 'production_verifier_retry_defect',
+        orderId, style, reason: retryDefect.reason,
+      }));
+      return { buffer: firstBuffer, verification: v1, attempts: 2, acceptedDespiteDrift: true };
+    }
+    retryBuffer = retryGen.imageBuffer;
+  } catch (err) {
+    console.warn(JSON.stringify({
+      event: 'production_verifier_retry_failed',
+      orderId, style,
+      reason: err instanceof Error ? err.message.slice(0, 200) : String(err),
+    }));
+    return { buffer: firstBuffer, verification: v1, attempts: 2, acceptedDespiteDrift: true };
+  }
+
+  // Verify the retry. Whatever it scores, we ship it (hard cap).
+  const v2 = await verifyGeneration({
+    inputBuffer: primaryBuffer,
+    outputBuffer: retryBuffer,
+    negatives,
+    hints: { style, category },
+  });
+  const acceptedDespiteDrift = shouldRetry(v2);
+  if (acceptedDespiteDrift) {
+    console.warn(JSON.stringify({
+      event: 'production_verifier_retry_still_drift',
+      orderId, style,
+      driftScore: v2.driftScore,
+      driftReasons: v2.driftReasons,
+      negativesViolated: v2.negativesViolated,
+    }));
+  } else {
+    console.info(JSON.stringify({
+      event: 'production_verifier_retry_pass',
+      orderId, style, driftScore: v2.driftScore,
+    }));
+  }
+  return { buffer: retryBuffer, verification: v2, attempts: 2, acceptedDespiteDrift };
 }

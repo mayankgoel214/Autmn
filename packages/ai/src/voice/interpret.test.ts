@@ -10,9 +10,12 @@ import assert from 'node:assert/strict';
 import { interpretVoiceNote } from './interpret.js';
 
 const hasGemini = !!(
+  process.env['GEMINI_API_KEY'] ??
+  process.env['GEMINI_API_KEYS'] ??
+  // Deprecated aliases.
   process.env['GOOGLE_AI_API_KEY'] ??
-  process.env['GOOGLE_GENAI_API_KEY'] ??
-  process.env['GEMINI_API_KEY']
+  process.env['GOOGLE_AI_API_KEYS'] ??
+  process.env['GOOGLE_GENAI_API_KEY']
 );
 
 // ---------------------------------------------------------------------------

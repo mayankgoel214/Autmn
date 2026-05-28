@@ -83,9 +83,12 @@ describe('detectLanguage — fast paths (no API)', () => {
 // ---------------------------------------------------------------------------
 
 const hasGemini = !!(
+  process.env['GEMINI_API_KEY'] ??
+  process.env['GEMINI_API_KEYS'] ??
+  // Deprecated aliases still honoured by keypool until the next .env rotation.
   process.env['GOOGLE_AI_API_KEY'] ??
-  process.env['GOOGLE_GENAI_API_KEY'] ??
-  process.env['GEMINI_API_KEY']
+  process.env['GOOGLE_AI_API_KEYS'] ??
+  process.env['GOOGLE_GENAI_API_KEY']
 );
 
 describe('detectLanguage — API classification', () => {

@@ -19,9 +19,13 @@ interface ProviderEnvSpec {
 
 const PROVIDER_ENV: Record<Provider, ProviderEnvSpec> = {
   gemini: {
-    plural: 'GOOGLE_AI_API_KEYS',
-    singular: 'GOOGLE_AI_API_KEY',
-    altSingulars: ['GOOGLE_GENAI_API_KEY'],
+    // Phase 17 — canonical surface is GEMINI_API_KEY[S]; the GOOGLE_AI_* and
+    // GOOGLE_GENAI_API_KEY aliases stay as altSingulars for one deprecation
+    // cycle so existing .env files keep working. Plural form preferred when
+    // multiple keys are configured for rate-limit rotation.
+    plural: 'GEMINI_API_KEYS',
+    singular: 'GEMINI_API_KEY',
+    altSingulars: ['GOOGLE_AI_API_KEYS', 'GOOGLE_AI_API_KEY', 'GOOGLE_GENAI_API_KEY'],
   },
   fal: {
     plural: 'FAL_KEYS',
@@ -44,20 +48,33 @@ const PROVIDER_ENV: Record<Provider, ProviderEnvSpec> = {
 
 export function readKeysFromEnv(provider: Provider, env: NodeJS.ProcessEnv = process.env): string[] {
   const spec = PROVIDER_ENV[provider];
+
+  // 1. Canonical plural — preferred path for production.
   const plural = env[spec.plural];
   if (plural && plural.trim()) {
-    return plural
-      .split(',')
-      .map((k) => k.trim())
-      .filter((k) => k.length > 0);
+    return splitKeys(plural);
   }
+
+  // 2. Canonical singular.
   const single = env[spec.singular];
   if (single && single.trim()) return [single.trim()];
+
+  // 3. Backwards-compatible alts (deprecated names). Plural form ends in 'S';
+  // we treat any alt with that suffix as a comma-separated list.
   for (const alt of spec.altSingulars ?? []) {
     const v = env[alt];
-    if (v && v.trim()) return [v.trim()];
+    if (v && v.trim()) {
+      return alt.endsWith('KEYS') ? splitKeys(v) : [v.trim()];
+    }
   }
   return [];
+}
+
+function splitKeys(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((k) => k.trim())
+    .filter((k) => k.length > 0);
 }
 
 export function providerEnvSpec(provider: Provider): ProviderEnvSpec {

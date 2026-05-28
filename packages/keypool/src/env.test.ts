@@ -2,28 +2,47 @@ import { describe, expect, it } from 'vitest';
 import { readKeysFromEnv } from './env.js';
 
 describe('readKeysFromEnv', () => {
-  it('prefers plural (GOOGLE_AI_API_KEYS) when present', () => {
-    const env = { GOOGLE_AI_API_KEYS: 'a,b,c', GOOGLE_AI_API_KEY: 'single' };
+  // Phase 17 — canonical surface is GEMINI_API_KEY[S]. Legacy GOOGLE_AI_*
+  // and GOOGLE_GENAI_API_KEY remain as deprecated altSingulars so existing
+  // production .env files keep working until rotation.
+
+  it('prefers canonical plural (GEMINI_API_KEYS) when present', () => {
+    const env = { GEMINI_API_KEYS: 'a,b,c', GEMINI_API_KEY: 'single' };
     expect(readKeysFromEnv('gemini', env)).toEqual(['a', 'b', 'c']);
   });
 
-  it('falls back to singular (GOOGLE_AI_API_KEY)', () => {
-    const env = { GOOGLE_AI_API_KEY: 'single-key' };
+  it('falls back to canonical singular (GEMINI_API_KEY)', () => {
+    const env = { GEMINI_API_KEY: 'single-key' };
     expect(readKeysFromEnv('gemini', env)).toEqual(['single-key']);
   });
 
-  it('falls back to alt singular (GOOGLE_GENAI_API_KEY)', () => {
+  it('falls back to deprecated GOOGLE_AI_API_KEYS as comma-split', () => {
+    const env = { GOOGLE_AI_API_KEYS: 'x,y' };
+    expect(readKeysFromEnv('gemini', env)).toEqual(['x', 'y']);
+  });
+
+  it('falls back to deprecated GOOGLE_AI_API_KEY', () => {
+    const env = { GOOGLE_AI_API_KEY: 'legacy-key' };
+    expect(readKeysFromEnv('gemini', env)).toEqual(['legacy-key']);
+  });
+
+  it('falls back to deprecated GOOGLE_GENAI_API_KEY (lowest priority)', () => {
     const env = { GOOGLE_GENAI_API_KEY: 'alt-key' };
     expect(readKeysFromEnv('gemini', env)).toEqual(['alt-key']);
   });
 
+  it('canonical singular wins over deprecated plural', () => {
+    const env = { GEMINI_API_KEY: 'canon', GOOGLE_AI_API_KEYS: 'a,b' };
+    expect(readKeysFromEnv('gemini', env)).toEqual(['canon']);
+  });
+
   it('strips whitespace in comma-split', () => {
-    const env = { GOOGLE_AI_API_KEYS: '  a , b ,c  ' };
+    const env = { GEMINI_API_KEYS: '  a , b ,c  ' };
     expect(readKeysFromEnv('gemini', env)).toEqual(['a', 'b', 'c']);
   });
 
   it('drops empty entries from comma-split', () => {
-    const env = { GOOGLE_AI_API_KEYS: 'a,,b,' };
+    const env = { GEMINI_API_KEYS: 'a,,b,' };
     expect(readKeysFromEnv('gemini', env)).toEqual(['a', 'b']);
   });
 
@@ -43,7 +62,7 @@ describe('readKeysFromEnv', () => {
   });
 
   it('treats an all-whitespace plural as unset', () => {
-    const env = { GOOGLE_AI_API_KEYS: '   ', GOOGLE_AI_API_KEY: 'single' };
+    const env = { GEMINI_API_KEYS: '   ', GEMINI_API_KEY: 'single' };
     expect(readKeysFromEnv('gemini', env)).toEqual(['single']);
   });
 });

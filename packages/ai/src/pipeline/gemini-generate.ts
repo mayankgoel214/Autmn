@@ -15,9 +15,9 @@ export interface GeminiGenerateParams {
    *  to give the model additional angles/details for multi-angle orders.
    *  Gemini 3 Pro Image supports up to 6 distinct objects (primary + 5 refs). */
   referenceImageBuffers?: Buffer[];
-  /** Override the Gemini image model for this call. When absent, falls back to the
-   *  GEMINI_IMAGE_MODEL env var (or the hard-coded default). Use this to route
-   *  Tier 1 (Pro) vs Tier 2 (Flash) without mutating process.env. */
+  /** Override the Gemini image model for this call. When absent, falls back to
+   *  DEFAULT_GEMINI_IMAGE_MODEL. Used by production.ts to route Tier 1 (Pro)
+   *  vs an editing fallback without mutating process.env. */
   model?: string;
 }
 
@@ -61,9 +61,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-// IMPORTANT: Must be a function (not a const) because ESM hoists imports before dotenv loads env vars
+// Phase 17 — drop GEMINI_IMAGE_MODEL env override; production.ts owns the
+// Tier 1 / Tier 2 model selection via the explicit `model` param. This
+// constant is the safe fallback when a caller doesn't pass one (admin tests).
+const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.0-flash-preview-image-generation';
 function getGeminiModel(): string {
-  return process.env['GEMINI_IMAGE_MODEL'] ?? 'gemini-2.0-flash-preview-image-generation';
+  return DEFAULT_GEMINI_IMAGE_MODEL;
 }
 const TIMEOUT_MS = 90_000;
 

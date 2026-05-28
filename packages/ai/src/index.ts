@@ -95,6 +95,58 @@ export {
   type PerStyleInstructionResult,
 } from './instructions/parse-per-style.js';
 
+// Phase 21 — negative extractor (deterministic, no LLM call).
+export {
+  extractNegatives,
+  extractNegativesPerStyle,
+} from './instructions/extract-negatives.js';
+
+// Phase 19 — verifier.
+export {
+  verifyGeneration,
+  shouldRetry,
+  shouldAccept,
+  DRIFT_THRESHOLD,
+  VerificationResultSchema,
+  type VerificationResult,
+  type VerifyParams,
+} from './qa/verify.js';
+
+// Phase 20 — strict track (segmentation + composite).
+export {
+  processStrictStyle,
+  isStrictStyle,
+  compositeOnBackground,
+  WHITE_STUDIO_CONFIG,
+  STRICT_COST_INR,
+  type StrictTrackConfig,
+  type StrictTrackResult,
+} from './strict/index.js';
+
+// Phase 23 — observability hooks (cost ceiling, keypool exhaustion, Tier-2 burst).
+export {
+  ALERT_COST_CEILING_INR,
+  TIER2_BURST_THRESHOLD,
+  alertCostCeilingBreach,
+  alertKeyPoolExhausted,
+  recordTier2Fire,
+  _resetTier2BurstTracker,
+} from './monitoring/alerts.js';
+
+// Phase 18 — hierarchical prompt builder + category rules.
+export {
+  buildCreativePrompt,
+  buildAnythingYouWantCreativePrompt,
+  type BuildCreativePromptParams,
+} from './pipeline/prompt-builder.js';
+export {
+  CATEGORY_RULES,
+  EDGE_CASE_RULES,
+  normaliseCategory,
+  getCategoryRule,
+  buildEdgeCaseAddenda,
+} from './pipeline/category-rules.js';
+
 // ---------------------------------------------------------------------------
 // Pre-processing
 // ---------------------------------------------------------------------------

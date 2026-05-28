@@ -47,6 +47,19 @@ export const LightAnalysisSchema = z.object({
   // Collective name for the set (only populated when itemCount > 1).
   // Examples: "bridal jewelry set", "3-piece cosmetics bundle", "gift hamper"
   setDescription: z.string().nullable().catch(null),
+
+  // ---------------------------------------------------------------------
+  // Phase 21 — edge-case flags. Drive per-category prompt addenda
+  // (packages/ai/src/pipeline/category-rules.ts EDGE_CASE_RULES). All
+  // default to false so older Light Analyzer responses (pre-prompt-update)
+  // produce no edge-case prompt content rather than crashing the schema.
+  // ---------------------------------------------------------------------
+  isTransparent: z.boolean().catch(false),
+  isReflectiveMetal: z.boolean().catch(false),
+  hasEmbroidery: z.boolean().catch(false),
+  isLowContrastVsBackground: z.boolean().catch(false),
+  hasTextOrLogo: z.boolean().catch(false),
+  isTinyProduct: z.boolean().catch(false),
 });
 
 export type LightAnalysis = z.infer<typeof LightAnalysisSchema>;
@@ -78,6 +91,15 @@ Answer these 10 questions as JSON. Nothing else.
 8. itemCount: How many DISTINCT pieces/items exist across ALL photos? Use 1 for a single product shown from multiple angles (single chocolate bar, single bottle, single dress). Use 2+ when the photos collectively show multiple distinct pieces that form a set (necklace + earrings + maang tika = 3; lehenga + dupatta + blouse = 3; 4 different candles = 4). Count only distinct items, not the same item seen from different angles. itemCount MUST equal the length of the "items" array.
 9. items: An array enumerating each distinct item across ALL photos, in plain descriptive English. Examples: ["Kundan Polki necklace with emerald drops", "matching kundan drop earrings", "maang tika"] for a jewelry set; or ["Kinder Bueno White chocolate bar"] for a single bar. Use 1-10 entries. For a single product, put one entry. This array's length MUST equal itemCount.
 10. setDescription: If itemCount > 1, give a concise collective name for the set (e.g. "bridal jewelry set", "lehenga set", "skincare kit", "chocolate hamper"). If itemCount === 1, set to null.
+
+Phase 21 — edge-case flags. Set each to true ONLY when clearly true; default false. These drive prompt addenda that prevent common AI failure modes:
+
+11. isTransparent: true if the product (or its primary visible part) is made of clear/translucent material — glass bottle, perfume vial, clear plastic, transparent gift box, see-through wrapping.
+12. isReflectiveMetal: true if the product has prominent shiny metal surfaces — chrome, polished steel, gold jewelry, brass, mirrored finish. Excludes brushed/matte metal.
+13. hasEmbroidery: true if visible embroidery, embellishment, beadwork, sequins, hand stitching, or thread art is a defining feature.
+14. isLowContrastVsBackground: true if the product is the same value range as its current background (white-on-white, black-on-black) and would risk merging into a similar background in the new ad.
+15. hasTextOrLogo: true if any text, logo, brand name, ingredient list, or printed label is visible on the product surface or packaging.
+16. isTinyProduct: true if physicalSize is "tiny" AND the product fills less than ~30% of the photo frame. Triggers macro composition.
 
 Return ONLY valid JSON, no markdown fences.`;
 }
