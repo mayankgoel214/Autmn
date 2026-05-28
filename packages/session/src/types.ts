@@ -185,27 +185,15 @@ export const ButtonIds = {
   ADD_MORE_BRAND: 'add_more_brand',
   // Free trial confirm
   CONFIRM_FREE: 'confirm_free',
-  // Feedback
+  // Feedback (Phase 8: only FEEDBACK_GREAT survives; FEEDBACK_CHANGE /
+  // FEEDBACK_REDO / EDIT_* / REDO_STYLE_* / CHANGE_SOMETHING were removed
+  // alongside the inline edit/revision flow.)
   FEEDBACK_GREAT: 'feedback_great',
-  FEEDBACK_CHANGE: 'feedback_change',
-  FEEDBACK_REDO: 'feedback_redo',
   // Payment
   CANCEL_ORDER: 'cancel_order',
-  // Edit options (used in EDIT_PROCESSING / handleAwaitingEdit)
-  EDIT_BACKGROUND: 'edit_background',
-  EDIT_LIGHTING: 'edit_lighting',
-  EDIT_STYLE: 'edit_style',
-  EDIT_CROP: 'edit_crop',
-  EDIT_OTHER: 'edit_other',
   // Photo batch — process or add instructions
   PROCESS_NOW: 'process_now',
   ADD_INSTRUCTIONS: 'add_instructions',
-  // 3-style output — redo a specific style
-  REDO_STYLE_0: 'redo_style_0',
-  REDO_STYLE_1: 'redo_style_1',
-  REDO_STYLE_2: 'redo_style_2',
-  // Generic "change something" from multi-style feedback
-  CHANGE_SOMETHING: 'change_something',
 } as const;
 
 // Category → recommended style mapping (must stay in sync with resolveSmartStyle in style.ts)

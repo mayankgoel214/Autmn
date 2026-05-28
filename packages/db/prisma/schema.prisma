@@ -122,6 +122,10 @@ model Session {
   // Phase 1 handlers check it at the end and route back to the menu instead of
   // progressing to the next setup step. Cleared on completion or escape.
   inChangeSettings            Boolean      @default(false) @map("in_change_settings")
+  // Phase 8 — instructions cached during AWAITING_INSTRUCTIONS, before payment.
+  pendingInstructions         String?      @db.Text @map("pending_instructions")
+  pendingInstructionsVoiceUrl String?      @map("pending_instructions_voice_url")
+  pendingMapping              Json?        @map("pending_mapping")
   lastUserMessageAt           DateTime?    @map("last_user_message_at")
   stateEnteredAt      DateTime?    @map("state_entered_at")
   cswExpiresAt        DateTime?    @map("csw_expires_at")
@@ -166,6 +170,26 @@ model Order {
   processingStartedAt     DateTime?   @map("processing_started_at")
   processingCompletedAt   DateTime?   @map("processing_completed_at")
   errorMessage            String?     @map("error_message")
+
+  // ---------------------------------------------------------------------
+  // Phase 8 — post-onboarding rebuild. Coexists with the legacy `amount`
+  // and `outputStyleCount` columns from Phases 0-7; the new columns are
+  // semantic aliases that Phase 12+ will populate. Refund + rating
+  // columns are net-new (no Phase 0-7 equivalent).
+  // ---------------------------------------------------------------------
+  numStylesPicked         Int         @default(0) @map("num_styles_picked")
+  amountPaise             Int         @default(0) @map("amount_paise")
+  isFirstFree             Boolean     @default(false) @map("is_first_free")
+  instructionMappingJson  Json?       @map("instruction_mapping_json")
+  refundReason            String?     @db.Text @map("refund_reason")
+  refundReasonVoiceUrl    String?     @map("refund_reason_voice_url")
+  refundRequestedAt       DateTime?   @map("refund_requested_at")
+  refundStatus            String?     @map("refund_status")  // 'pending' | 'approved' | 'denied'
+  refundDecidedAt         DateTime?   @map("refund_decided_at")
+  refundDecisionNote      String?     @map("refund_decision_note")
+  rating                  Int?        // 1..5
+  ratedAt                 DateTime?   @map("rated_at")
+
   createdAt               DateTime    @default(now()) @map("created_at")
   updatedAt               DateTime    @updatedAt @map("updated_at")
 

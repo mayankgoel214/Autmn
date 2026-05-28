@@ -32,14 +32,18 @@ import { handleSetupStyle } from './handlers/style.js';
 import { handleAwaitingPhoto } from './handlers/images.js';
 import { handleAwaitingPayment } from './handlers/payment.js';
 import { handleDelivered } from './handlers/delivery.js';
-import { handleAwaitingEdit, handleEditProcessing } from './handlers/edit.js';
+// Phase 8: handlers/edit.ts deleted — EDIT_PROCESSING / AWAITING_REVISION_PAYMENT
+// enum values still exist in SessionState but no transitions land users there
+// any more. Stale sessions in those states route to the switch's default arm
+// (resets to IDLE).
 import {
   msgProcessingStuck,
   msgGenericError,
   msgLanguageSwitched,
   msgLanguageAlreadySet,
 } from './messages.js';
-import { onRevisionPaymentConfirmed } from './handlers/payment.js';
+// Phase 8: removed unused `onRevisionPaymentConfirmed` import — webhook routes
+// still import it directly from @autmn/session, so the public API is unchanged.
 
 // ---------------------------------------------------------------------------
 // Main entry point
@@ -379,37 +383,9 @@ export async function handleIncomingMessage(
         await handleDelivered(session, user, message, wa);
         break;
 
-      case 'EDIT_PROCESSING': {
-        // Escape hatch — user wants to start fresh
-        if (isEscapeIntent(message)) {
-          logger.info('Escape intent in EDIT_PROCESSING — resetting to IDLE', { phoneNumber });
-          await transitionTo(phoneNumber, 'IDLE', {
-            currentOrderId: null,
-            styleSelections: [],
-            stylePickStep: 0,
-            imageMediaIds: [],
-            imageStorageUrls: [],
-            earlyPhotoMediaId: null,
-          });
-          const freshSession = await getSession(phoneNumber);
-          if (freshSession) await handleIdle(freshSession, user, message, wa);
-          break;
-        }
-
-        // Auto-recovery: if stuck for >5 minutes, reset to DELIVERED and notify user
-        const editStuckMinutes = session.stateEnteredAt
-          ? (Date.now() - new Date(session.stateEnteredAt).getTime()) / 60_000
-          : 0;
-
-        if (editStuckMinutes > 5) {
-          await transitionTo(phoneNumber, 'DELIVERED');
-          const lang = user.language as Language;
-          await wa.sendText(phoneNumber, msgProcessingStuck(lang));
-        } else {
-          await handleEditProcessing(session, user, message, wa);
-        }
-        break;
-      }
+      // Phase 8: EDIT_PROCESSING case removed (edit/revision flow gone). The
+      // enum value still exists on Session.state; any stale row in that state
+      // hits the switch's default arm and gets reset to IDLE.
 
       case 'CHANGE_SETTINGS_MENU': {
         if (isEscapeIntent(message)) {
@@ -456,52 +432,9 @@ export async function handleIncomingMessage(
         break;
       }
 
-      case 'AWAITING_REVISION_PAYMENT': {
-        // Escape hatch — user gives up on revision payment
-        if (isEscapeIntent(message)) {
-          logger.info('Escape intent in AWAITING_REVISION_PAYMENT — resetting to IDLE', { phoneNumber });
-          await transitionTo(phoneNumber, 'IDLE', {
-            currentOrderId: null,
-            styleSelection: null,
-            styleSelections: [],
-            stylePickStep: 0,
-            pendingEditStyle: null,
-            pendingEditInstructions: null,
-            earlyPhotoMediaId: null,
-          });
-          const freshSession = await getSession(phoneNumber);
-          if (freshSession) await handleIdle(freshSession, user, message, wa);
-          break;
-        }
-
-        // Auto-recovery: 30 minute timeout — user abandoned revision payment, reset to DELIVERED
-        const revisionPaymentStuckMinutes = session.stateEnteredAt
-          ? (Date.now() - new Date(session.stateEnteredAt).getTime()) / 60_000
-          : 0;
-
-        if (revisionPaymentStuckMinutes > 30) {
-          logger.info('AWAITING_REVISION_PAYMENT timeout — resetting to DELIVERED', { phoneNumber });
-          await transitionTo(phoneNumber, 'DELIVERED', {
-            pendingEditStyle: null,
-            pendingEditInstructions: null,
-          });
-          const freshSession = await getSession(phoneNumber);
-          if (freshSession) {
-            await handleDelivered(freshSession, user, message, wa);
-          }
-          break;
-        }
-
-        // Remind user we are waiting for payment
-        {
-          const lang = user.language as Language;
-          const waitMsg = isHindi(lang)
-            ? 'Payment ka intezaar hai. Pay karne ke baad hum aapka edit process karenge.'
-            : "Waiting for payment. We'll process your edit once payment is confirmed.";
-          await wa.sendText(phoneNumber, waitMsg);
-        }
-        break;
-      }
+      // Phase 8: AWAITING_REVISION_PAYMENT case removed alongside the rest
+      // of the edit/revision flow. Stale sessions in that state hit the
+      // switch's default arm below and get reset to IDLE.
 
       default:
         logger.warn('Unknown session state', { state: session.state, phoneNumber });
