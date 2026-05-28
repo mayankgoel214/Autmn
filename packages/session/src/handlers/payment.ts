@@ -17,7 +17,7 @@ import { getPaymentCheckQueue, getImageQueue, getSessionTimeoutQueue } from '@au
 import { transitionTo } from '../db-helpers.js';
 import {
   msgPaymentPending,
-  msgPaymentConfirmed,
+  msgProcessingEstimate,
   msgGenericError,
 } from '../messages.js';
 import { PAYMENT_CHECK_DELAY_MS, ButtonIds, isHindi } from '../types.js';
@@ -120,7 +120,15 @@ export async function onPaymentConfirmed(
       currentOrderId: order.id,
     });
 
-    await wa.sendText(phoneNumber, msgPaymentConfirmed(lang));
+    // Phase 13 — single processing-estimate message (replaces the old
+    // "Payment received ✅" + intermediate progress sends). The worker will
+    // be silent until delivery; this is the only PROCESSING-state message.
+    const stylesCount =
+      (order.stylesOrdered as string[] | null)?.length ??
+      order.outputStyleCount ??
+      1;
+    const photosCount = (order.inputImageUrls as string[] | null)?.length ?? order.imageCount ?? 1;
+    await wa.sendText(phoneNumber, msgProcessingEstimate(stylesCount, photosCount, lang));
 
     try {
       await enqueueImageJobs(orderId, phoneNumber, order);

@@ -8,7 +8,7 @@ import { downloadMedia } from '@autmn/whatsapp';
 import type { Session, User } from '@autmn/db';
 import { prisma } from '@autmn/db';
 import { transitionTo } from '../db-helpers.js';
-import { msgProcessingNow } from '../messages.js';
+import { msgProcessingEstimate } from '../messages.js';
 import { PRICE_PER_OUTPUT_AD_PAISE, OUTPUT_STYLES_PER_ORDER, ButtonIds } from '../types.js';
 import type { Language } from '../types.js';
 import { sendPaymentLink, enqueueImageJobs } from './payment.js';
@@ -146,8 +146,11 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
       styleSelection: primaryStyleId,
     });
 
-    const displayName = (user as any).brandName ?? user.name ?? '';
-    await wa.sendText(phoneNumber, msgProcessingNow(lang, displayName, imageCount, true));
+    // Phase 13 — single processing-estimate message (replaces msgProcessingNow).
+    await wa.sendText(
+      phoneNumber,
+      msgProcessingEstimate(normalizedStyles.length, imageCount, lang),
+    );
 
     // Enqueue image jobs using the canonical enqueueImageJobs from payment.ts.
     // Order status is already set to 'processing' above; the canonical function

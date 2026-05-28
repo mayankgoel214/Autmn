@@ -11,29 +11,19 @@ import type { ImageJob } from '@autmn/db';
 import { processImageNeverFail, downloadBuffer, type NeverFailResult } from '@autmn/ai';
 import { uploadFile, Buckets } from '@autmn/storage';
 import { WhatsAppClient } from '@autmn/whatsapp';
-import { sendProcessedImages, msgGotPhotoCreating, msgProgressAlmostDone, msgProgressReadyToSend, msgPhotoProcessingFailed, fetchBrandContextForUser } from '@autmn/session';
+// Phase 13 — the worker is now silent between PROCESSING-start (handled by
+// the session layer) and the actual image delivery. msgProgressReadyToSend
+// stays — it is a CDN-load buffer right before the images, not a status
+// update during processing.
+import { sendProcessedImages, msgProgressReadyToSend, msgPhotoProcessingFailed, fetchBrandContextForUser } from '@autmn/session';
 import type { Language } from '@autmn/session';
 import { ImageProcessingJobDataSchema } from '@autmn/queue';
-import { getConfig, type WorkerConfig } from '../config.js';
+import { getConfig } from '../config.js';
 
-async function sendProgressUpdate(
-  phoneNumber: string,
-  stage: number,
-  lang: Language,
-  config: WorkerConfig,
-): Promise<void> {
-  try {
-    const wa = new WhatsAppClient({
-      accessToken: config.WHATSAPP_ACCESS_TOKEN,
-      phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
-    });
-
-    const msg = stage === 2 ? msgProgressAlmostDone(lang) : '';
-    if (msg) await wa.sendText(phoneNumber, msg);
-  } catch (err) {
-    console.warn(JSON.stringify({ event: 'progress_update_failed', stage, error: String(err) }));
-  }
-}
+// Phase 13 — the in-flight progress-update helper was removed. The worker no
+// longer emits status messages during PROCESSING; the user sees the single
+// processing-estimate message at transition time and then nothing until the
+// ads arrive.
 
 export async function processImageJob(job: Job): Promise<void> {
   const config = getConfig();
@@ -95,30 +85,10 @@ export async function processImageJob(job: Job): Promise<void> {
       // ── Normal image pipeline ─────────────────────────────────────────────
       log('Using Never-Fail pipeline (V5)');
 
-      // Progress update — sent after 30s delay, only for the first job
-      let stage2Sent = false;
-      let stage2Timer: ReturnType<typeof setTimeout> | undefined;
-      if (isFirstJob) {
-        stage2Timer = setTimeout(async () => {
-          if (!stage2Sent) {
-            stage2Sent = true;
-            await sendProgressUpdate(data.phoneNumber, 2, lang, config);
-          }
-        }, 90_000);
-      }
-
-      // Send initial progress message (first job only)
-      if (isFirstJob) {
-        try {
-          const waProgress = new WhatsAppClient({
-            accessToken: config.WHATSAPP_ACCESS_TOKEN,
-            phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
-          });
-          await waProgress.sendText(data.phoneNumber, msgGotPhotoCreating(lang, 3));
-        } catch (err) {
-          console.warn(JSON.stringify({ event: 'progress_start_failed', error: String(err) }));
-        }
-      }
+      // Phase 13: removed the first-job initial-progress sendText AND the
+      // 90-second intermediate-progress timer. The user gets the single
+      // processing-estimate message at PROCESSING transition (from the
+      // session layer) and then silence until the ads land.
 
       // Download reference photos (all inputImageUrls except index 0, which is the primary)
       // The primary URL is already downloaded inside the pipeline via params.imageUrl.
@@ -193,11 +163,7 @@ export async function processImageJob(job: Job): Promise<void> {
         brandContext,
       });
 
-      // Cancel the stage 2 timer if pipeline finished before 30s
-      if (stage2Timer !== undefined) {
-        clearTimeout(stage2Timer);
-        stage2Sent = true;
-      }
+      // Phase 13: no intermediate-progress timer to cancel — removed above.
 
       log(`Pipeline complete`, {
         tier: result.tier,

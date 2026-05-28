@@ -2066,6 +2066,34 @@ export function msgBrandEditExit(lang: Lang): string {
   }
 }
 
+// ---------------------------------------------------------------------------
+// PHASE 13 — single PROCESSING-transition message with dynamic time estimate
+// ---------------------------------------------------------------------------
+
+/**
+ * The sole message shown to the user during PROCESSING. Heuristic from the
+ * post-onboarding plan §Locked decisions §Processing message:
+ *   calculated_seconds = 60 + (styles_count × 40) + (photos_count × 10)
+ *   X = ceil(calculated_seconds / 60) + 1    (always +1 min buffer)
+ *   Y = X + 1
+ * Phase 13 also strips the worker's intermediate progress messages so users
+ * see this and then nothing until the ads arrive.
+ */
+export function msgProcessingEstimate(stylesCount: number, photosCount: number, lang: Lang): string {
+  const calculatedSeconds = 60 + stylesCount * 40 + photosCount * 10;
+  const x = Math.ceil(calculatedSeconds / 60) + 1;
+  const y = x + 1;
+  switch (lang) {
+    case 'hi':
+      return `आपके ads तैयार हो रहे हैं. लगभग ${x}-${y} मिनट 🎨`;
+    case 'hinglish':
+      return `Aapke ads taiyaar ho rahe hain. Approximately ${x}-${y} minutes 🎨`;
+    case 'en':
+    default:
+      return `Your ads are being made. Approximately ${x}-${y} minutes 🎨`;
+  }
+}
+
 function brandFieldLabel(field: string, lang: Lang): string {
   const hi = lang === 'hi' || lang === 'hinglish';
   switch (field) {
