@@ -1952,3 +1952,20 @@ export function msgBrandDetailsUnknown(lang: Lang): string {
       return 'Send an image, PDF, text, or website URL. Type "done" or "skip" to finish.';
   }
 }
+
+/**
+ * Sent immediately on "done" while the brand-analysis worker is still running.
+ * The full structured profile arrives in a follow-up message a few seconds
+ * later (msgBrandProfileSaved + structured fields, built by the worker).
+ */
+export function msgBrandAnalyzing(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'आपके brand assets analyze हो रहे हैं ✨ कुछ ही seconds में profile ready होगा।';
+    case 'hinglish':
+      return 'Aapke brand assets analyze ho rahe hain ✨ Kuch hi seconds mein profile ready hoga.';
+    case 'en':
+    default:
+      return 'Analysing your brand assets ✨ Profile will be ready in a few seconds.';
+  }
+}

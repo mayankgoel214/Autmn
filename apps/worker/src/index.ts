@@ -9,6 +9,7 @@ import { getConfig } from './config.js';
 import { processImageJob } from './processors/image-processing.js';
 import { processPaymentCheck } from './processors/payment-check.js';
 import { processSessionTimeout } from './processors/session-timeout.js';
+import { processBrandAnalysis } from './processors/brand-analysis.js';
 
 async function main() {
   const config = getConfig();
@@ -50,11 +51,24 @@ async function main() {
     },
   );
 
+  // Phase 3b — brand-analysis worker. Concurrency 2: Playwright + Gemini are
+  // RAM-heavy and we want to avoid stampeding the Supabase storage CDN.
+  const brandAnalysisWorker = new Worker(
+    QueueNames.BRAND_ANALYSIS,
+    processBrandAnalysis,
+    {
+      connection: getRedisConnection().duplicate(),
+      concurrency: 2,
+      lockDuration: 240_000, // 4 min — Playwright cold start can take 10-20s
+    },
+  );
+
   // Error handlers
   const workers = [
     { name: 'image', worker: imageWorker },
     { name: 'payment', worker: paymentWorker },
     { name: 'session', worker: sessionWorker },
+    { name: 'brand-analysis', worker: brandAnalysisWorker },
   ];
 
   for (const { name, worker } of workers) {

@@ -19,6 +19,7 @@ import type { WhatsAppClient } from '@autmn/whatsapp';
 import { prisma } from '@autmn/db';
 import type { Session, User } from '@autmn/db';
 import { uploadFile, Buckets } from '@autmn/storage';
+import { getBrandAnalysisQueue } from '@autmn/queue';
 import { transitionTo } from '../db-helpers.js';
 import { downloadWhatsAppMedia, mimeToExt } from './instructions.js';
 import { sendChangeSettingsMenu } from './change-settings.js';
@@ -28,7 +29,7 @@ import {
   msgBrandDetailUrlSaved,
   msgBrandLimitReached,
   msgBrandFileTooLarge,
-  msgBrandProfileSaved,
+  msgBrandAnalyzing,
   msgBrandDetailsSkipped,
   msgBrandDetailsUnknown,
   msgGenericError,
@@ -240,7 +241,9 @@ async function ingestText(
 }
 
 // ---------------------------------------------------------------------------
-// "done" finaliser — STUB summary; Phase 3b plugs in real Gemini/Playwright.
+// "done" finaliser — enqueues the brand-analysis job and acks the user. The
+// worker writes BrandProfile.summary + structured fields + BrandSummaryVersion
+// and sends the final "saved" message with the structured profile.
 // ---------------------------------------------------------------------------
 
 async function finaliseBrandProfile(
@@ -259,85 +262,42 @@ async function finaliseBrandProfile(
     return;
   }
 
-  const assets = await prisma.brandAsset.findMany({
+  const assetCount = await prisma.brandAsset.count({
     where: { brandProfileId: profile.id },
-    orderBy: { createdAt: 'asc' },
   });
-
-  if (assets.length === 0) {
+  if (assetCount === 0) {
     await wa.sendText(phoneNumber, msgBrandDetailsSkipped(lang));
     await transitionTo(phoneNumber, 'CHANGE_SETTINGS_MENU');
     await sendChangeSettingsMenu(phoneNumber, lang, wa);
     return;
   }
 
-  const summary = buildStubSummary(assets);
-  const websites = assets
-    .filter((a) => a.type === 'website' && a.rawText)
-    .map((a) => extractFirstUrl(a.rawText!))
-    .filter((u): u is string => u !== null);
+  // Enqueue the worker job. We send the "analysing..." ack synchronously and
+  // hand the user back to the menu — the worker writes the final summary +
+  // sends the saved-profile message in a follow-up.
+  try {
+    const queue = getBrandAnalysisQueue();
+    await queue.add(
+      'analyze_brand',
+      {
+        brandProfileId: profile.id,
+        phoneNumber,
+        userLang: lang,
+        userBrandName: (user as any).brandName ?? user.name ?? undefined,
+      },
+      { jobId: `brand_analysis_${profile.id}_${Date.now()}` },
+    );
+    await wa.sendText(phoneNumber, msgBrandAnalyzing(lang));
+  } catch (err) {
+    logger.error('Failed to enqueue brand-analysis job', {
+      phoneNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    await wa.sendText(phoneNumber, msgGenericError(lang));
+  }
 
-  await prisma.brandProfile.update({
-    where: { id: profile.id },
-    data: {
-      summary,
-      summaryUpdatedAt: new Date(),
-      websiteUrl: websites[0] ?? profile.websiteUrl,
-    },
-  });
-
-  await prisma.brandSummaryVersion.create({
-    data: {
-      brandProfileId: profile.id,
-      summary,
-      // Phase 3b populates these once the real AI runs.
-      structuredData: { tagline: null, brandColors: [], vibe: null, stub: true },
-      changeReason: 'initial',
-    },
-  });
-
-  await wa.sendText(phoneNumber, msgBrandProfileSaved(lang, assets.length));
   await transitionTo(phoneNumber, 'CHANGE_SETTINGS_MENU');
   await sendChangeSettingsMenu(phoneNumber, lang, wa);
-}
-
-/**
- * Stub summary writer used until Phase 3b wires real Gemini/Playwright.
- * Just counts asset types and concatenates text notes for context.
- */
-function buildStubSummary(
-  assets: Array<{ type: string; rawText: string | null }>,
-): string {
-  const counts = {
-    logo: assets.filter((a) => a.type === 'logo').length,
-    image: assets.filter((a) => a.type === 'reference_image').length,
-    pdf: assets.filter((a) => a.type === 'pdf').length,
-    doc: assets.filter((a) => a.type === 'document').length,
-    text: assets.filter((a) => a.type === 'text').length,
-    web: assets.filter((a) => a.type === 'website').length,
-  };
-
-  const notes = assets
-    .filter((a) => a.type === 'text' && a.rawText)
-    .map((a) => a.rawText!.trim())
-    .join(' | ');
-
-  const parts: string[] = [];
-  if (counts.logo + counts.image) parts.push(`${counts.logo + counts.image} image(s)`);
-  if (counts.pdf) parts.push(`${counts.pdf} PDF(s)`);
-  if (counts.doc) parts.push(`${counts.doc} document(s)`);
-  if (counts.text) parts.push(`${counts.text} note(s)`);
-  if (counts.web) parts.push(`${counts.web} website link(s)`);
-
-  let summary = `Brand assets uploaded: ${parts.join(', ') || 'none'}. ` +
-    `AI summary will be generated once Phase 3b's brand-analysis pipeline is wired.`;
-  if (notes) summary += ` Notes: ${notes.slice(0, 500)}`;
-  return summary;
-}
-
-function extractFirstUrl(text: string): string | null {
-  const m = text.match(URL_REGEX);
-  return m ? m[0] : null;
 }
 
 function extFromMime(mime: string): string {

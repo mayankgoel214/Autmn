@@ -17,8 +17,12 @@
     "@autmn/storage": "workspace:*",
     "groq-sdk": "^0.8.0",
     "openai": "^4.0.0",
+    "pdf-parse": "^1.1.1",
+    "playwright": "^1.49.0",
     "sharp": "^0.33.0",
     "zod": "^3.23.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/pdf-parse": "^1.1.4"
+  }
 }

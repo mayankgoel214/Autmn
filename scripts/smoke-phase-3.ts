@@ -251,11 +251,12 @@ async function pathSkip(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path N — "done" with at least one asset finalises the profile
+// Path N — "done" with at least one asset enqueues the brand-analysis job
+// (Phase 3b: summary writes are now the worker's job, not the handler's).
 // ---------------------------------------------------------------------------
 
 async function pathDoneWithAssets(): Promise<void> {
-  console.log('\n== Path N: assets + "done" → BrandSummaryVersion + menu ==');
+  console.log('\n== Path N: assets + "done" → brand-analysis job enqueued + menu ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await navigateToBrandDetails(wa);
@@ -268,33 +269,41 @@ async function pathDoneWithAssets(): Promise<void> {
 
   const profile = await brandProfileFor();
   assert(!!profile, 'BrandProfile exists');
+
+  // The worker writes summary / version asynchronously; nothing should be on
+  // the profile or in BrandSummaryVersion yet from the handler call alone.
+  assert(profile?.summary === null, `profile.summary still null pre-worker (got "${profile?.summary}")`);
+  const preVersions = profile
+    ? await prisma.brandSummaryVersion.count({ where: { brandProfileId: profile.id } })
+    : 0;
+  assert(preVersions === 0, `no BrandSummaryVersion rows pre-worker (got ${preVersions})`);
+
+  // The handler must have enqueued a brand-analysis job carrying this profile.
+  const { getBrandAnalysisQueue } = await import('../packages/queue/dist/index.js');
+  const queue = getBrandAnalysisQueue();
+  const queued = await queue.getJobs(['waiting', 'active', 'delayed']);
+  const ourJob = queued.find((j: any) => j.data?.brandProfileId === profile!.id);
+  assert(!!ourJob, 'brand-analysis job enqueued');
   assert(
-    typeof profile?.summary === 'string' && profile.summary.length > 0,
-    `summary string written (got "${profile?.summary?.slice(0, 60)}")`,
-  );
-  assert(profile?.summaryUpdatedAt instanceof Date, 'summaryUpdatedAt set');
-  assert(
-    profile?.websiteUrl === 'https://store.example.com',
-    `websiteUrl extracted (got ${profile?.websiteUrl})`,
+    ourJob?.data?.phoneNumber === PHONE,
+    `job phoneNumber=${PHONE} (got ${ourJob?.data?.phoneNumber})`,
   );
 
-  const versions = profile
-    ? await prisma.brandSummaryVersion.findMany({
-        where: { brandProfileId: profile.id },
-        orderBy: { createdAt: 'asc' },
-      })
-    : [];
-  assert(versions.length === 1, `1 BrandSummaryVersion row (got ${versions.length})`);
-  assert(versions[0]?.changeReason === 'initial', `version.changeReason=initial`);
-  const struct = versions[0]?.structuredData as any;
+  // User-facing acknowledgement is the "analysing..." text, NOT the final
+  // structured profile — that arrives later from the worker.
   assert(
-    struct && struct.stub === true,
-    'structuredData marked stub (Phase 3b will replace)',
+    sent.some((m) => m.type === 'text' && /analy|analyse|analyz/i.test(m.body)),
+    'analysing-ack text sent',
   );
 
   const s = await getSession();
   assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU after done (got ${s?.state})`);
   assert(sent.some((m) => m.type === 'list'), 'menu re-shown after done');
+
+  // Remove the queued job so a live worker doesn't try to process orphaned
+  // data once we've cleaned the user up.
+  if (ourJob) await ourJob.remove().catch(() => {});
+  await queue.close().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------

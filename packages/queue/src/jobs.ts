@@ -46,10 +46,25 @@ export const SessionTimeoutJobDataSchema = z.object({
 export type SessionTimeoutJobData = z.infer<typeof SessionTimeoutJobDataSchema>;
 
 // ---------------------------------------------------------------------------
+// Brand Analysis Job (Phase 3b)
+// ---------------------------------------------------------------------------
+
+export const BrandAnalysisJobDataSchema = z.object({
+  brandProfileId: z.string().uuid(),
+  phoneNumber: z.string().min(10),
+  /** Cached at enqueue time so the worker need not re-fetch the user. */
+  userLang: z.string().optional(),
+  userBrandName: z.string().optional(),
+});
+
+export type BrandAnalysisJobData = z.infer<typeof BrandAnalysisJobDataSchema>;
+
+// ---------------------------------------------------------------------------
 // Union helpers — useful for worker type narrowing
 // ---------------------------------------------------------------------------
 
 export type AnyJobData =
   | ImageProcessingJobData
   | PaymentCheckJobData
-  | SessionTimeoutJobData;
+  | SessionTimeoutJobData
+  | BrandAnalysisJobData;
