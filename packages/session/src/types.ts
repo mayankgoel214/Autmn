@@ -112,8 +112,19 @@ export interface MessageContext {
 // Pricing constants
 // ---------------------------------------------------------------------------
 
-/** Price per order in paise (Rs 199 for 3 style ads) */
+/**
+ * @deprecated Phase 12 - use PRICE_PER_OUTPUT_AD_PAISE × N instead. Left in
+ * place for one phase so external admin tooling and stale code paths don't
+ * break; Phase 16 polish will remove it.
+ */
 export const PRICE_PER_ORDER_PAISE = 19900;
+
+/**
+ * Phase 12 - price per single generated ad output in paise (₹49). The
+ * final order amount is this × number of styles picked (1-3). For the
+ * 0-pick → Smart Pack case, that's 3 × 4900 = ₹147.
+ */
+export const PRICE_PER_OUTPUT_AD_PAISE = 4900;
 
 /** Number of style ad outputs generated per order */
 export const OUTPUT_STYLES_PER_ORDER = 3;
@@ -121,7 +132,7 @@ export const OUTPUT_STYLES_PER_ORDER = 3;
 /** Free redos per style output */
 export const FREE_REDOS_PER_STYLE = 1;
 
-/** @deprecated Use PRICE_PER_ORDER_PAISE instead. Price per image in paise (Rs 99) */
+/** @deprecated Use PRICE_PER_OUTPUT_AD_PAISE × N instead. Price per image in paise (Rs 99) */
 export const PRICE_PER_IMAGE_PAISE = 9900;
 
 /** Edit revision fee in paise (Rs 29) */

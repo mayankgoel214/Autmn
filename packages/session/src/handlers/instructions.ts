@@ -9,7 +9,7 @@ import type { Session, User } from '@autmn/db';
 import { prisma } from '@autmn/db';
 import { transitionTo } from '../db-helpers.js';
 import { msgProcessingNow } from '../messages.js';
-import { PRICE_PER_ORDER_PAISE, OUTPUT_STYLES_PER_ORDER, ButtonIds } from '../types.js';
+import { PRICE_PER_OUTPUT_AD_PAISE, OUTPUT_STYLES_PER_ORDER, ButtonIds } from '../types.js';
 import type { Language } from '../types.js';
 import { sendPaymentLink, enqueueImageJobs } from './payment.js';
 import { selectStylesForOrder } from '../auto-styles.js';
@@ -88,9 +88,14 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
   const primaryStyleId = normalizedStyles[0] ?? 'style_clean_white';
   // Pre-Phase-8 #2: freemium flag is computed BEFORE the orderCount increment.
   const isFreeOrder = user.orderCount === 0;
-  const amount = isFreeOrder ? 0 : PRICE_PER_ORDER_PAISE;
+  // Phase 12 — dynamic pricing: ₹49 × number of output ads. 1 style = ₹49,
+  // 2 styles = ₹98, 3 styles (incl. Smart Pack auto-fill) = ₹147. First
+  // order is always ₹0 regardless of how many styles were picked.
+  const amount = isFreeOrder ? 0 : PRICE_PER_OUTPUT_AD_PAISE * normalizedStyles.length;
 
-  // Create order
+  // Create order. The new amountPaise / numStylesPicked / isFirstFree
+  // columns (Phase 8 schema) are populated alongside the legacy `amount` +
+  // `outputStyleCount` columns until Phase 16 cleanup retires the duplicates.
   const order = await prisma.order.create({
     data: {
       phoneNumber,
@@ -102,6 +107,9 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
       inputImageUrls: imageStorageUrls,
       status: 'payment_pending',
       amount,
+      amountPaise: amount,
+      numStylesPicked: normalizedStyles.length,
+      isFirstFree: isFreeOrder,
       productCategory: user.businessType ?? 'general',
       userId: user.id,
     },
