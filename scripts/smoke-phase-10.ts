@@ -42,8 +42,13 @@ loadEnv(resolve(import.meta.dirname, '../.env'));
 const { ListIds } = await import('../packages/session/dist/index.js');
 const sessionMessages = await import('../packages/session/dist/messages.js');
 const styleDisplayName = (sessionMessages as { styleDisplayName: (id: string, lang: string) => string }).styleDisplayName;
-const { buildBetaPrompt, buildAnythingYouWantPrompt } = await import(
-  '../packages/ai/dist/pipeline/style-prompts-v5.js'
+// Phase 22 — legacy buildBetaPrompt / buildAnythingYouWantPrompt retired.
+// The hierarchical builder lives in prompt-builder.ts; the
+// anything-you-want flavour has its own entry point because the user's
+// description IS the creative direction (not an addendum on a fixed
+// style template).
+const { buildCreativePrompt, buildAnythingYouWantCreativePrompt } = await import(
+  '../packages/ai/dist/pipeline/prompt-builder.js'
 );
 
 const sendStyleListModule = await import('../packages/session/dist/handlers/onboarding.js');
@@ -157,44 +162,45 @@ async function pathTextMatcher(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path BU — buildBetaPrompt routes through buildAnythingYouWantPrompt
+// Path BU — buildAnythingYouWantCreativePrompt anchors on the user description
+// (Phase 22 — replaces the legacy buildBetaPrompt→buildAnythingYouWantPrompt
+// routing assertion. Routing now lives in production.ts where the style id
+// switches between buildCreativePrompt and buildAnythingYouWantCreativePrompt.)
 // ---------------------------------------------------------------------------
 
-function pathBetaPromptRoutes(): void {
-  console.log('\n== Path BU: buildBetaPrompt(anything_you_want) delegates to user-described path ==');
+function pathAnythingYouWantPromptAnchors(): void {
+  console.log('\n== Path BU: buildAnythingYouWantCreativePrompt anchors on the user description ==');
   const description = 'A neon-lit Tokyo arcade at midnight, product floating mid-frame.';
-  const promptViaBeta = buildBetaPrompt(
-    'style_anything_you_want',
-    'ignored',
-    description,
-    'cat_jewellery',
-    undefined,
-    'silver pendant',
-    'Riya Boutique',
-  );
-  const promptDirect = buildAnythingYouWantPrompt(
-    description,
-    'cat_jewellery',
-    'silver pendant',
-    'Riya Boutique',
-  );
+  const prompt = buildAnythingYouWantCreativePrompt({
+    style: 'style_anything_you_want',
+    productCategory: 'cat_jewellery',
+    productDescription: 'silver pendant',
+    brandName: 'Riya Boutique',
+    userInstructions: description,
+  });
   assert(
-    promptViaBeta === promptDirect,
-    'buildBetaPrompt → buildAnythingYouWantPrompt identity',
-  );
-  assert(
-    /USER-DESCRIBED SCENE/.test(promptViaBeta),
+    /USER-DESCRIBED SCENE/.test(prompt),
     'prompt contains USER-DESCRIBED SCENE header',
   );
   assert(
-    promptViaBeta.includes(description),
+    prompt.includes(description),
     'user description appears verbatim',
   );
-  // Should NOT contain the templated "Style description:" block that other
-  // styles use — that field is meaningless when the user described it.
+  // The hierarchical builder skips the STYLE DIRECTION block on
+  // anything-you-want because the user owns the direction.
   assert(
-    !/^Style description:/m.test(promptViaBeta),
-    'no templated Style description line for anything-you-want',
+    !/^STYLE DIRECTION$/m.test(prompt),
+    'no STYLE DIRECTION block for anything-you-want',
+  );
+  // Product fidelity block must lead the prompt — that's the whole point of
+  // the hierarchy lock.
+  assert(
+    /^PRIMARY OBJECTIVE/.test(prompt),
+    'PRIMARY OBJECTIVE block is the first section',
+  );
+  assert(
+    /Brand: Riya Boutique/.test(prompt),
+    'brand name surfaces in PRIMARY OBJECTIVE block',
   );
 }
 
@@ -204,42 +210,53 @@ function pathBetaPromptRoutes(): void {
 
 function pathEmptyDescriptionFallback(): void {
   console.log('\n== Path BV: empty description still ships a tasteful default ==');
-  const p = buildAnythingYouWantPrompt(undefined, 'cat_jewellery', 'silver pendant', 'Riya');
+  const p = buildAnythingYouWantCreativePrompt({
+    style: 'style_anything_you_want',
+    productCategory: 'cat_jewellery',
+    productDescription: 'silver pendant',
+    brandName: 'Riya',
+    userInstructions: undefined,
+  });
   assert(p.length > 100, `non-empty prompt (len ${p.length})`);
   assert(
     /tasteful modern|tasteful contemporary|provided no description/i.test(p),
     'fallback hints surface in the prompt',
   );
-  const p2 = buildAnythingYouWantPrompt('   ', undefined, undefined, undefined);
+  const p2 = buildAnythingYouWantCreativePrompt({
+    style: 'style_anything_you_want',
+    userInstructions: '   ',
+  });
   assert(p2.length > 100, 'whitespace-only description still produces a prompt');
 }
 
 // ---------------------------------------------------------------------------
-// Path BW — brand context + category fidelity threading
+// Path BW — brand context + category rule threading
 // ---------------------------------------------------------------------------
 
 function pathBrandContextThreads(): void {
-  console.log('\n== Path BW: brand context + category fidelity note are threaded ==');
-  const p = buildAnythingYouWantPrompt(
-    'futuristic chrome aesthetic',
-    'cat_food',
-    'kombucha bottle',
-    'Bubble Co',
-    {
+  console.log('\n== Path BW: brand context + category rule are threaded ==');
+  const p = buildAnythingYouWantCreativePrompt({
+    style: 'style_anything_you_want',
+    productCategory: 'cat_food',
+    productDescription: 'kombucha bottle',
+    brandName: 'Bubble Co',
+    userInstructions: 'futuristic chrome aesthetic',
+    brandContext: {
       tagline: 'Sip the future',
       vibe: 'playful minimalist',
       brandColors: ['#0EA5E9', 'matte black'],
       summary: 'Bubble Co makes adaptogenic kombucha for designers.',
     },
-  );
+  });
   assert(/Tagline: Sip the future/.test(p), 'tagline threaded');
   assert(/Vibe: playful minimalist/.test(p), 'vibe threaded');
   assert(/Brand colors: #0EA5E9, matte black/.test(p), 'colors threaded');
   assert(/Bubble Co makes adaptogenic kombucha/.test(p), 'summary threaded');
-  // Category-fidelity note is the food-label one.
+  // Category rule for food (from category-rules.ts CATEGORY_RULES.food)
+  // emphasises plating/garnish; replaces the old "label readable" note.
   assert(
-    /label.*readable/i.test(p),
-    'food-category fidelity note present',
+    /plating|garnish|appetizing/i.test(p),
+    'food-category rule present in PRODUCT CATEGORY block',
   );
 }
 
@@ -249,7 +266,7 @@ async function main(): Promise<void> {
   pathDisplayName();
   await pathStyleListIncludesAnything();
   await pathTextMatcher();
-  pathBetaPromptRoutes();
+  pathAnythingYouWantPromptAnchors();
   pathEmptyDescriptionFallback();
   pathBrandContextThreads();
 

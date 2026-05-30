@@ -43,7 +43,13 @@ loadEnv(resolve(import.meta.dirname, '../.env'));
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
 const { fetchBrandContextForUser } = await import('../packages/session/dist/index.js');
-const { buildBetaPrompt, buildRevisionPrompt } = await import('../packages/ai/dist/index.js');
+// Phase 22 — buildBetaPrompt / buildRevisionPrompt retired. The
+// hierarchical builder lives in prompt-builder.ts and is the single
+// source of truth for the creative-track prompt; the revision branch in
+// production.ts now also routes through it with merged instructions.
+const { buildCreativePrompt } = await import(
+  '../packages/ai/dist/pipeline/prompt-builder.js'
+);
 
 const prisma = new PrismaClient({ log: ['error'] });
 
@@ -154,52 +160,47 @@ async function pathPopulatedProfile(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path AC — buildBetaPrompt without brandContext
+// Path AC — buildCreativePrompt without brandContext
 // ---------------------------------------------------------------------------
 
 async function pathPromptWithoutBrand(): Promise<void> {
-  console.log('\n== Path AC: buildBetaPrompt WITHOUT brandContext → no brand block ==');
-  const prompt = buildBetaPrompt(
-    'style_clean_white',
-    '',
-    'shoot it on a marble surface',
-    'cat_jewellery',
-    undefined,
-    'gold necklace with rubies',
-    'Joyaa',
-    undefined,
-  );
+  console.log('\n== Path AC: buildCreativePrompt WITHOUT brandContext → no BRAND CONTEXT block ==');
+  const prompt = buildCreativePrompt({
+    style: 'style_clean_white',
+    productCategory: 'cat_jewellery',
+    productDescription: 'gold necklace with rubies',
+    brandName: 'Joyaa',
+    userInstructions: 'shoot it on a marble surface',
+  });
   assert(
-    !/Brand context/.test(prompt),
-    'no "Brand context" section in the prompt when brandContext omitted',
+    !/^BRAND CONTEXT$/m.test(prompt),
+    'no BRAND CONTEXT section when brandContext omitted',
   );
-  assert(prompt.includes('Brand: Joyaa'), 'plain Brand: line still present');
-  assert(prompt.includes('Style: Clean White Studio'), 'style line present');
+  assert(prompt.includes('Brand: Joyaa'), 'plain Brand: line still present in PRIMARY OBJECTIVE');
+  assert(prompt.includes('Style: Clean White Studio'), 'style line present in STYLE DIRECTION');
 }
 
 // ---------------------------------------------------------------------------
-// Path AD — buildBetaPrompt WITH brandContext
+// Path AD — buildCreativePrompt WITH brandContext
 // ---------------------------------------------------------------------------
 
 async function pathPromptWithBrand(): Promise<void> {
-  console.log('\n== Path AD: buildBetaPrompt WITH brandContext → block includes signals ==');
+  console.log('\n== Path AD: buildCreativePrompt WITH brandContext → block includes signals ==');
   const ctx = {
     tagline: 'Modern heritage jewellery',
     vibe: 'minimalist luxury',
     brandColors: ['rose gold', 'ivory'],
     summary: 'Joyaa makes minimalist heritage jewellery for modern Indian brides.',
   };
-  const prompt = buildBetaPrompt(
-    'style_clean_white',
-    '',
-    'shoot it on a marble surface',
-    'cat_jewellery',
-    undefined,
-    'gold necklace with rubies',
-    'Joyaa',
-    ctx,
-  );
-  assert(/Brand context/.test(prompt), 'block heading present');
+  const prompt = buildCreativePrompt({
+    style: 'style_clean_white',
+    productCategory: 'cat_jewellery',
+    productDescription: 'gold necklace with rubies',
+    brandName: 'Joyaa',
+    userInstructions: 'shoot it on a marble surface',
+    brandContext: ctx,
+  });
+  assert(/^BRAND CONTEXT$/m.test(prompt), 'BRAND CONTEXT block heading present');
   assert(/- Tagline: Modern heritage jewellery/.test(prompt), 'tagline injected');
   assert(/- Vibe: minimalist luxury/.test(prompt), 'vibe injected');
   assert(/- Brand colors: rose gold, ivory/.test(prompt), 'brandColors injected');
@@ -207,33 +208,42 @@ async function pathPromptWithBrand(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path AE — buildRevisionPrompt WITH brandContext (regression on the existing
-//           ORIGINAL CONSTRAINTS / REVISION FEEDBACK blocks)
+// Path AE — Revision flow (Phase 22: production.ts merges
+//           originalVoiceInstructions + userInstructions into a single
+//           userInstructions string and routes through buildCreativePrompt
+//           instead of the retired buildRevisionPrompt). Verify the merge
+//           shape preserves both pieces of feedback in the USER INSTRUCTIONS
+//           block alongside the brand context block.
 // ---------------------------------------------------------------------------
 
 async function pathRevisionWithBrand(): Promise<void> {
-  console.log('\n== Path AE: buildRevisionPrompt WITH brandContext → block + revision intact ==');
+  console.log('\n== Path AE: merged revision instructions → both original + revision preserved ==');
   const ctx = {
     tagline: 'Modern heritage jewellery',
     vibe: 'minimalist luxury',
     brandColors: ['rose gold'],
   };
-  const prompt = buildRevisionPrompt(
-    'style_clean_white',
-    'brighter background please',
-    'on a marble surface',
-    'cat_jewellery',
-    undefined,
-    'gold necklace',
-    'Joyaa',
-    ctx,
-  );
-  assert(/Brand context/.test(prompt), 'brand block injected');
+  // This mirrors the merge production.ts does when originalVoiceInstructions
+  // and userInstructions are both present.
+  const originalVoiceInstructions = 'on a marble surface';
+  const userInstructions = 'brighter background please';
+  const mergedUserInstructions = `Original ad constraints (still apply): ${originalVoiceInstructions.trim()}\nRevision feedback (apply on top): ${userInstructions.trim()}`;
+
+  const prompt = buildCreativePrompt({
+    style: 'style_clean_white',
+    productCategory: 'cat_jewellery',
+    productDescription: 'gold necklace',
+    brandName: 'Joyaa',
+    userInstructions: mergedUserInstructions,
+    brandContext: ctx,
+  });
+  assert(/^BRAND CONTEXT$/m.test(prompt), 'brand block injected');
   assert(/- Tagline: Modern heritage jewellery/.test(prompt), 'tagline injected');
-  assert(/REVISION FEEDBACK/.test(prompt), 'REVISION FEEDBACK block preserved');
-  assert(/brighter background please/.test(prompt), 'revision feedback text preserved');
-  assert(/ORIGINAL CONSTRAINTS/.test(prompt), 'ORIGINAL CONSTRAINTS block preserved');
+  assert(/^USER INSTRUCTIONS FOR THIS POSITION$/m.test(prompt), 'USER INSTRUCTIONS block present');
+  assert(/Original ad constraints/.test(prompt), 'merged original-constraints label preserved');
   assert(/on a marble surface/.test(prompt), 'original constraint text preserved');
+  assert(/Revision feedback/.test(prompt), 'merged revision-feedback label preserved');
+  assert(/brighter background please/.test(prompt), 'revision feedback text preserved');
 }
 
 // ---------------------------------------------------------------------------

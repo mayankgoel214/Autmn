@@ -16,7 +16,7 @@ import { uploadFile } from '@autmn/storage';
 import { Buckets } from '@autmn/storage';
 import { lightAnalyze, type LightAnalysis } from '@autmn/ai';
 import { processOrderProduction } from '@autmn/ai';
-import { buildBetaPrompt } from '@autmn/ai';
+import { buildCreativePrompt } from '@autmn/ai';
 import { openaiGenerateImage, type OpenAIModelId } from '@autmn/ai';
 import { preprocessImage } from '@autmn/ai';
 
@@ -721,7 +721,24 @@ export async function adminTestRoutes(app: FastifyInstance): Promise<void> {
     if (useOpenAIDirect && imageModel) {
       const generationTasks = styles.map(async (style) => {
         const styleStart = Date.now();
-        const prompt = buildBetaPrompt(style, analysis.productName, instructions);
+        // Phase 22 — buildBetaPrompt retired; use the hierarchical creative
+        // builder. Hand it the Light-Analyzer-derived category + flags so the
+        // direct-OpenAI A/B path sees the same product fidelity signals as
+        // the production chain.
+        const prompt = buildCreativePrompt({
+          style,
+          productCategory: analysis.productCategory,
+          productDescription: analysis.productName,
+          userInstructions: instructions,
+          edgeCaseFlags: {
+            isTransparent: analysis.isTransparent,
+            isReflectiveMetal: analysis.isReflectiveMetal,
+            hasEmbroidery: analysis.hasEmbroidery,
+            isLowContrastVsBackground: analysis.isLowContrastVsBackground,
+            hasTextOrLogo: analysis.hasTextOrLogo,
+            isTinyProduct: analysis.isTinyProduct,
+          },
+        });
 
         try {
           // Preprocess primary

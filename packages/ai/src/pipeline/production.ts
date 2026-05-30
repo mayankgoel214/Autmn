@@ -34,7 +34,6 @@ import { runDeterministicChecks } from '../qa/deterministic-checks.js';
 import { verifyGeneration, shouldRetry, type VerificationResult } from '../qa/verify.js';
 import { processStrictStyle, isStrictStyle, STRICT_COST_INR } from '../strict/index.js';
 import { alertCostCeilingBreach, recordTier2Fire } from '../monitoring/alerts.js';
-import { buildRevisionPrompt } from './style-prompts-v5.js';
 import { buildCreativePrompt, buildAnythingYouWantCreativePrompt } from './prompt-builder.js';
 import { preprocessImage } from './preprocess.js';
 import { generateCreativeBrief, type CreativeBrief } from './creative-brief.js';
@@ -238,18 +237,20 @@ async function processStyleWithChain(
   // Deterministic regex pass (0ms); the verifier picks up what we miss.
   const negatives = extractNegatives(userInstructions);
   const styleStart = Date.now();
-  // Phase 18 — build creative-track prompt via the new hierarchical builder.
-  // Revision path (dead in Phase 8 but still callable for admin tools) stays
-  // on the legacy revision prompt until Phase 22 moves it over.
-  // Anything-You-Want delegates to its own builder so user description IS
-  // the direction; everything else uses the standard creative prompt.
+  // Phase 22 — every track goes through the hierarchical creative builder.
+  // The legacy buildRevisionPrompt path (live before Phase 8 removed the
+  // edit-after-delivery flow) is collapsed into the standard builder by
+  // merging originalVoiceInstructions with userInstructions and routing
+  // them through the USER INSTRUCTIONS section. style_anything_you_want
+  // still delegates to its dedicated builder so the user's description
+  // IS the creative direction rather than a stylistic addendum.
+  const isRevision = !!(originalVoiceInstructions && userInstructions);
+  const mergedUserInstructions = isRevision
+    ? `Original ad constraints (still apply): ${originalVoiceInstructions!.trim()}\nRevision feedback (apply on top): ${userInstructions!.trim()}`
+    : userInstructions;
+
   let prompt: string;
-  if (originalVoiceInstructions && userInstructions) {
-    prompt = buildRevisionPrompt(
-      style, userInstructions, originalVoiceInstructions, productCategory,
-      artDirection, productDescription, brandName, brandContext,
-    );
-  } else if (style === 'style_anything_you_want') {
+  if (style === 'style_anything_you_want') {
     prompt = buildAnythingYouWantCreativePrompt({
       style,
       productCategory,
@@ -257,7 +258,7 @@ async function processStyleWithChain(
       productDescription,
       brandName,
       brandContext,
-      userInstructions,
+      userInstructions: mergedUserInstructions,
       negativeConstraints: negatives,
     });
   } else {
@@ -269,7 +270,7 @@ async function processStyleWithChain(
       brandName,
       brandContext,
       artDirection,
-      userInstructions,
+      userInstructions: mergedUserInstructions,
       negativeConstraints: negatives,
     });
   }
