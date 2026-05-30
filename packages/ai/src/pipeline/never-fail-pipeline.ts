@@ -19,8 +19,26 @@ import { downloadBuffer } from './fallback.js';
 import { preprocessImage } from './preprocess.js';
 import { processStyleProduction } from './production.js';
 import { generateCreativeBrief } from './creative-brief.js';
+import { lightAnalyze, type LightAnalysis } from './light-analyzer.js';
 import type { BrandContext } from './style-prompts-v5.js';
 import type { ProcessImageParams } from './_common/types.js';
+
+// ---------------------------------------------------------------------------
+// Phase 21 — extract the six edge-case bool fields from a LightAnalysis
+// result into the shape processStyleProduction / processStyleWithChain expect.
+// Keys MUST match LightAnalysisSchema field names and EDGE_CASE_RULES keys
+// (see packages/ai/src/pipeline/category-rules.ts).
+// ---------------------------------------------------------------------------
+function extractEdgeCaseFlags(analysis: LightAnalysis): Record<string, boolean> {
+  return {
+    isTransparent: analysis.isTransparent,
+    isReflectiveMetal: analysis.isReflectiveMetal,
+    hasEmbroidery: analysis.hasEmbroidery,
+    isLowContrastVsBackground: analysis.isLowContrastVsBackground,
+    hasTextOrLogo: analysis.hasTextOrLogo,
+    isTinyProduct: analysis.isTinyProduct,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Extended params (backward-compatible)
@@ -123,17 +141,46 @@ export async function processImageNeverFail(
     primaryBuffer = rawBuffer;
   }
 
-  // ---- V1.1: Creative Brief (per-product art direction) --------------------
-  // Worker calls processImageNeverFail per-style, so we generate a brief for
-  // just this one style. Cost ~₹0.10, latency ~3s. On failure, falls back to
-  // V1 base Beta prompt (no breaking change).
+  // ---- V1.1 + Phase 21: Creative Brief + Light Analyzer (parallel) ---------
+  // Both calls look at the same buffers; running them in parallel keeps the
+  // per-style latency floor near the slower of the two (~5-8s) instead of
+  // ~10-15s if chained. Each failure mode is isolated:
+  //   - brief failure → null → falls back to V1 base Beta prompt
+  //   - lightAnalyze failure → undefined edgeCaseFlags → no category addenda
+  //     (identical to pre-Phase-21 behavior — safe)
   const allBuffers = [primaryBuffer, ...(params.referenceImageBuffers ?? [])];
-  const brief = await generateCreativeBrief({
-    buffers: allBuffers,
-    styles: [style],
-    productCategory: params.productCategory,
-    brandName: params.brandName,
-  });
+
+  const [brief, edgeCaseFlags] = await Promise.all([
+    generateCreativeBrief({
+      buffers: allBuffers,
+      styles: [style],
+      productCategory: params.productCategory,
+      brandName: params.brandName,
+    }),
+    lightAnalyze(allBuffers)
+      .then((analysis) => {
+        const flags = extractEdgeCaseFlags(analysis);
+        const fired = Object.entries(flags)
+          .filter(([_, v]) => v)
+          .map(([k]) => k);
+        console.info(JSON.stringify({
+          event: 'never_fail_edge_case_flags',
+          style,
+          analysisCategory: analysis.productCategory,
+          flagsFired: fired,
+        }));
+        return flags as Record<string, boolean | undefined>;
+      })
+      .catch((err) => {
+        console.warn(JSON.stringify({
+          event: 'never_fail_light_analyze_failed',
+          style,
+          error: err instanceof Error ? err.message.slice(0, 200) : String(err),
+          note: 'Falling back to undefined edgeCaseFlags — no addenda fire',
+        }));
+        return undefined;
+      }),
+  ]);
 
   // ---- Route to V1.1 production chain ---------------------------------------
   const styleResult = await processStyleProduction({
@@ -147,6 +194,7 @@ export async function processImageNeverFail(
     productDescription: brief?.profile.productType,
     brandName: params.brandName,
     brandContext: params.brandContext,
+    edgeCaseFlags,
   });
 
   // ---- Map to NeverFailResult ------------------------------------------------

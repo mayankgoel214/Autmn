@@ -823,6 +823,17 @@ export async function adminTestRoutes(app: FastifyInstance): Promise<void> {
         userInstructions: instructions,
         voiceInstructions: instructions,
         productCategory: analysis.productCategory,
+        // Phase 21 — forward the six edge-case bool fields from the analysis
+        // that already ran above. The category section of the prompt picks
+        // these up via EDGE_CASE_RULES.
+        edgeCaseFlags: {
+          isTransparent: analysis.isTransparent,
+          isReflectiveMetal: analysis.isReflectiveMetal,
+          hasEmbroidery: analysis.hasEmbroidery,
+          isLowContrastVsBackground: analysis.isLowContrastVsBackground,
+          hasTextOrLogo: analysis.hasTextOrLogo,
+          isTinyProduct: analysis.isTinyProduct,
+        },
       });
     } catch (err) {
       app.log.error({ err }, 'Admin test: processOrderProduction failed');

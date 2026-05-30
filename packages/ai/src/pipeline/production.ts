@@ -520,6 +520,13 @@ export async function processStyleProduction(params: {
   productDescription?: string;
   brandName?: string;
   brandContext?: BrandContext;
+  /**
+   * Phase 21 — Light Analyzer edge-case flags. When provided, drive
+   * EDGE_CASE_RULES addenda inside the category section of the prompt.
+   * Worker / never-fail-pipeline calls lightAnalyze upstream and forwards
+   * the booleans here. Omit to skip edge-case addenda entirely (V1 default).
+   */
+  edgeCaseFlags?: Record<string, boolean | undefined>;
 }): Promise<StyleResult> {
   const orderId = params.orderId ?? randomBytes(4).toString('hex');
   return processStyleWithChain(
@@ -534,6 +541,7 @@ export async function processStyleProduction(params: {
     params.brandName,
     params.originalVoiceInstructions,
     params.brandContext,
+    params.edgeCaseFlags,
   );
 }
 
