@@ -166,10 +166,10 @@ These are operational, not smoke — schedule a 1-day batch run before productio
 ## Known V1 compromises (vs plan)
 
 1. **Tier 2 still fires on deterministic catastrophic, not only safety refusal.** Plan §2 wants Tier 2 reserved for safety refusal; current code falls to Tier 2 on any unrecoverable Tier 1 failure (including blur/blank). Reason: distinguishing safety refusal from other failures requires Gemini error-code inspection that wasn't risk-justified in V1. The verifier+retry sits ON TOP of this; if Tier 1 produced something checkable, Tier 2 never fires. Revisit if Tier 2 fires too often in production.
-2. **Edge-case flags hook is wired but not auto-populated.** `processStyleWithChain` accepts an `edgeCaseFlags` param and threads it into the prompt; the worker needs to call `lightAnalyze` upstream and forward the result. Not in V1 (worker change deferred).
+2. ~~**Edge-case flags hook is wired but not auto-populated.**~~ **Resolved 2026-05-30** (commit `084ba72`). `processImageNeverFail` now calls `lightAnalyze` in parallel with the Creative Brief and forwards the six bool fields (`isTransparent` / `isReflectiveMetal` / `hasEmbroidery` / `isLowContrastVsBackground` / `hasTextOrLogo` / `isTinyProduct`) to `processStyleProduction` → `processStyleWithChain` → `buildCreativePrompt`. Admin route mirrors the same forward. Failure mode: lightAnalyze throw → undefined flags → no addenda (parity with pre-Phase-21 behaviour). Per-style cost +~₹0.10 (Flash text call), latency masked by Promise.all.
 3. **Flux shadow inpainting deferred.** Plan §3 lists Flux inpainting as the lighting reconstruction step for the strict track. V1 ships with sharp's local soft-shadow synthesis (deterministic, ₹0, instant). Flux can layer on later if quality demands.
 4. **Sentry SDK not integrated.** Alert events emit as structured pino JSON (`event: alert.cost_ceiling_breach`, etc.) — ops routes them via log forwarding for now. Drop in `@sentry/node` later without touching call sites.
-5. **style-prompts-v5.ts still exists.** Plan §22 wants it deleted once all callers migrate. `apps/api/src/routes/admin/test.ts` still imports `buildBetaPrompt`; full deletion deferred.
+5. ~~**style-prompts-v5.ts still exists.**~~ **Resolved 2026-05-30** (commits `8de7625`, `14cee1d`, `a1c0750`). File deleted (348 LOC). `StyleArtDirection` + `BrandContext` types now live in `_common/types.ts`. `prompt-builder.ts` is the single source of truth for the creative-track prompt. The dead-since-Phase-8 revision branch in `production.ts` now collapses original + revision instructions into a labelled merge and routes through `buildCreativePrompt`. Admin OpenAI A/B path uses `buildCreativePrompt` with auto-populated edge-case flags. `smoke-phase-5` and `smoke-phase-10` rewritten to assert the hierarchical builder's output.
 
 ## Where to look when something breaks
 
@@ -180,4 +180,4 @@ These are operational, not smoke — schedule a 1-day batch run before productio
 | Cost above ₹80 per order | `alert.cost_ceiling_breach` event; runaway Tier-2 fires or retries |
 | Gemini outages | `alert.tier2_burst` event (3+ fires in 10 min) |
 | Negatives ignored | `extract-negatives.ts` regex coverage; verifier's `negativesViolated` field |
-| Edge-case rules not firing | Light Analyzer call site needs to populate the bool fields + thread into ProductionParams |
+| Edge-case rules not firing | Check `never_fail_edge_case_flags` log event; if `lightAnalyze` failed look for `never_fail_light_analyze_failed` |
