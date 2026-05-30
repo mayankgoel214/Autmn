@@ -20,8 +20,7 @@ import { preprocessImage } from './preprocess.js';
 import { processStyleProduction } from './production.js';
 import { generateCreativeBrief } from './creative-brief.js';
 import { lightAnalyze, type LightAnalysis } from './light-analyzer.js';
-import type { BrandContext } from './style-prompts-v5.js';
-import type { ProcessImageParams } from './_common/types.js';
+import type { ProcessImageParams, BrandContext } from './_common/types.js';
 
 // ---------------------------------------------------------------------------
 // Phase 21 — extract the six edge-case bool fields from a LightAnalysis

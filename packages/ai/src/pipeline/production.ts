@@ -34,11 +34,7 @@ import { runDeterministicChecks } from '../qa/deterministic-checks.js';
 import { verifyGeneration, shouldRetry, type VerificationResult } from '../qa/verify.js';
 import { processStrictStyle, isStrictStyle, STRICT_COST_INR } from '../strict/index.js';
 import { alertCostCeilingBreach, recordTier2Fire } from '../monitoring/alerts.js';
-import {
-  buildRevisionPrompt,
-  type StyleArtDirection,
-  type BrandContext,
-} from './style-prompts-v5.js';
+import { buildRevisionPrompt } from './style-prompts-v5.js';
 import { buildCreativePrompt, buildAnythingYouWantCreativePrompt } from './prompt-builder.js';
 import { preprocessImage } from './preprocess.js';
 import { generateCreativeBrief, type CreativeBrief } from './creative-brief.js';
@@ -47,7 +43,11 @@ import {
   type PerStyleInstructionResult,
 } from '../instructions/parse-per-style.js';
 import { extractNegatives } from '../instructions/extract-negatives.js';
-import type { ProcessImageParams } from './_common/types.js';
+import type {
+  ProcessImageParams,
+  StyleArtDirection,
+  BrandContext,
+} from './_common/types.js';
 
 // ---------------------------------------------------------------------------
 // Cost constants (INR, ₹100 = $1 approximation)

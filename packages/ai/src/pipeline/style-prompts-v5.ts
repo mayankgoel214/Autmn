@@ -115,35 +115,14 @@ function getCategoryFidelityNote(category: string | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
-// Public interface
+// Public interface — types now live in _common/types.ts (Phase 22 cleanup).
+// Re-exported here so any external caller of style-prompts-v5.ts during the
+// migration window keeps resolving. Once this file is deleted, callers
+// should import directly from '@autmn/ai' (which re-exports the types).
 // ---------------------------------------------------------------------------
 
-/**
- * Per-style art direction from the Creative Brief step (V1.1+).
- */
-export interface StyleArtDirection {
-  /** 10-25 word concrete scene: where + what's happening + key visual element. */
-  sceneDirection: string;
-  /** 3-7 word emotional/visual tone (e.g. "warm and aspirational"). */
-  moodAnchor: string;
-}
-
-/**
- * Per-user brand context (Phase 5) — derived from BrandProfile +
- * BrandSummaryVersion. Threaded through every prompt builder so the LLM has
- * the user's brand identity as a stylistic anchor. Every field is optional;
- * an empty BrandContext is treated identically to undefined.
- */
-export interface BrandContext {
-  /** Free-text summary written by generateSummary (Phase 3b). */
-  summary?: string;
-  /** Brand tagline. */
-  tagline?: string;
-  /** 2-6 brand colours as colour names or hex codes. */
-  brandColors?: string[];
-  /** 2-4 word brand vibe ("minimalist luxury", "playful festive", etc.). */
-  vibe?: string;
-}
+export type { StyleArtDirection, BrandContext } from './_common/types.js';
+import type { StyleArtDirection, BrandContext } from './_common/types.js';
 
 /**
  * Renders the BrandContext as a prompt block, or returns empty string when

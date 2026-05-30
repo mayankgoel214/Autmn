@@ -22,7 +22,7 @@
  */
 
 import { getCategoryRule, buildEdgeCaseAddenda } from './category-rules.js';
-import type { StyleArtDirection, BrandContext } from './style-prompts-v5.js';
+import type { StyleArtDirection, BrandContext } from './_common/types.js';
 
 /**
  * Human-readable style label for the STYLE DIRECTION header. Centralised so

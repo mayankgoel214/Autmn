@@ -1,7 +1,48 @@
 /**
- * Shared pipeline types extracted from orchestrator.ts (V1).
- * Consumed by gemini-pipeline-v5.ts and never-fail-pipeline.ts.
+ * Shared pipeline types — single source of truth for cross-module shapes.
+ * Originally extracted from orchestrator.ts (V1).
  */
+
+// ---------------------------------------------------------------------------
+// Creative-brief output shapes (consumed by prompt-builder.ts + production.ts)
+//
+// Lifted out of style-prompts-v5.ts during the Phase 22 cleanup so the new
+// hierarchical prompt builder is no longer a dependent of the soon-to-be-
+// deleted legacy file.
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-style art direction emitted by the Creative Brief step (V1.1+).
+ * Threaded into prompt-builder.ts via params.artDirection.
+ */
+export interface StyleArtDirection {
+  /** 10-25 word concrete scene: where + what's happening + key visual element. */
+  sceneDirection: string;
+  /** 3-7 word emotional/visual tone (e.g. "warm and aspirational"). */
+  moodAnchor: string;
+}
+
+/**
+ * Per-user brand context (Phase 5) — derived from BrandProfile +
+ * BrandSummaryVersion in packages/session/src/brand-context.ts. Threaded
+ * through every prompt builder so the LLM has the user's brand identity as
+ * a stylistic anchor. Every field is optional; an empty BrandContext is
+ * treated identically to undefined.
+ */
+export interface BrandContext {
+  /** Free-text summary written by generateSummary (Phase 3b). */
+  summary?: string;
+  /** Brand tagline. */
+  tagline?: string;
+  /** 2-6 brand colours as colour names or hex codes. */
+  brandColors?: string[];
+  /** 2-4 word brand vibe ("minimalist luxury", "playful festive", etc.). */
+  vibe?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Legacy pipeline shapes (used by never-fail-pipeline.ts)
+// ---------------------------------------------------------------------------
 
 export interface ProcessImageParams {
   imageUrl: string;
