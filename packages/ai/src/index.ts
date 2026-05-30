@@ -56,14 +56,12 @@ export {
   type LightAnalysis,
 } from './pipeline/light-analyzer.js';
 
-export {
-  buildBetaPrompt,
-  buildRevisionPrompt,
-  buildAnythingYouWantPrompt,
-  formatBrandContextBlock,
-  type StyleArtDirection,
-  type BrandContext,
-} from './pipeline/style-prompts-v5.js';
+// Phase 22 — buildBetaPrompt / buildRevisionPrompt / buildAnythingYouWantPrompt
+// / formatBrandContextBlock retired alongside the deleted style-prompts-v5.ts.
+// Use buildCreativePrompt / buildAnythingYouWantCreativePrompt from
+// prompt-builder.ts instead. StyleArtDirection + BrandContext now live in
+// _common/types.ts.
+export type { StyleArtDirection, BrandContext } from './pipeline/_common/types.js';
 
 // ---------------------------------------------------------------------------
 // Transcription
