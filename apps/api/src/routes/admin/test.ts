@@ -707,6 +707,13 @@ export async function adminTestRoutes(app: FastifyInstance): Promise<void> {
         itemCount: 1,
         items: ['product'],
         setDescription: null,
+        // Phase 21 edge-case flags — fallback defaults match LightAnalysisSchema
+        isTransparent: false,
+        isReflectiveMetal: false,
+        hasEmbroidery: false,
+        isLowContrastVsBackground: false,
+        hasTextOrLogo: false,
+        isTinyProduct: false,
       };
     }
 
