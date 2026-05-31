@@ -78,8 +78,11 @@ For each style (Promise.all):
 | 22 | Brand context owned by prompt-builder | (covered by Phase 18 path PB6) |
 | 23 | Observability alerts | smoke-phase-23.ts |
 | 24 | E2E cost/quality validation + this doc | (real-product run, see §Test gates) |
+| 25 | Storage TTL cleanup (DPDP compliance) | smoke-phase-25.ts |
 
-Total: 7 new smoke files, ~50 assertions on top of the post-onboarding suite.
+Total: 8 new smoke files, ~57 assertions on top of the post-onboarding suite.
+
+Phase 25 is a post-rebuild compliance addition (added 2026-05-31, after the main rebuild merged). See `docs/runbooks/storage-ttl-cleanup.md` for the full runbook. Nightly BullMQ job (`STORAGE_CLEANUP` queue, `30 21 * * *` UTC) sweeps `raw-images`, `voice-notes`, and `refund-reasons` for objects older than 30 days. Derived outputs (`processed-images`, `cutouts`) are explicitly excluded.
 
 ## Key files added / changed
 
@@ -168,7 +171,7 @@ These are operational, not smoke — schedule a 1-day batch run before productio
 1. **Tier 2 still fires on deterministic catastrophic, not only safety refusal.** Plan §2 wants Tier 2 reserved for safety refusal; current code falls to Tier 2 on any unrecoverable Tier 1 failure (including blur/blank). Reason: distinguishing safety refusal from other failures requires Gemini error-code inspection that wasn't risk-justified in V1. The verifier+retry sits ON TOP of this; if Tier 1 produced something checkable, Tier 2 never fires. Revisit if Tier 2 fires too often in production.
 2. ~~**Edge-case flags hook is wired but not auto-populated.**~~ **Resolved 2026-05-30** (commit `084ba72`). `processImageNeverFail` now calls `lightAnalyze` in parallel with the Creative Brief and forwards the six bool fields (`isTransparent` / `isReflectiveMetal` / `hasEmbroidery` / `isLowContrastVsBackground` / `hasTextOrLogo` / `isTinyProduct`) to `processStyleProduction` → `processStyleWithChain` → `buildCreativePrompt`. Admin route mirrors the same forward. Failure mode: lightAnalyze throw → undefined flags → no addenda (parity with pre-Phase-21 behaviour). Per-style cost +~₹0.10 (Flash text call), latency masked by Promise.all.
 3. **Flux shadow inpainting deferred.** Plan §3 lists Flux inpainting as the lighting reconstruction step for the strict track. V1 ships with sharp's local soft-shadow synthesis (deterministic, ₹0, instant). Flux can layer on later if quality demands.
-4. **Sentry SDK not integrated.** Alert events emit as structured pino JSON (`event: alert.cost_ceiling_breach`, etc.) — ops routes them via log forwarding for now. Drop in `@sentry/node` later without touching call sites.
+4. ~~**Sentry SDK not integrated.**~~ **Resolved 2026-05-31** (commit `e000838`). `@sentry/node ^9.0.0` added to `packages/ai`, init wired into `apps/api` and `apps/worker` entry points, alerts.ts calls `captureAlert` alongside the existing structured JSON warn. No-op when `SENTRY_DSN` is unset so dev environments behave identically to before. Fastify `onError` and BullMQ `failed` handlers also route uncaught exceptions through `captureException`. Smoke-phase-23 confirms console.warn output shape is unchanged.
 5. ~~**style-prompts-v5.ts still exists.**~~ **Resolved 2026-05-30** (commits `8de7625`, `14cee1d`, `a1c0750`). File deleted (348 LOC). `StyleArtDirection` + `BrandContext` types now live in `_common/types.ts`. `prompt-builder.ts` is the single source of truth for the creative-track prompt. The dead-since-Phase-8 revision branch in `production.ts` now collapses original + revision instructions into a labelled merge and routes through `buildCreativePrompt`. Admin OpenAI A/B path uses `buildCreativePrompt` with auto-populated edge-case flags. `smoke-phase-5` and `smoke-phase-10` rewritten to assert the hierarchical builder's output.
 
 ## Where to look when something breaks

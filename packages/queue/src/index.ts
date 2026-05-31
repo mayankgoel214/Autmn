@@ -11,12 +11,14 @@ export {
   PaymentCheckJobDataSchema,
   SessionTimeoutJobDataSchema,
   BrandAnalysisJobDataSchema,
+  StorageCleanupJobDataSchema,
 } from "./jobs.js";
 export type {
   ImageProcessingJobData,
   PaymentCheckJobData,
   SessionTimeoutJobData,
   BrandAnalysisJobData,
+  StorageCleanupJobData,
   AnyJobData,
 } from "./jobs.js";
 
@@ -26,4 +28,5 @@ export {
   getPaymentCheckQueue,
   getSessionTimeoutQueue,
   getBrandAnalysisQueue,
+  getStorageCleanupQueue,
 } from "./queues.js";

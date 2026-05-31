@@ -6,6 +6,7 @@ import type {
   PaymentCheckJobData,
   SessionTimeoutJobData,
   BrandAnalysisJobData,
+  StorageCleanupJobData,
 } from "./jobs.js";
 
 // Shared default job options applied to all queues
@@ -28,6 +29,7 @@ let _imageQueue: Queue<ImageProcessingJobData> | null = null;
 let _paymentCheckQueue: Queue<PaymentCheckJobData> | null = null;
 let _sessionTimeoutQueue: Queue<SessionTimeoutJobData> | null = null;
 let _brandAnalysisQueue: Queue<BrandAnalysisJobData> | null = null;
+let _storageCleanupQueue: Queue<StorageCleanupJobData> | null = null;
 
 export function getImageQueue(): Queue<ImageProcessingJobData> {
   if (!_imageQueue) {
@@ -96,4 +98,26 @@ export function getBrandAnalysisQueue(): Queue<BrandAnalysisJobData> {
     );
   }
   return _brandAnalysisQueue;
+}
+
+export function getStorageCleanupQueue(): Queue<StorageCleanupJobData> {
+  if (!_storageCleanupQueue) {
+    _storageCleanupQueue = new Queue<StorageCleanupJobData>(
+      QueueNames.STORAGE_CLEANUP,
+      {
+        connection: getRedisConnection(),
+        defaultJobOptions: {
+          // Repeating cron job — if a sweep fails (Supabase outage etc),
+          // skip and wait for the next scheduled run. Retrying inside the
+          // same window risks re-listing buckets we just half-processed.
+          attempts: 1,
+          // Keep more history than the other queues — auditors may want to
+          // see N nightly runs to confirm DPDP retention is enforced.
+          removeOnComplete: { count: 200 },
+          removeOnFail: { count: 200 },
+        },
+      },
+    );
+  }
+  return _storageCleanupQueue;
 }

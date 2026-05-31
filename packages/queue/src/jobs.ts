@@ -60,6 +60,29 @@ export const BrandAnalysisJobDataSchema = z.object({
 export type BrandAnalysisJobData = z.infer<typeof BrandAnalysisJobDataSchema>;
 
 // ---------------------------------------------------------------------------
+// Storage TTL Cleanup Job — DPDP compliance.
+//
+// Fired by a BullMQ repeating schedule (see apps/worker/src/index.ts).
+// One job sweeps every bucket in `buckets`. Each entry pairs a bucket
+// name with its retention window in milliseconds; objects older than
+// that are deleted. Worker-side default is 30 days for customer-supplied
+// content (raw-images, voice-notes, refund-reasons).
+// ---------------------------------------------------------------------------
+
+export const StorageCleanupJobDataSchema = z.object({
+  buckets: z
+    .array(
+      z.object({
+        bucket: z.string().min(1),
+        maxAgeMs: z.number().int().positive(),
+      }),
+    )
+    .min(1),
+});
+
+export type StorageCleanupJobData = z.infer<typeof StorageCleanupJobDataSchema>;
+
+// ---------------------------------------------------------------------------
 // Union helpers — useful for worker type narrowing
 // ---------------------------------------------------------------------------
 
@@ -67,4 +90,5 @@ export type AnyJobData =
   | ImageProcessingJobData
   | PaymentCheckJobData
   | SessionTimeoutJobData
-  | BrandAnalysisJobData;
+  | BrandAnalysisJobData
+  | StorageCleanupJobData;

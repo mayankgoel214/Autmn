@@ -9,3 +9,6 @@ export type { Bucket } from "./buckets.js";
 export { uploadFile } from "./upload.js";
 export { downloadFile } from "./download.js";
 export { getPublicUrl } from "./url.js";
+
+// TTL cleanup (DPDP compliance)
+export { cleanupBucketByAge, type CleanupBucketResult } from "./cleanup.js";
