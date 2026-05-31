@@ -1,10 +1,13 @@
 /**
  * Phase 23 — observability hooks for the AI pipeline.
  *
- * V1 ships these as structured pino-compatible WARN events so ops can route
- * them via log forwarding (Vector / Datadog / Better Stack / Sentry's log
- * ingestor). When @sentry/node lands in the workspace, replace the
- * console.warn body with Sentry.captureMessage at level 'warning'+.
+ * Each alert emits the structured pino-compatible JSON line (so logs +
+ * existing log forwarding pipelines continue to surface the event) AND,
+ * when Sentry has been initialised at process startup via initSentry()
+ * in ./sentry.ts, also captures the same shape into Sentry as a tagged
+ * message. The captureAlert wrapper is a no-op when SENTRY_DSN is unset,
+ * so this is purely additive — no breaking change for environments that
+ * route via logs only.
  *
  * Three trigger points per plan §8:
  *   1. Single-order cost above ALERT_COST_CEILING_INR
@@ -15,6 +18,8 @@
  * one is invoked by the caller when it catches the error and decides to
  * surface it. (Catching it deep in the keypool would create circular noise.)
  */
+
+import { captureAlert } from './sentry.js';
 
 /** Alert threshold for per-order cost. Plan §8: ₹80 suggests a runaway loop. */
 export const ALERT_COST_CEILING_INR = 80;
@@ -37,12 +42,20 @@ export function alertCostCeilingBreach(payload: {
   brief?: string;
 }): void {
   if (payload.totalCostInr <= ALERT_COST_CEILING_INR) return;
+  const fullPayload = {
+    threshold: ALERT_COST_CEILING_INR,
+    ...payload,
+  };
   console.warn(JSON.stringify({
     event: 'alert.cost_ceiling_breach',
     severity: 'warning',
-    threshold: ALERT_COST_CEILING_INR,
-    ...payload,
+    ...fullPayload,
   }));
+  captureAlert({
+    level: 'warning',
+    event: 'alert.cost_ceiling_breach',
+    payload: fullPayload,
+  });
 }
 
 /**
@@ -61,6 +74,11 @@ export function alertKeyPoolExhausted(payload: {
     severity: 'error',
     ...payload,
   }));
+  captureAlert({
+    level: 'error',
+    event: 'alert.keypool_exhausted',
+    payload,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -91,16 +109,24 @@ export function recordTier2Fire(payload: {
 
   if (tier2Timestamps.length >= TIER2_BURST_THRESHOLD && now - lastBurstAlertAt > BURST_ALERT_COOLDOWN_MS) {
     lastBurstAlertAt = now;
-    console.warn(JSON.stringify({
-      event: 'alert.tier2_burst',
-      severity: 'error',
+    const burstPayload = {
       count: tier2Timestamps.length,
       windowMs: TIER2_BURST_WINDOW_MS,
       threshold: TIER2_BURST_THRESHOLD,
       orderId: payload.orderId,
       style: payload.style,
       reason: payload.reason,
+    };
+    console.warn(JSON.stringify({
+      event: 'alert.tier2_burst',
+      severity: 'error',
+      ...burstPayload,
     }));
+    captureAlert({
+      level: 'error',
+      event: 'alert.tier2_burst',
+      payload: burstPayload,
+    });
   }
 }
 

@@ -5,6 +5,7 @@ loadEnv({ path: resolve(import.meta.dirname, '../../../.env'), override: true })
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { prisma } from '@autmn/db';
+import { initSentry, captureException } from '@autmn/ai';
 import { getConfig } from './config.js';
 import { registerRawBodyParser } from './middleware/raw-body.js';
 import { healthRoutes } from './routes/health.js';
@@ -23,6 +24,16 @@ async function main() {
     process.exit(1);
   }
 
+  // V1 compromise #4 — Sentry transport for alert.* + uncaught errors.
+  // No-op when SENTRY_DSN is unset. MUST run before Fastify so the error
+  // hook below sees an initialised SDK.
+  initSentry({
+    dsn: config.SENTRY_DSN,
+    service: 'api',
+    environment: config.NODE_ENV,
+    release: process.env.GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA,
+  });
+
   const app = Fastify({
     logger: {
       level: config.LOG_LEVEL,
@@ -35,6 +46,17 @@ async function main() {
 
   // Raw body parser must be registered BEFORE routes
   registerRawBodyParser(app);
+
+  // V1 compromise #4 — surface Fastify errors into Sentry. The hook fires
+  // for both unhandled handler throws AND replies via reply.send(err). It
+  // does NOT alter Fastify's response — Sentry is purely additive.
+  app.addHook('onError', async (req, _reply, err) => {
+    captureException(err, {
+      method: req.method,
+      url: req.url,
+      requestId: req.id,
+    });
+  });
 
   // Plugins
   await app.register(cors, { origin: false });

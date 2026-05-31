@@ -131,6 +131,16 @@ export {
   _resetTier2BurstTracker,
 } from './monitoring/alerts.js';
 
+// V1 compromise #4 — Sentry transport for alert.* events. App entry
+// points (apps/api, apps/worker) call initSentry() at startup; alerts.ts
+// uses captureAlert internally.
+export {
+  initSentry,
+  isSentryActive,
+  captureException,
+  type InitSentryOptions,
+} from './monitoring/sentry.js';
+
 // Phase 18 — hierarchical prompt builder + category rules.
 export {
   buildCreativePrompt,

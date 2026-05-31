@@ -11,10 +11,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fal-ai/client": "^1.0.0",
-    "@google/genai": "^1.0.0",
     "@autmn/keypool": "workspace:*",
     "@autmn/storage": "workspace:*",
+    "@fal-ai/client": "^1.0.0",
+    "@google/genai": "^1.0.0",
+    "@sentry/node": "^9.0.0",
     "groq-sdk": "^0.8.0",
     "openai": "^4.0.0",
     "pdf-parse": "^1.1.1",

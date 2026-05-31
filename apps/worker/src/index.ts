@@ -5,6 +5,7 @@ loadEnv({ path: resolve(import.meta.dirname, '../../../.env'), override: true })
 import { Worker } from 'bullmq';
 import { getRedisConnection, QueueNames } from '@autmn/queue';
 import { prisma } from '@autmn/db';
+import { initSentry, captureException } from '@autmn/ai';
 import { getConfig } from './config.js';
 import { processImageJob } from './processors/image-processing.js';
 import { processPaymentCheck } from './processors/payment-check.js';
@@ -20,6 +21,15 @@ async function main() {
   }
 
   console.log(`Autmn Worker starting (${config.NODE_ENV})`);
+
+  // V1 compromise #4 — Sentry transport for alert.* + uncaught errors.
+  // No-op when SENTRY_DSN is unset.
+  initSentry({
+    dsn: config.SENTRY_DSN,
+    service: 'worker',
+    environment: config.NODE_ENV,
+    release: process.env.GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA,
+  });
 
   // Each BullMQ Worker MUST have its own Redis connection
   const imageWorker = new Worker(
@@ -79,6 +89,13 @@ async function main() {
         error: err.message,
         msg: 'Job failed',
       }));
+      // V1 compromise #4 — surface the exception (no-op without Sentry DSN).
+      captureException(err, {
+        worker: name,
+        jobId: job?.id,
+        queueName: job?.queueName,
+        attemptsMade: job?.attemptsMade,
+      });
     });
 
     worker.on('completed', (job) => {
