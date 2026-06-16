@@ -74,22 +74,22 @@ export function faqResponse(intent: FaqIntent, lang: Language): string {
     case 'turnaround':
       switch (lang) {
         case 'hi':
-          return 'हर ad बनने में 2-5 minutes लगते हैं।';
+          return 'हर creative बनने में 2-5 minutes लगते हैं।';
         case 'hinglish':
-          return 'Har ad banne mein 2-5 minutes lagte hain.';
+          return 'Har creative banne mein 2-5 minutes lagte hain.';
         case 'en':
         default:
-          return '2-5 minutes per ad.';
+          return '2-5 minutes per creative.';
       }
     case 'what':
       switch (lang) {
         case 'hi':
-          return 'Autmn आपके product की photo को WhatsApp पर professional ad image में बदलता है।';
+          return 'Autmn आपके product की photo को WhatsApp पर professional creative image में बदलता है।';
         case 'hinglish':
-          return 'Autmn aapke product ki photo ko WhatsApp pe professional ad image mein badal deta hai.';
+          return 'Autmn aapke product ki photo ko WhatsApp pe professional creative image mein badal deta hai.';
         case 'en':
         default:
-          return 'Autmn turns your product photos into professional ad images, right inside WhatsApp.';
+          return 'Autmn turns your product photos into professional creative images, right inside WhatsApp.';
       }
   }
 }

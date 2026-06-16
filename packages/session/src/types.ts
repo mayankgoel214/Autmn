@@ -202,6 +202,8 @@ export const ButtonIds = {
   // Brand-details view buttons (Phase 4)
   EDIT_BRAND: 'edit_brand',
   ADD_MORE_BRAND: 'add_more_brand',
+  // Brand-details collection — finish the step from a button (not just typed "done")
+  BRAND_DETAILS_DONE: 'brand_details_done',
   // Free trial confirm
   CONFIRM_FREE: 'confirm_free',
   // Feedback (Phase 8: only FEEDBACK_GREAT survives; FEEDBACK_CHANGE /

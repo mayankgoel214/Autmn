@@ -100,7 +100,7 @@ export async function handleIdle(
   if (message.messageType === 'interactive' && message.buttonReplyId) {
     const buttonId = message.buttonReplyId;
 
-    // Phase 2 — Generate ad: returning user wants to make another ad.
+    // Phase 2 — Generate creative: returning user wants to make another creative.
     if (buttonId === ButtonIds.GENERATE_AD) {
       const claimed = await prisma.session.updateMany({
         where: { phoneNumber: session.phoneNumber, state: 'IDLE' },
@@ -685,14 +685,14 @@ export async function sendStyleList(
     { id: ListIds.STYLE_ANYTHING_YOU_WANT, title: styleDisplayName(ListIds.STYLE_ANYTHING_YOU_WANT, lang) },
   ].filter(row => !alreadyPicked.includes(row.id));
 
-  // First free order — pick exactly ONE style (one free ad). No Smart/Custom
+  // First free order — pick exactly ONE style (one free creative). No Smart/Custom
   // packs and no multi-step picker: the free tier is a single picture.
   if (singlePick) {
     await wa.sendList(
       phoneNumber,
       isHindi(lang)
-        ? 'Aapka pehla ad bilkul FREE hai! 🎁\n\nEk style chuniye:'
-        : 'Your first ad is completely FREE! 🎁\n\nPick one style:',
+        ? 'Aapka pehla creative bilkul FREE hai! 🎁\n\nEk style chuniye:'
+        : 'Your first creative is completely FREE! 🎁\n\nPick one style:',
       isHindi(lang) ? 'Chuniye' : 'Choose',
       [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: styleRows }],
     );
@@ -718,8 +718,8 @@ export async function sendStyleList(
     // Phase 7 — upfront copy explains the order shape so users don't think
     // they're locked into picking exactly 3 styles up front.
     const upfront = isHindi(lang)
-      ? '1-3 styles chuniye — hum 3 ads banayenge, baaki AI khud bhar dega.'
-      : "Pick 1-3 styles — we'll generate 3 ads, AI fills in the rest.";
+      ? '1-3 styles chuniye — hum 3 creatives banayenge, baaki AI khud bhar dega.'
+      : "Pick 1-3 styles — we'll generate 3 creatives, AI fills in the rest.";
     const ask = isHindi(lang) ? 'Style chuniye:' : 'Pick your style:';
     await wa.sendList(
       phoneNumber,

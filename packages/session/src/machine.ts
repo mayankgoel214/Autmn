@@ -108,8 +108,8 @@ export async function handleIncomingMessage(
   if (isHelpIntent(message.text)) {
     const lang = user.language as Language;
     const helpText = isHindi(lang)
-      ? `🙏 *Autmn Help*\n\n📸 Product photo bhejein → AI professional ad banayega\n\n*Commands:*\n• "hi" — Naya order shuru karein\n• Photo bhejein — Ad banaye\n• Voice note — Instructions dein\n• "hindi" / "english" — Bhasha badlein\n\n*Current status:* ${session.state === 'IDLE' ? 'Ready! Photo bhejein.' : session.state === 'PROCESSING' ? 'Aapka photo process ho raha hai...' : session.state === 'DELIVERED' ? 'Photo deliver ho gaya. Edit karein ya naya bhejein.' : 'Setup chal raha hai.'}`
-      : `🙏 *Autmn Help*\n\n📸 Send a product photo → AI creates a professional ad\n\n*Commands:*\n• "hi" — Start a new order\n• Send a photo — Create an ad\n• Voice note — Give instructions\n• "hindi" / "english" — Change language\n\n*Current status:* ${session.state === 'IDLE' ? 'Ready! Send a photo.' : session.state === 'PROCESSING' ? 'Your photo is being processed...' : session.state === 'DELIVERED' ? 'Photo delivered. Edit or send a new one.' : 'Setting up your preferences.'}`;
+      ? `🙏 *Autmn Help*\n\n📸 Product photo bhejein → AI professional creative banayega\n\n*Commands:*\n• "hi" — Naya order shuru karein\n• Photo bhejein — Creative banaye\n• Voice note — Instructions dein\n• "hindi" / "english" — Bhasha badlein\n\n*Current status:* ${session.state === 'IDLE' ? 'Ready! Photo bhejein.' : session.state === 'PROCESSING' ? 'Aapka photo process ho raha hai...' : session.state === 'DELIVERED' ? 'Photo deliver ho gaya. Edit karein ya naya bhejein.' : 'Setup chal raha hai.'}`
+      : `🙏 *Autmn Help*\n\n📸 Send a product photo → AI creates a professional creative\n\n*Commands:*\n• "hi" — Start a new order\n• Send a photo — Create a creative\n• Voice note — Give instructions\n• "hindi" / "english" — Change language\n\n*Current status:* ${session.state === 'IDLE' ? 'Ready! Send a photo.' : session.state === 'PROCESSING' ? 'Your photo is being processed...' : session.state === 'DELIVERED' ? 'Photo delivered. Edit or send a new one.' : 'Setting up your preferences.'}`;
     await wa.sendText(phoneNumber, helpText);
     return;
   }
@@ -559,8 +559,8 @@ function buildSessionRecoveryMessage(
       return lang === 'hi'
         ? 'वापस आए! ऐड बन रहे थे — देखते हैं।'
         : isHindi(lang)
-        ? 'Wapas aaye! Aapke ads process ho rahe the.'
-        : 'Welcome back — your ads were being generated.';
+        ? 'Wapas aaye! Aapke creatives process ho rahe the.'
+        : 'Welcome back — your creatives were being generated.';
     case 'delivery':
       return lang === 'hi'
         ? 'वापस आए!'

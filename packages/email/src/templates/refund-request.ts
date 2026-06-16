@@ -20,7 +20,7 @@ export interface RefundRequestEmailData {
   userPhone: string;
   /** Brand name from the User row (display only). */
   userBrand: string | null;
-  /** Public/signed URLs to the delivered ads. */
+  /** Public/signed URLs to the delivered creatives. */
   deliveredAdsUrls: string[];
   /** Free-text reason the user submitted. */
   refundReason: string;
@@ -43,9 +43,9 @@ export function renderRefundRequestEmail(data: RefundRequestEmailData): {
 
   const adsList = data.deliveredAdsUrls.length
     ? data.deliveredAdsUrls
-        .map((url, i) => `<li><a href="${escapeAttr(url)}">Ad ${i + 1}</a></li>`)
+        .map((url, i) => `<li><a href="${escapeAttr(url)}">Creative ${i + 1}</a></li>`)
         .join('')
-    : '<li><em>No delivered ad URLs on record.</em></li>';
+    : '<li><em>No delivered creative URLs on record.</em></li>';
 
   const voiceRow = data.refundVoiceUrl
     ? `<tr><td><strong>Voice note:</strong></td><td><a href="${escapeAttr(data.refundVoiceUrl)}">Open recording</a></td></tr>`
@@ -74,7 +74,7 @@ export function renderRefundRequestEmail(data: RefundRequestEmailData): {
   <h2 style="font-size: 16px; margin: 0 0 8px;">Reason</h2>
   <blockquote style="margin: 0 0 24px; padding: 12px 16px; background: #f6f7f9; border-left: 4px solid #ccc; white-space: pre-wrap;">${escapeHtml(data.refundReason)}</blockquote>
 
-  <h2 style="font-size: 16px; margin: 0 0 8px;">Delivered ads</h2>
+  <h2 style="font-size: 16px; margin: 0 0 8px;">Delivered creatives</h2>
   <ul style="margin: 0 0 32px; padding-left: 20px;">${adsList}</ul>
 
   <table cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
@@ -107,7 +107,7 @@ export function renderRefundRequestEmail(data: RefundRequestEmailData): {
     'Reason:',
     data.refundReason,
     '',
-    'Delivered ads:',
+    'Delivered creatives:',
     ...(data.deliveredAdsUrls.length
       ? data.deliveredAdsUrls.map((u, i) => `  ${i + 1}. ${u}`)
       : ['  (none on record)']),

@@ -24,6 +24,8 @@ import { transitionTo } from '../db-helpers.js';
 import { downloadWhatsAppMedia, mimeToExt } from './instructions.js';
 import { sendChangeSettingsMenu } from './change-settings.js';
 import {
+  msgAskBrandDetails,
+  btnBrandDetailsDone,
   msgBrandDetailFileSaved,
   msgBrandDetailTextSaved,
   msgBrandDetailUrlSaved,
@@ -34,7 +36,7 @@ import {
   msgBrandDetailsUnknown,
   msgGenericError,
 } from '../messages.js';
-import { MAX_BRAND_ASSETS, MAX_BRAND_ASSET_BYTES } from '../types.js';
+import { MAX_BRAND_ASSETS, MAX_BRAND_ASSET_BYTES, ButtonIds } from '../types.js';
 import type { Language, MessageContext } from '../types.js';
 import { logger } from '../logger.js';
 
@@ -42,9 +44,50 @@ import { logger } from '../logger.js';
 const URL_REGEX = /https?:\/\/[^\s]+/i;
 
 // Local copies so this handler matches the intent set used elsewhere without
-// importing SKIP_INTENT from onboarding (private).
-const DONE_INTENT = /^(done|bas|finish|khatam|ho ?gaya|complete|theek hai)\s*$/i;
+// importing SKIP_INTENT from onboarding (private). Broadened to catch natural
+// "I'm finished" phrasing — e.g. "this is all i had to say" — so users don't
+// have their closing remark silently stored as yet another note.
+const DONE_INTENT =
+  /^(done|bas|bas itna|itna hi|finish(ed)?|khatam|ho ?ga?ya|complete|theek hai|that'?s (all|it)|that is all( i had to say)?|this is all( i had to say)?|all done|i'?m done|im done|nothing else|no more|that'?s everything)\s*[.!]*$/i;
 const SKIP_INTENT = /^(skip|no|nahi|nahin|नहीं|छोड़ो|chodo|chhodo|pass)\s*$/i;
+
+/**
+ * Sends the brand-details prompt with a tappable "Done" button so the user can
+ * finish without having to type the magic word. Falls back to plain text if the
+ * interactive send fails. Exported so the change-settings menu reuses it.
+ */
+export async function sendBrandDetailsPrompt(
+  phoneNumber: string,
+  lang: Language,
+  wa: WhatsAppClient,
+): Promise<void> {
+  try {
+    await wa.sendButtons(phoneNumber, msgAskBrandDetails(lang), [
+      { id: ButtonIds.BRAND_DETAILS_DONE, title: btnBrandDetailsDone(lang) },
+    ]);
+  } catch {
+    await wa.sendText(phoneNumber, msgAskBrandDetails(lang));
+  }
+}
+
+/**
+ * Sends a "saved ✅ (n/max)" ack with the "Done" button attached, so finishing
+ * is always one tap away after any asset is stored.
+ */
+async function sendSavedAck(
+  phoneNumber: string,
+  lang: Language,
+  wa: WhatsAppClient,
+  savedMsg: string,
+): Promise<void> {
+  try {
+    await wa.sendButtons(phoneNumber, savedMsg, [
+      { id: ButtonIds.BRAND_DETAILS_DONE, title: btnBrandDetailsDone(lang) },
+    ]);
+  } catch {
+    await wa.sendText(phoneNumber, savedMsg);
+  }
+}
 
 export async function handleBrandDetailsCollecting(
   session: Session,
@@ -55,6 +98,12 @@ export async function handleBrandDetailsCollecting(
   const lang = (user.language as Language) || 'hi';
   const phoneNumber = session.phoneNumber;
   const text = message.text?.trim() ?? '';
+
+  // ── "Done" button tap — finalise the same way as typing "done" ───────────
+  if (message.messageType === 'interactive' && message.buttonReplyId === ButtonIds.BRAND_DETAILS_DONE) {
+    await finaliseBrandProfile(user, phoneNumber, lang, wa);
+    return;
+  }
 
   // ── "skip" — abandon collection without finalising a summary ─────────────
   if (message.messageType === 'text' && SKIP_INTENT.test(text)) {
@@ -158,7 +207,7 @@ async function ingestImage(
       },
     });
 
-    await wa.sendText(phoneNumber, msgBrandDetailFileSaved(lang, count, MAX_BRAND_ASSETS));
+    await sendSavedAck(phoneNumber, lang, wa, msgBrandDetailFileSaved(lang, count, MAX_BRAND_ASSETS));
   } catch (err) {
     logger.error('Brand image upload failed', {
       phoneNumber,
@@ -203,7 +252,7 @@ async function ingestDocument(
       },
     });
 
-    await wa.sendText(phoneNumber, msgBrandDetailFileSaved(lang, count, MAX_BRAND_ASSETS));
+    await sendSavedAck(phoneNumber, lang, wa, msgBrandDetailFileSaved(lang, count, MAX_BRAND_ASSETS));
   } catch (err) {
     logger.error('Brand document upload failed', {
       phoneNumber,
@@ -232,8 +281,10 @@ async function ingestText(
     },
   });
 
-  await wa.sendText(
+  await sendSavedAck(
     phoneNumber,
+    lang,
+    wa,
     isUrl
       ? msgBrandDetailUrlSaved(lang, count, MAX_BRAND_ASSETS)
       : msgBrandDetailTextSaved(lang, count, MAX_BRAND_ASSETS),

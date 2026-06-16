@@ -173,6 +173,44 @@ async function sendDeliveryMenu(
   }
 }
 
+/**
+ * Re-show the "what next" options after a rating. The original delivery menu
+ * bundled rating + next-step rows together; once the user rates, that menu's
+ * rating rows are spent, so we surface a fresh next-step menu instead of going
+ * silent (previously the bot just sent "rating saved" and waited).
+ */
+async function sendNextStepsMenu(
+  phoneNumber: string,
+  language: Language,
+  wa: WhatsAppClient,
+): Promise<void> {
+  const body =
+    language === 'hi'
+      ? 'आगे क्या करना है?'
+      : isHindi(language)
+      ? 'Aage kya karna hai?'
+      : 'What would you like to do next?';
+  try {
+    await wa.sendList(
+      phoneNumber,
+      body,
+      isHindi(language) ? 'Chuniye' : 'Choose',
+      [
+        {
+          title: msgDeliveryNextSectionTitle(language),
+          rows: [
+            { id: ListIds.SEND_NEW_PRODUCT, title: rowSendNewProduct(language) },
+            { id: ListIds.REQUEST_REFUND, title: rowRequestRefund(language) },
+          ],
+        },
+      ],
+    );
+  } catch (err) {
+    logger.error('Next-steps menu send failed after rating', { phoneNumber, error: String(err) });
+    await wa.sendText(phoneNumber, body);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Handle feedback in DELIVERED state — interim Phase 8 shape.
 // ---------------------------------------------------------------------------
@@ -328,6 +366,11 @@ async function handleRating(
       styleHistory: updatedHistory,
     },
   }).catch(() => {});
+
+  // Don't dead-end after the thanks message — re-surface the next-step options
+  // (Send new product / Request refund). Stays in DELIVERED so the existing
+  // list-reply routing handles the tap.
+  await sendNextStepsMenu(session.phoneNumber, lang, wa);
 }
 
 async function handleSendNewProduct(

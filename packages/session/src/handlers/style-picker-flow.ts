@@ -56,8 +56,8 @@ export async function sendStylePickerFlow(
 
   const heading = isHindi(lang) ? 'Style chuniye' : 'Pick your style';
   const body = isHindi(lang)
-    ? '1-3 styles chuniye — hum 3 ads banayenge.'
-    : "Pick 1-3 styles — we'll generate 3 ads.";
+    ? '1-3 styles chuniye — hum 3 creatives banayenge.'
+    : "Pick 1-3 styles — we'll generate 3 creatives.";
   const ctaLabel = isHindi(lang) ? 'Aage badhein' : 'Continue';
 
   // The Flow JSON itself lives in the Meta dashboard; here we just send

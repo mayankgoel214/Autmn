@@ -332,14 +332,14 @@ export async function sendPaymentLink(
   if (order.razorpayPaymentLinkUrl && linkAge < LINK_EXPIRY_BUFFER) {
     // Reuse existing link
     // Phase 12a — payment-link message references the UPI-only constraint
-    // so users know what to expect on the Razorpay page. The 3-ads label is
+    // so users know what to expect on the Razorpay page. The 3-creatives label is
     // retained as a heuristic; numStylesPicked drives the actual amount via
     // Phase 12 pricing (amountPaise on the order row).
     await wa.sendPaymentLink(
       phoneNumber,
       isHindi(lang)
-        ? `Rs ${order.amount / 100} hai. Pay karne ke baad ads ban jayenge.\nSirf UPI accept karte hain — GPay, PhonePe, Paytm, BHIM, WhatsApp Pay.`
-        : `Rs ${order.amount / 100}. We'll start creating your ads right after payment.\nUPI only — GPay, PhonePe, Paytm, BHIM, WhatsApp Pay.`,
+        ? `Rs ${order.amount / 100} hai. Pay karne ke baad creatives ban jayenge.\nSirf UPI accept karte hain — GPay, PhonePe, Paytm, BHIM, WhatsApp Pay.`
+        : `Rs ${order.amount / 100}. We'll start creating your creatives right after payment.\nUPI only — GPay, PhonePe, Paytm, BHIM, WhatsApp Pay.`,
       order.razorpayPaymentLinkUrl,
       isHindi(lang) ? 'UPI se pay karo' : 'Pay with UPI',
     );
@@ -361,7 +361,7 @@ export async function sendPaymentLink(
       customerPhone: phoneNumber,
       customerName: user.name ?? undefined,
       amount: order.amount, // paise — always from DB, never client-provided
-      description: `Autmn - ${order.imageCount} photo(s), 3 ads`,
+      description: `Autmn - ${order.imageCount} photo(s), 3 creatives`,
       expiresInMinutes: 30,
     });
 
@@ -377,8 +377,8 @@ export async function sendPaymentLink(
     await wa.sendPaymentLink(
       phoneNumber,
       isHindi(lang)
-        ? `${order.imageCount} photo • 3 professional ads • Rs ${order.amount / 100}\nPayment karein:`
-        : `${order.imageCount} photo(s) • 3 professional ads • Rs ${order.amount / 100}\nPay to get started:`,
+        ? `${order.imageCount} photo • 3 professional creatives • Rs ${order.amount / 100}\nPayment karein:`
+        : `${order.imageCount} photo(s) • 3 professional creatives • Rs ${order.amount / 100}\nPay to get started:`,
       link.shortUrl,
       isHindi(lang) ? 'Payment karo' : 'Pay Now',
     );

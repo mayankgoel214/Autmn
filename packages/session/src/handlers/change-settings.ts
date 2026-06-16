@@ -13,10 +13,10 @@ import type { Session, User } from '@autmn/db';
 import { prisma } from '@autmn/db';
 import { transitionTo } from '../db-helpers.js';
 import { sendCategoryList } from './onboarding.js';
+import { sendBrandDetailsPrompt } from './brand-details.js';
 import {
   msgAskLanguage,
   msgAskBrandName,
-  msgAskBrandDetails,
   msgAskBrandEdit,
   msgBrandProfileView,
   btnEditBrand,
@@ -36,13 +36,40 @@ import { logger } from '../logger.js';
 // ---------------------------------------------------------------------------
 // Re-usable list sender — called by the menu handler and by every Phase 1
 // handler when it finishes a setting edit (inChangeSettings === true).
+//
+// De-dupe guard: a rapid repeat trigger (e.g. tapping "Change settings" twice,
+// where the second tap lands in CHANGE_SETTINGS_MENU and falls through to the
+// menu's default re-show arm) produced two identical "What would you like to
+// change?" messages. We suppress a re-render within a short window. The window
+// is intentionally short — legitimate re-shows after completing an edit
+// (language/brand/category) are spaced out by user interaction and won't be
+// caught.
 // ---------------------------------------------------------------------------
+
+const CHANGE_SETTINGS_DEDUPE_MS = 6_000;
+const lastChangeSettingsMenuAt = new Map<string, number>();
+
+setInterval(() => {
+  const cutoff = Date.now() - CHANGE_SETTINGS_DEDUPE_MS;
+  for (const [phone, ts] of lastChangeSettingsMenuAt) {
+    if (ts < cutoff) lastChangeSettingsMenuAt.delete(phone);
+  }
+  if (lastChangeSettingsMenuAt.size > 10_000) lastChangeSettingsMenuAt.clear();
+}, 60_000).unref();
 
 export async function sendChangeSettingsMenu(
   phoneNumber: string,
   lang: Language,
   wa: WhatsAppClient,
 ): Promise<void> {
+  const now = Date.now();
+  const last = lastChangeSettingsMenuAt.get(phoneNumber) ?? 0;
+  if (now - last < CHANGE_SETTINGS_DEDUPE_MS) {
+    logger.info('Suppressed duplicate change-settings menu', { phoneNumber, ageMs: now - last });
+    return;
+  }
+  lastChangeSettingsMenuAt.set(phoneNumber, now);
+
   await wa.sendList(
     phoneNumber,
     msgChangeSettingsMenuBody(lang),
@@ -115,7 +142,7 @@ export async function handleChangeSettingsMenu(
       }
       case ButtonIds.ADD_MORE_BRAND: {
         await transitionTo(phoneNumber, 'BRAND_DETAILS_COLLECTING');
-        await wa.sendText(phoneNumber, msgAskBrandDetails(lang));
+        await sendBrandDetailsPrompt(phoneNumber, lang, wa);
         return;
       }
       default:
@@ -191,7 +218,7 @@ export async function handleChangeSettingsMenu(
       }
 
       await transitionTo(phoneNumber, 'BRAND_DETAILS_COLLECTING');
-      await wa.sendText(phoneNumber, msgAskBrandDetails(lang));
+      await sendBrandDetailsPrompt(phoneNumber, lang, wa);
       return;
     }
 
