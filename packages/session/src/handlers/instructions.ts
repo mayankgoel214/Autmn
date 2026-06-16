@@ -82,10 +82,21 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
   // Smart Pack (3 ads). This branch is now the documented contract, not a
   // "should not happen" fallback. Phase 9's Flow picker explicitly allows
   // a 0-pick submission, so this code path becomes load-bearing then.
-  const normalizedStyles =
+  let normalizedStyles =
     styleSelections.length > 0
       ? styleSelections.slice(0, OUTPUT_STYLES_PER_ORDER)
       : selectStylesForOrder(user.businessType, OUTPUT_STYLES_PER_ORDER);
+
+  // Pre-Phase-8 #2: freemium flag is computed BEFORE the orderCount increment.
+  const isFreeOrder = user.orderCount === 0;
+
+  // First-time free order: every user gets exactly ONE free picture. Cap the
+  // free order to a single ad regardless of how many styles arrived (the
+  // single-pick picker should already pass 1, but enforce it here too).
+  // Extra styles are a paid feature unlocked from the second order onward.
+  if (isFreeOrder) {
+    normalizedStyles = normalizedStyles.slice(0, 1);
+  }
 
   // Hard assertion — Smart Pack auto-select is defined as 3 styles, custom
   // pickers cap at OUTPUT_STYLES_PER_ORDER. Anything outside [1, 3] is a bug.
@@ -96,8 +107,6 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
   }
 
   const primaryStyleId = normalizedStyles[0] ?? 'style_clean_white';
-  // Pre-Phase-8 #2: freemium flag is computed BEFORE the orderCount increment.
-  const isFreeOrder = user.orderCount === 0;
   // Phase 12 — dynamic pricing: ₹49 × number of output ads. 1 style = ₹49,
   // 2 styles = ₹98, 3 styles (incl. Smart Pack auto-fill) = ₹147. First
   // order is always ₹0 regardless of how many styles were picked.

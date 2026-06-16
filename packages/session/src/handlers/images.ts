@@ -572,7 +572,9 @@ async function advanceToPayment(
       styleSelection: null,
     });
     const { sendStyleList } = await import('./onboarding.js');
-    await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, []);
+    // First-time users (orderCount === 0) get a single-pick picker — the free
+    // tier is exactly one picture.
+    await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, [], false, user.orderCount === 0);
     return;
   }
 

@@ -76,7 +76,6 @@ async function sendLanguagePicker(phoneNumber: string, wa: WhatsAppClient): Prom
       [
         { id: ButtonIds.LANG_HINDI,    title: 'हिंदी' },
         { id: ButtonIds.LANG_ENGLISH,  title: 'English' },
-        { id: ButtonIds.LANG_HINGLISH, title: 'Hinglish' },
       ],
     );
   } catch (btnErr) {
@@ -86,7 +85,7 @@ async function sendLanguagePicker(phoneNumber: string, wa: WhatsAppClient): Prom
     });
     await wa.sendText(
       phoneNumber,
-      `${msgAskLanguage()}\n\nReply: hindi / english / hinglish (or 1 / 2 / 3)`,
+      `${msgAskLanguage()}\n\nReply: hindi / english (or 1 / 2)`,
     );
   }
 }

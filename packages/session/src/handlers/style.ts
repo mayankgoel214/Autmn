@@ -28,6 +28,10 @@ export async function handleSetupStyle(
   const lang = user.language as Language;
   const phoneNumber = session.phoneNumber;
 
+  // First-time free order → single-pick picker (one free picture). currentOrderId
+  // is only set on the style-change edit path, which is multi-irrelevant here.
+  const isFirstFreeOrder = user.orderCount === 0 && !session.currentOrderId;
+
   let styleId: string | null = null;
 
   // List reply (normal flow)
@@ -44,7 +48,7 @@ export async function handleSetupStyle(
       }
       // No styles yet — re-show the first list
       const { sendStyleList } = await import('./onboarding.js');
-      await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, []);
+      await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, [], false, isFirstFreeOrder);
       return;
     }
 
@@ -94,7 +98,7 @@ export async function handleSetupStyle(
 
     const alreadyPicked = (session.styleSelections as string[]) ?? [];
     const { sendStyleList } = await import('./onboarding.js');
-    await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, alreadyPicked);
+    await sendStyleList(phoneNumber, lang, wa, user.businessType ?? undefined, alreadyPicked, false, isFirstFreeOrder);
     return;
   }
 
@@ -226,6 +230,18 @@ export async function handleSetupStyle(
       });
       return;
     }
+  }
+
+  // --- First free order: exactly ONE style → one free ad, finish immediately ---
+  // The single-pick picker (sendStyleList singlePick) shows individual styles
+  // with no multi-step, so a first-timer's tap lands here. currentOrderId is
+  // only set on the style-change edit path (handled above), so this never
+  // collides with an edit.
+  if (isFirstFreeOrder) {
+    logger.info('First free order — single style pick complete', { phoneNumber, styleId });
+    await wa.sendText(phoneNumber, msgAllStylesReady(lang, [styleName]));
+    await finishStylePicking(phoneNumber, [styleId], session, user, lang, wa);
+    return;
   }
 
   // --- 3-step style picker flow ---

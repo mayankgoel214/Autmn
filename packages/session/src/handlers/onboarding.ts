@@ -296,7 +296,6 @@ export async function handleIdle(
       [
         { id: ButtonIds.LANG_HINDI, title: 'हिंदी' },
         { id: ButtonIds.LANG_ENGLISH, title: 'English' },
-        { id: ButtonIds.LANG_HINGLISH, title: 'Hinglish' },
       ],
     );
   } catch (btnErr) {
@@ -306,7 +305,7 @@ export async function handleIdle(
     });
     await wa.sendText(
       session.phoneNumber,
-      `${msgAskLanguage()}\n\nReply: hindi / english / hinglish (or 1 / 2 / 3)`,
+      `${msgAskLanguage()}\n\nReply: hindi / english (or 1 / 2)`,
     );
   }
 }
@@ -359,13 +358,12 @@ export async function handleSetupLanguage(
         [
           { id: ButtonIds.LANG_HINDI, title: 'हिंदी' },
           { id: ButtonIds.LANG_ENGLISH, title: 'English' },
-          { id: ButtonIds.LANG_HINGLISH, title: 'Hinglish' },
         ],
       );
     } catch {
       await wa.sendText(
         session.phoneNumber,
-        `${msgAskLanguage()}\n\nReply: hindi / english / hinglish (or 1 / 2 / 3)`,
+        `${msgAskLanguage()}\n\nReply: hindi / english (or 1 / 2)`,
       );
     }
     return;
@@ -413,7 +411,6 @@ function parseLanguagePick(text: string): Language | null {
   const t = text.trim().toLowerCase();
   if (/^(hindi|1|हिंदी|हिन्दी)$/.test(t)) return 'hi';
   if (/^(english|2|angrezi)$/.test(t)) return 'en';
-  if (/^(hinglish|3|roman hindi|hindi roman)$/.test(t)) return 'hinglish';
   return null;
 }
 
@@ -644,8 +641,8 @@ export async function sendCategoryList(
           { id: ListIds.CAT_SKINCARE, title: 'Skincare / Beauty', description: 'Creams, serums, cosmetics...' },
           { id: ListIds.CAT_CANDLE, title: 'Candle / Home Decor', description: 'Candles, diffusers, decor...' },
           { id: ListIds.CAT_BAG, title: 'Bag / Purse', description: 'Handbags, wallets, clutches...' },
-          { id: ListIds.CAT_OTHER, title: isHindi(lang) ? '✏️ Khud likhein' : '✏️ Type my own', description: isHindi(lang) ? 'Apni category type karein' : 'Type your own category' },
-          { id: ListIds.CAT_SKIP, title: isHindi(lang) ? '⏭️ Skip karein' : '⏭️ Skip', description: isHindi(lang) ? 'Bina category aage badein' : 'Skip this step' },
+          { id: ListIds.CAT_OTHER, title: isHindi(lang) ? '✏️ Khud likhein' : '✏️ Type my own' },
+          { id: ListIds.CAT_SKIP, title: isHindi(lang) ? '⏭️ Skip karein' : '⏭️ Skip' },
         ],
       },
     ],
@@ -669,6 +666,7 @@ export async function sendStyleList(
   categoryId?: string,
   alreadyPicked: string[] = [],
   customMode: boolean = false,
+  singlePick: boolean = false,
 ): Promise<void> {
   const pickNumber = alreadyPicked.length + 1;
 
@@ -686,6 +684,20 @@ export async function sendStyleList(
     { id: ListIds.STYLE_WITH_MODEL, title: styleDisplayName(ListIds.STYLE_WITH_MODEL, lang) },
     { id: ListIds.STYLE_ANYTHING_YOU_WANT, title: styleDisplayName(ListIds.STYLE_ANYTHING_YOU_WANT, lang) },
   ].filter(row => !alreadyPicked.includes(row.id));
+
+  // First free order — pick exactly ONE style (one free ad). No Smart/Custom
+  // packs and no multi-step picker: the free tier is a single picture.
+  if (singlePick) {
+    await wa.sendList(
+      phoneNumber,
+      isHindi(lang)
+        ? 'Aapka pehla ad bilkul FREE hai! 🎁\n\nEk style chuniye:'
+        : 'Your first ad is completely FREE! 🎁\n\nPick one style:',
+      isHindi(lang) ? 'Chuniye' : 'Choose',
+      [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: styleRows }],
+    );
+    return;
+  }
 
   if (alreadyPicked.length === 0 && !customMode) {
     // Phase 9 — when WhatsApp Flows are activated, try to send the single-
@@ -747,16 +759,23 @@ export async function sendStyleList(
   } else {
     // Picks 2-3: single list message — checkbox state + prompt go into the
     // list body together (Phase 7 polish — was two separate sends before).
+    // A "Done" row sits at the top so the user can stop after 1 or 2 styles
+    // instead of being forced to pick a full set of 3.
     const checkboxText = buildCheckboxState(alreadyPicked, lang);
     const promptText = isHindi(lang)
-      ? `Style ${pickNumber} chuniye (optional):`
-      : `Pick style ${pickNumber} (optional):`;
+      ? `Style ${pickNumber} chuniye, ya "Done" dabayein (optional):`
+      : `Pick style ${pickNumber}, or tap "Done" (optional):`;
+
+    const doneRow = {
+      id: ListIds.STYLE_DONE,
+      title: isHindi(lang) ? '✅ Ho gaya — bas itne' : '✅ Done — no more',
+    };
 
     await wa.sendList(
       phoneNumber,
       `${checkboxText}\n\n${promptText}`,
       isHindi(lang) ? 'Chuniye' : 'Choose',
-      [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: styleRows }],
+      [{ title: isHindi(lang) ? 'Styles' : 'Styles', rows: [doneRow, ...styleRows] }],
     );
   }
 }

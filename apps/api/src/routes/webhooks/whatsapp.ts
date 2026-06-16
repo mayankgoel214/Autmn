@@ -216,10 +216,20 @@ export async function whatsappWebhookRoutes(app: FastifyInstance): Promise<void>
           messageKeys,
         }));
 
-        // Don't leave the user hanging — tell them what we accept.
-        // Dedupe within a 10s window so a burst of 3 photos doesn't fire
-        // 3 back-to-back rejection messages (2026-04-20 bug).
-        if (shouldSendRejection(phoneNumber)) {
+        // Don't leave the user hanging — tell them what we accept. BUT only when
+        // they're idle. Meta sprays stray `unknown` envelopes (system / metadata
+        // / reaction frames) alongside real photo uploads, and rejecting one of
+        // those mid-flow produces a spurious "send a product photo to get
+        // started" message right before the genuine "N photos received ✅" ack
+        // (2026-04-20 bug). If the user already has an active session — e.g.
+        // they're in AWAITING_PHOTO sending photos right now — stay silent; the
+        // real handler will ack the photos. Combined with the 10s dedupe below.
+        const activeSession = await prisma.session
+          .findUnique({ where: { phoneNumber }, select: { state: true } })
+          .catch(() => null);
+        const userIsIdle = !activeSession || activeSession.state === 'IDLE';
+
+        if (userIsIdle && shouldSendRejection(phoneNumber)) {
           try {
             await wa.sendText(phoneNumber, '📸 I can only process photos and text messages. Please send a product photo to get started!');
           } catch { /* best effort */ }
