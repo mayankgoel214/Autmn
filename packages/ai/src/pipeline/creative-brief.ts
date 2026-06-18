@@ -69,31 +69,31 @@ export type CreativeBrief = z.infer<typeof CreativeBriefSchema>;
  */
 const STYLE_INTENT: Record<string, string> = {
   style_clean_white:
-    `Persona: luxury e-commerce hero photographer (Apple, Hermès, Sephora flagship style). Signature: seamless white cyclorama, dual studio strobes, 100mm macro, focus-stacked. Direction must describe: clean hero composition + lighting setup. NO model, no human, no scene narrative.`,
+    `Persona: luxury e-commerce hero photographer (Apple, Hermès, Sephora flagship style). Signature: seamless white cyclorama, dual studio strobes, 100mm macro, focus-stacked. Direction must describe: clean hero composition + dual-softbox even fill with one subtle edge gradient + a SOFT CONTACT SHADOW (not a hard drop shadow). NO model, no human, no scene narrative.`,
 
   style_studio:
-    `Persona: editorial fashion magazine photographer (Vogue, Elle, GQ campaign style). Signature: saturated cyclorama backdrop, single rim light, 50mm prime, color-block confidence. Direction must describe: bold backdrop color + composition + at most one minimal prop. NO model, no human.`,
+    `Persona: editorial fashion magazine photographer (Vogue, Elle, GQ campaign style). Signature: saturated cyclorama backdrop, single rim light, 50mm prime, color-block confidence. Direction must describe: bold saturated backdrop color + a SINGLE HARD KEY camera-left producing a crisp directional highlight and a clean HARD-EDGED SHADOW falling camera-right (the shadow is part of the composition) + at most one minimal prop. NO model.`,
 
   style_lifestyle:
-    `Persona: environmental commercial photographer (Apple, IKEA, Airbnb campaign style). Signature: natural window light, 35-50mm, shallow DOF, real lived-in setting. Direction must describe: specific Indian everyday context (home counter / cafe table / desk) + 2-3 contextual props + lighting time-of-day. NO model — environmental product shot only.`,
+    `Persona: environmental commercial photographer (Apple, IKEA, Airbnb campaign style). Signature: natural window light, 35-50mm, shallow DOF, real lived-in setting. Direction must describe: specific Indian everyday context + 2-3 contextual props + soft directional window light from ONE side with time-of-day, where the PRODUCT IS LIT BY THE SAME WINDOW as the scene — matching shadow direction and color temperature — and grounded by a contact shadow. NO model.`,
 
   style_gradient:
-    `Persona: luxury campaign cinematographer (Tom Ford, Bvlgari, Cartier style). Signature: cinematic key + rim lighting, deep shadows, 85mm portrait lens, atmospheric haze. Direction must describe: dark surface choice + rim light angle + atmospheric depth. NO model, no human.`,
+    `Persona: luxury campaign cinematographer (Tom Ford, Bvlgari, Cartier style). Signature: cinematic key + rim lighting, deep shadows, 85mm portrait lens, atmospheric haze. Direction must describe: near-black surface + a SINGLE HARD KEY giving a bright specular edge-highlight with DEEP RAPID FALLOFF so the product is the brightest thing in frame + a subtle rim light for separation + a clean (not muddy) reflection on the dark surface. Any haze must be lit by the key, never flat gray fog. NO model.`,
 
   style_outdoor:
-    `Persona: travel/adventure environmental photographer (National Geographic, REI, Patagonia style). Signature: golden hour natural light, 35mm wide, environmental depth, shallow DOF separating product from environment. Direction must describe: outdoor setting matching product use context + lighting time + environmental depth. NO model, no person, no human.`,
+    `Persona: travel/adventure environmental photographer (National Geographic, REI, Patagonia style). Signature: golden hour natural light, 35mm wide, environmental depth, shallow DOF separating product from environment. Direction must describe: outdoor setting matching product use context + golden-hour low sun as key with long soft shadows, where the PRODUCT IS LIT BY THE SAME SUN as the landscape (warm sun-side highlight, cool shadow fill) and grounded by a contact shadow so it reads as photographed on location, NOT composited onto the scene. NO model.`,
 
   style_festive:
-    `Persona: Indian celebration campaign photographer (Tanishq, Sabyasachi, Manyavar style). Signature: warm 2700K diya/candle key light, brass + marigold + silk props, environmental depth, traditional moment. Direction must describe: specific Indian festive context (Diwali / wedding / Karwa Chauth / Eid) + 2-3 traditional props + warm light source. NO model — product placed in cultural setting only.`,
+    `Persona: Indian celebration campaign photographer (Tanishq, Sabyasachi, Manyavar style). Signature: warm 2700K diya/candle key light, brass + marigold + silk props, environmental depth, traditional moment. Direction must describe: specific Indian festive context + 2-3 traditional props + warm 2700K key from diya/candle/string lights where the warm light WRAPS the product and shares the scene's color temperature, with warm soft shadows. NO model.`,
 
   style_minimal:
-    `Persona: architectural design photographer (Aesop, Muji, Apple Pro Display style). Signature: even soft light, deliberate negative space, geometric precision, restrained palette. Direction must describe: muted background color + intentional empty-space composition + 0-1 geometric element. NO model, no human.`,
+    `Persona: architectural design photographer (Aesop, Muji, Apple Pro Display style). Signature: even soft light, deliberate negative space, geometric precision, restrained palette. Direction must describe: muted single-tone background + intentional negative space + 0-1 geometric element + soft directional light producing ONE clean gradient shadow. NO model.`,
 
   style_with_model:
-    `Persona: authentic candid lifestyle portraitist (Apple "Shot on iPhone", Levi's, Patagonia style). Signature: natural light, 50-85mm, shallow DOF, candid expression. ONLY style permitted to include a person. Direction must describe: who the model is + how they interact with the product + the setting + the emotional moment.`,
+    `Persona: authentic candid lifestyle portraitist (Apple "Shot on iPhone", Levi's, Patagonia style). Signature: natural light, 50-85mm, shallow DOF, candid expression. Direction must describe: who the model is + how they interact candidly (never stiff or staring at camera) + the setting + the emotional moment + SAME soft natural light on model and product from one source, product sharp and model slightly soft. ONLY style permitted a person.`,
 
   style_autmn_special:
-    `Persona: art-direction-driven editorial photographer (Wallpaper*, Kinfolk, Apartamento style). Signature: unconventional angle/setup, conceptual hook, magazine-cover composition. Direction must describe: ONE bold creative concept (suspended product / unusual surface / frozen-moment scene / scattered elements) + lighting + mood. NO model, no human — pure conceptual product hero.`,
+    `Persona: art-direction-driven editorial photographer (Wallpaper*, Kinfolk, Apartamento style). Signature: unconventional angle/setup, conceptual hook, magazine-cover composition. Direction must describe: ONE bold creative concept (suspended / unusual surface / frozen-moment / scattered elements) + lighting + mood, with the ABSOLUTE REQUIREMENT that every element shares ONE light source — the product's highlights, shadow direction, and color temperature must match the surrounding elements exactly so it reads as a single captured moment, NOT a collage. NO model.`,
 
   // Phase 10 — user-described custom direction. The brief LLM is told to
   // defer to the user's per-style instruction rather than apply a fixed

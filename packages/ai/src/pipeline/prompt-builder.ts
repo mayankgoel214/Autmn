@@ -48,28 +48,28 @@ function humaniseStyle(style: string): string {
 function defaultStyleDirection(style: string): string {
   switch (style) {
     case 'style_clean_white':
-      return 'Seamless white cyclorama, dual studio strobes, pure clean hero composition. Product perfectly centred, no background elements.';
+      return 'Seamless white cyclorama. Dual softboxes for even fill with one subtle edge gradient for form. Product perfectly centred as the clean hero, grounded by a soft contact shadow (not a hard drop shadow). No background elements.';
     case 'style_studio':
-      return 'Saturated solid-color cyclorama backdrop, single rim light, bold and editorial composition. One minimal prop at most.';
+      return 'Bold saturated solid-color cyclorama backdrop. Single hard key camera-left creating a crisp directional highlight and a clean hard-edged shadow falling camera-right as part of the composition. Editorial and confident, one minimal prop at most.';
     case 'style_lifestyle':
-      return 'Real Indian everyday setting — home counter, cafe table, or desk. Natural window light, 35-50mm shallow DOF, 2-3 contextual props.';
+      return 'Real Indian everyday setting — home counter, cafe table, or desk. Soft directional window light from one side with a clear time of day, 35-50mm shallow DOF, 2-3 contextual props. The product is lit by the same window as the scene — matching shadow direction and color temperature — and grounded by a contact shadow.';
     case 'style_gradient':
-      return 'Dark luxury surface, cinematic key and rim lighting, deep shadows, atmospheric depth. Product as the sole light source in a dark scene.';
+      return 'Near-black surface and background. Single hard key creating a bright specular highlight along the product edge, then deep rapid falloff into shadow so the product is the brightest element. Subtle rim light for separation. Clean reflection on the polished dark surface.';
     case 'style_outdoor':
-      return "Golden hour natural light, environmental outdoor depth, 35mm wide angle. Setting matches the product's use context.";
+      return 'Golden hour, low warm sun as the key with long soft shadows, 35mm environmental wide. Product lit by the same sun as the landscape — warm sun-side highlight, cool shadow fill — grounded by a contact shadow so it looks photographed on location, not composited.';
     case 'style_festive':
-      return 'Indian festive celebration — Diwali, wedding, or karwa chauth context. Warm 2700K diya/candle key light, brass and marigold props, traditional moment.';
+      return "Indian festive celebration — Diwali, wedding, or karwa chauth context. Warm 2700K key from diyas, candles, or string lights that wraps the product and shares the scene's color temperature, with warm soft shadows. Brass and marigold props, traditional moment.";
     case 'style_minimal':
-      return 'Muted background, deliberate negative space, geometric precision. Zero or one geometric element, restrained palette.';
+      return 'Muted single-tone background with deliberate negative space and geometric precision. Soft directional light producing one clean gradient shadow. Zero or one geometric element, restrained palette.';
     case 'style_with_model':
-      return 'Indian model naturally holding or using the product, candid interaction, natural light, 50-85mm shallow DOF.';
+      return 'Indian model naturally holding or using the product in a candid moment — never stiff or staring at the camera. The same soft natural light from one source falls on both model and product; product sharp, model slightly soft. 50-85mm shallow DOF.';
     case 'style_autmn_special':
-      return 'Bold, unexpected, magazine-cover-worthy composition — suspended product, unusual surface, frozen-moment scene, or scattered elements. Pure conceptual product hero.';
+      return "Bold magazine-cover concept — suspended product, unusual surface, or scattered thematic elements. Every element shares one light source: the product's highlights, shadow direction, and color temperature match the surroundings exactly, reading as one captured moment, not a collage.";
     case 'style_anything_you_want':
       // Fallback only — the dedicated builder fires when description is non-empty.
-      return 'Modern professional product ad with clean composition, balanced lighting, and clear product hero. Pick a tasteful contemporary aesthetic.';
+      return 'Modern professional product ad with clean composition, a single soft key for balanced lighting, and a clear product hero grounded by a subtle contact shadow. Pick a tasteful contemporary aesthetic.';
     default:
-      return 'Professional ad photography, product as clear focal point.';
+      return 'Professional ad photography with a single clear key light and a natural grounding shadow, product as the clear focal point.';
   }
 }
 
