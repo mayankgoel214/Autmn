@@ -37,6 +37,20 @@ const envSchema = z.object({
 
 export type WorkerConfig = z.infer<typeof envSchema>;
 
+// Secrets that may default to 'placeholder' in dev (via optionalInDev) but
+// MUST be real in production. A literal 'placeholder' means the worker would
+// silently fail every AI call / WhatsApp send — fail fast at startup instead.
+// See ADR-0001 invariant #3.
+const PROD_REQUIRED_SECRETS = [
+  'WHATSAPP_ACCESS_TOKEN',
+  'WHATSAPP_PHONE_NUMBER_ID',
+  'FAL_KEY',
+  'GOOGLE_AI_API_KEY',
+  'GROQ_API_KEY',
+  'RAZORPAY_KEY_ID',
+  'RAZORPAY_KEY_SECRET',
+] as const satisfies readonly (keyof WorkerConfig)[];
+
 let _config: WorkerConfig | null = null;
 
 export function getConfig(): WorkerConfig {
@@ -50,6 +64,19 @@ export function getConfig(): WorkerConfig {
       process.exit(1);
     }
     _config = result.data;
+
+    if (_config.NODE_ENV === 'production') {
+      const stillPlaceholder = PROD_REQUIRED_SECRETS.filter(
+        (key) => _config![key] === 'placeholder',
+      );
+      if (stillPlaceholder.length > 0) {
+        console.error(
+          `FATAL: these secrets are still 'placeholder' in production: ${stillPlaceholder.join(', ')}. ` +
+            'Set real values before deploying.',
+        );
+        process.exit(1);
+      }
+    }
   }
   return _config;
 }
