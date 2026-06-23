@@ -13,14 +13,12 @@ import type { Session, User } from '@autmn/db';
 import { prisma } from '@autmn/db';
 import { transitionTo } from '../db-helpers.js';
 import { sendCategoryList } from './onboarding.js';
-import { sendBrandDetailsPrompt } from './brand-details.js';
+import { startBrandDetailsFlow } from './brand-details.js';
 import {
   msgAskLanguage,
   msgAskBrandName,
-  msgAskBrandEdit,
   msgBrandProfileView,
   btnEditBrand,
-  btnAddMoreBrand,
   msgChangeSettingsMenuBody,
   msgSettingsExit,
   rowChangeLanguage,
@@ -135,14 +133,12 @@ export async function handleChangeSettingsMenu(
   // the list-reply gate.
   if (message.messageType === 'interactive' && message.buttonReplyId) {
     switch (message.buttonReplyId) {
-      case ButtonIds.EDIT_BRAND: {
-        await transitionTo(phoneNumber, 'BRAND_DETAILS_EDITING');
-        await wa.sendText(phoneNumber, msgAskBrandEdit(lang));
-        return;
-      }
+      case ButtonIds.EDIT_BRAND:
+      // ADD_MORE_BRAND is no longer offered, but old in-flight button taps may
+      // still arrive — route them to the same guided edit flow.
       case ButtonIds.ADD_MORE_BRAND: {
         await transitionTo(phoneNumber, 'BRAND_DETAILS_COLLECTING');
-        await sendBrandDetailsPrompt(phoneNumber, lang, wa);
+        await startBrandDetailsFlow(user, phoneNumber, lang, wa);
         return;
       }
       default:
@@ -218,7 +214,7 @@ export async function handleChangeSettingsMenu(
       }
 
       await transitionTo(phoneNumber, 'BRAND_DETAILS_COLLECTING');
-      await sendBrandDetailsPrompt(phoneNumber, lang, wa);
+      await startBrandDetailsFlow(user, phoneNumber, lang, wa);
       return;
     }
 
@@ -272,7 +268,6 @@ async function sendBrandProfileView(
   try {
     await wa.sendButtons(phoneNumber, viewText, [
       { id: ButtonIds.EDIT_BRAND, title: btnEditBrand(lang) },
-      { id: ButtonIds.ADD_MORE_BRAND, title: btnAddMoreBrand(lang) },
     ]);
   } catch (btnErr) {
     logger.error('sendButtons failed rendering brand-profile view', {
@@ -281,7 +276,7 @@ async function sendBrandProfileView(
     });
     await wa.sendText(
       phoneNumber,
-      `${viewText}\n\nReply "edit" to change a field, or "add more" to upload more assets.`,
+      `${viewText}\n\nReply "edit" to update your brand colours, logo or tagline.`,
     );
   }
 }

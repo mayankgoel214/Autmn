@@ -1851,6 +1851,63 @@ export function msgAskBrandDetails(lang: Lang): string {
   }
 }
 
+/**
+ * Guided brand-details flow — Step 1: brand colours.
+ * `current` is shown when the user already has colours saved, so they know
+ * what's on file and can keep them by skipping.
+ */
+export function msgAskBrandColors(lang: Lang, current?: string[]): string {
+  const have = current && current.length > 0 ? current.join(', ') : null;
+  switch (lang) {
+    case 'hi':
+      return `आपके ब्रांड के colours कौन से हैं? (जैसे "लाल और सुनहरा" या "#1A1A1A, #D4AF37")${have ? `\n\nअभी set: ${have}` : ''}\n\n(skip करने के लिए "skip" लिखें)`;
+    case 'hinglish':
+      return `Aapke brand ke colours kaun se hain? (jaise "red aur gold" ya "#1A1A1A, #D4AF37")${have ? `\n\nAbhi set: ${have}` : ''}\n\n(skip karna ho to "skip" likhein)`;
+    case 'en':
+    default:
+      return `What are your brand colours? (e.g. "red and gold" or "#1A1A1A, #D4AF37")${have ? `\n\nCurrently set: ${have}` : ''}\n\n(type "skip" to skip)`;
+  }
+}
+
+/** Guided brand-details flow — Step 2: logo image. */
+export function msgAskBrandLogo(lang: Lang, hasLogo?: boolean): string {
+  switch (lang) {
+    case 'hi':
+      return `अब अपना logo भेजें (एक image के रूप में)।${hasLogo ? '\n\n(पहले से एक logo है — नया भेजें या "skip" करें)' : ''}\n\n(skip करने के लिए "skip" लिखें)`;
+    case 'hinglish':
+      return `Ab apna logo bhejein (ek image ke roop mein).${hasLogo ? '\n\n(Pehle se ek logo hai — naya bhejein ya "skip" karein)' : ''}\n\n(skip karna ho to "skip" likhein)`;
+    case 'en':
+    default:
+      return `Now send your logo (as an image).${hasLogo ? '\n\n(You already have one on file — send a new one or "skip")' : ''}\n\n(type "skip" to skip)`;
+  }
+}
+
+/** Guided brand-details flow — Step 3: tagline. */
+export function msgAskBrandTagline(lang: Lang, current?: string | null): string {
+  switch (lang) {
+    case 'hi':
+      return `आपके ब्रांड की tagline क्या है?${current ? `\n\nअभी set: ${current}` : ''}\n\n(skip करने के लिए "skip" लिखें)`;
+    case 'hinglish':
+      return `Aapke brand ki tagline kya hai?${current ? `\n\nAbhi set: ${current}` : ''}\n\n(skip karna ho to "skip" likhein)`;
+    case 'en':
+    default:
+      return `What's your brand tagline?${current ? `\n\nCurrently set: ${current}` : ''}\n\n(type "skip" to skip)`;
+  }
+}
+
+/** Nudge when the logo step gets something other than an image. */
+export function msgBrandLogoExpected(lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return 'कृपया logo एक image के रूप में भेजें, या "skip" लिखें।';
+    case 'hinglish':
+      return 'Logo ek image ke roop mein bhejein, ya "skip" likhein.';
+    case 'en':
+    default:
+      return 'Please send the logo as an image, or type "skip".';
+  }
+}
+
 /** Button label to finish the brand-details collection step. */
 export function btnBrandDetailsDone(lang: Lang): string {
   switch (lang) {

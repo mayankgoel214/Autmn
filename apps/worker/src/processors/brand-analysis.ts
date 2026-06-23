@@ -131,9 +131,30 @@ export async function runBrandAnalysisForProfile(
     }),
   );
 
-  const summary = dry
+  // The user types colours + tagline directly in the guided flow, so those are
+  // authoritative — feed them to the summariser as context (so the prose is
+  // consistent) but never let the AI overwrite them. The AI still infers vibe
+  // and the natural-language summary, and analyses the logo.
+  const userTagline = profile.tagline?.trim() || null;
+  const userColours = (profile.brandColors ?? []).map((c) => c.trim()).filter(Boolean);
+  if (userTagline) {
+    descriptors.push({ type: 'text', description: `Brand tagline (provided by the owner): ${userTagline}` });
+  }
+  if (userColours.length > 0) {
+    descriptors.push({ type: 'text', description: `Brand colours (provided by the owner): ${userColours.join(', ')}` });
+  }
+
+  const aiSummary = dry
     ? buildDryRunSummary(descriptors)
     : await generateSummary(descriptors);
+
+  // Merge: user-provided fields win; the AI fills the gaps.
+  const summary: BrandSummary = {
+    summary: aiSummary.summary,
+    vibe: aiSummary.vibe,
+    tagline: userTagline ?? aiSummary.tagline,
+    brandColors: userColours.length > 0 ? userColours : aiSummary.brandColors,
+  };
 
   await prisma.brandProfile.update({
     where: { id: profile.id },
@@ -249,11 +270,11 @@ function extractFirstUrl(text: string): string | null {
   return m ? m[0] : null;
 }
 
-function formatProfileMessage(s: BrandSummary, assetCount: number, lang?: string): string {
+function formatProfileMessage(s: BrandSummary, _assetCount: number, lang?: string): string {
   const hi = lang === 'hi' || lang === 'hinglish';
   const head = hi
-    ? `Brand profile save ho gaya ✅ (${assetCount} assets)`
-    : `Brand profile saved ✅ (${assetCount} assets)`;
+    ? 'Brand profile save ho gaya ✅'
+    : 'Brand profile saved ✅';
   const lines: string[] = [head];
   if (s.tagline) lines.push(`• Tagline: ${s.tagline}`);
   if (s.brandColors.length > 0) lines.push(`• Colors: ${s.brandColors.join(', ')}`);

@@ -1,21 +1,17 @@
 #!/usr/bin/env tsx
 /**
- * Phase 4 smoke test — brand profile view + edit.
+ * Brand-profile view + edit smoke test.
  *
- * Runs with BRAND_ANALYSIS_DRY_RUN=true so parseBrandEdit only uses its
- * deterministic regex fast-path — no Gemini calls.
+ * "Edit" now restarts the guided 3-field flow (colours → logo → tagline)
+ * rather than the old natural-language edit mode. The logo step is exercised
+ * via "skip" only (no real media download).
  *
  * Paths:
- *   Q. No profile → tapping Brand details still drops into BRAND_DETAILS_COLLECTING
- *      (Phase 3a fallback preserved).
- *   R. Profile with content → view + Edit / Add-more buttons sent; state stays
- *      CHANGE_SETTINGS_MENU.
- *   S. Tap Edit → BRAND_DETAILS_EDITING + edit prompt.
- *   T. "change colors to red and gold" → brandColors patched, version row appended.
- *   U. "tagline: handcrafted in India" → tagline patched, another version row.
- *   V. Garbage instruction → "unrecognised" reply, no patch applied.
- *   W. "done" → CHANGE_SETTINGS_MENU + exit confirmation.
- *   X. Tap Add more from the view → BRAND_DETAILS_COLLECTING.
+ *   Q. No profile → tapping Brand details drops into BRAND_DETAILS_COLLECTING.
+ *   R. Profile with content → view + single Edit button; stays CHANGE_SETTINGS_MENU.
+ *   S. Tap Edit → BRAND_DETAILS_COLLECTING at step 0 with the colours prompt.
+ *   T. Guided colours edit → brandColors patched, advances to the logo step.
+ *   U. Finish the guided edit (skip logo → tagline) → job enqueued, back to menu.
  */
 
 import { readFileSync } from 'fs';
@@ -41,9 +37,6 @@ function loadEnv(envPath: string): void {
 }
 
 loadEnv(resolve(import.meta.dirname, '../.env'));
-
-// Force regex-only parsing in parseBrandEdit so we never call Gemini.
-process.env.BRAND_ANALYSIS_DRY_RUN = 'true';
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
 const { handleIncomingMessage } = await import('../packages/session/dist/index.js');
@@ -177,6 +170,7 @@ async function seedBrandProfile(userId: string): Promise<{ id: string }> {
       brandColors: ['rose gold', 'ivory'],
       vibe: 'minimalist luxury',
       summary: 'Joyaa makes minimalist heritage jewellery for modern Indian brides.',
+      logoUrl: 'https://example.com/logo.png',
       summaryUpdatedAt: new Date(),
     },
     create: {
@@ -185,6 +179,7 @@ async function seedBrandProfile(userId: string): Promise<{ id: string }> {
       brandColors: ['rose gold', 'ivory'],
       vibe: 'minimalist luxury',
       summary: 'Joyaa makes minimalist heritage jewellery for modern Indian brides.',
+      logoUrl: 'https://example.com/logo.png',
       summaryUpdatedAt: new Date(),
     },
   });
@@ -201,11 +196,11 @@ async function seedBrandProfile(userId: string): Promise<{ id: string }> {
 }
 
 // ---------------------------------------------------------------------------
-// Path Q — no profile yet → tapping Brand details drops into collection
+// Path Q — no profile yet → tapping Brand details drops into the guided flow
 // ---------------------------------------------------------------------------
 
 async function pathNoProfile(): Promise<void> {
-  console.log('\n== Path Q: no profile → SETTING_BRAND_DETAILS still drops into collection ==');
+  console.log('\n== Path Q: no profile → SETTING_BRAND_DETAILS drops into collection ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await onboardAndOpenMenu(wa);
@@ -215,8 +210,8 @@ async function pathNoProfile(): Promise<void> {
 
   const s = await getSession();
   assert(s?.state === 'BRAND_DETAILS_COLLECTING', `state BRAND_DETAILS_COLLECTING (got ${s?.state})`);
-  assert(sent.some((m) => m.type === 'text' && /done|skip|logo/i.test(m.body)), 'collection prompt sent');
-  // No view buttons should have been sent because there's nothing to view.
+  assert(s?.brandDetailsStep === 0, `brandDetailsStep=0 (got ${s?.brandDetailsStep})`);
+  assert(sent.some((m) => m.type === 'text' && /colour|color/i.test(m.body)), 'colours prompt sent');
   assert(
     !sent.some((m) => m.type === 'buttons' && m.buttons?.some((b) => b.id === 'edit_brand')),
     'no Edit button sent when profile absent',
@@ -224,11 +219,11 @@ async function pathNoProfile(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path R — profile with content → view + Edit/Add-more buttons
+// Path R — profile with content → view + single Edit button
 // ---------------------------------------------------------------------------
 
 async function pathViewWithButtons(): Promise<void> {
-  console.log('\n== Path R: profile exists → view + Edit/Add-more buttons ==');
+  console.log('\n== Path R: profile exists → view + single Edit button ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   const { userId } = await onboardAndOpenMenu(wa);
@@ -245,23 +240,20 @@ async function pathViewWithButtons(): Promise<void> {
   assert(/Joyaa/.test(view?.body ?? ''), 'view text mentions brand name');
   assert(/Tagline:.*Modern heritage/.test(view?.body ?? ''), 'view shows tagline');
   assert(/Colors:.*rose gold/.test(view?.body ?? ''), 'view shows colors');
-  assert(/Vibe:.*minimalist luxury/.test(view?.body ?? ''), 'view shows vibe');
-  assert(/2 images/.test(view?.body ?? ''), 'view shows image count');
-  assert(/1 website link/.test(view?.body ?? ''), 'view shows website count');
 
   const btnIds = (view?.buttons ?? []).map((b) => b.id).sort();
   assert(
-    JSON.stringify(btnIds) === JSON.stringify(['add_more_brand', 'edit_brand']),
-    `buttons = edit_brand + add_more_brand (got ${JSON.stringify(btnIds)})`,
+    JSON.stringify(btnIds) === JSON.stringify(['edit_brand']),
+    `buttons = edit_brand only (got ${JSON.stringify(btnIds)})`,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Path S — tap Edit → BRAND_DETAILS_EDITING + prompt
+// Path S — tap Edit → guided flow at step 0 (colours)
 // ---------------------------------------------------------------------------
 
 async function pathTapEdit(): Promise<void> {
-  console.log('\n== Path S: tap Edit → BRAND_DETAILS_EDITING + edit prompt ==');
+  console.log('\n== Path S: tap Edit → BRAND_DETAILS_COLLECTING step 0 ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   const { userId } = await onboardAndOpenMenu(wa);
@@ -271,154 +263,78 @@ async function pathTapEdit(): Promise<void> {
   sent.length = 0;
   await handleIncomingMessage(PHONE, makeButtonMessage('edit_brand'), wa);
   const s = await getSession();
-  assert(s?.state === 'BRAND_DETAILS_EDITING', `state BRAND_DETAILS_EDITING (got ${s?.state})`);
+  assert(s?.state === 'BRAND_DETAILS_COLLECTING', `state BRAND_DETAILS_COLLECTING (got ${s?.state})`);
+  assert(s?.brandDetailsStep === 0, `brandDetailsStep=0 (got ${s?.brandDetailsStep})`);
   assert(
-    sent.some((m) => m.type === 'text' && /natural language|done/i.test(m.body)),
-    'edit prompt sent',
+    sent.some((m) => m.type === 'text' && /colour|color/i.test(m.body)),
+    'colours prompt sent',
   );
 }
 
 // ---------------------------------------------------------------------------
-// Path T — natural-language color edit
+// Path T — guided colours edit overwrites the seeded colours
 // ---------------------------------------------------------------------------
 
-async function pathEditColors(): Promise<void> {
-  console.log('\n== Path T: "change colors to red and gold" → brandColors patched + version ==');
+async function pathEditColours(): Promise<void> {
+  console.log('\n== Path T: guided colours edit → brandColors patched, advance to logo ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   const { userId } = await onboardAndOpenMenu(wa);
-  const { id: profileId } = await seedBrandProfile(userId);
+  await seedBrandProfile(userId);
   await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
   await handleIncomingMessage(PHONE, makeButtonMessage('edit_brand'), wa);
 
   sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('change colors to red and gold'), wa);
+  await handleIncomingMessage(PHONE, makeTextMessage('red and gold'), wa);
 
   const profile = await getProfile();
   assert(
     JSON.stringify(profile?.brandColors) === JSON.stringify(['red', 'gold']),
     `brandColors patched to [red, gold] (got ${JSON.stringify(profile?.brandColors)})`,
   );
-
-  const versions = await prisma.brandSummaryVersion.findMany({
-    where: { brandProfileId: profileId },
-    orderBy: { createdAt: 'desc' },
-  });
-  assert(versions.length === 1, `1 new BrandSummaryVersion (got ${versions.length})`);
-  assert(
-    typeof versions[0]?.changeReason === 'string' && versions[0]!.changeReason!.startsWith('user_edit:'),
-    `version.changeReason starts with "user_edit:" (got "${versions[0]?.changeReason}")`,
-  );
-  const struct = versions[0]?.structuredData as any;
-  assert(struct?.editedField === 'brandColors', `structuredData.editedField=brandColors`);
-
-  assert(
-    sent.some((m) => m.type === 'text' && /Updated/.test(m.body) && /red, gold/i.test(m.body)),
-    'applied-confirmation text mentions new colors',
-  );
-
   const s = await getSession();
-  assert(s?.state === 'BRAND_DETAILS_EDITING', `stays in editing state after patch`);
+  assert(s?.brandDetailsStep === 1, `advanced to logo step (got ${s?.brandDetailsStep})`);
+  assert(sent.some((m) => m.type === 'text' && /logo/i.test(m.body)), 'logo prompt sent');
 }
 
 // ---------------------------------------------------------------------------
-// Path U — tagline edit (different field, second version row)
+// Path U — finishing the guided edit enqueues the worker + returns to menu
 // ---------------------------------------------------------------------------
 
-async function pathEditTagline(): Promise<void> {
-  console.log('\n== Path U: "tagline: handcrafted in India" → tagline patched ==');
+async function pathFinishEdit(): Promise<void> {
+  console.log('\n== Path U: skip logo → tagline → job enqueued + menu ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   const { userId } = await onboardAndOpenMenu(wa);
   const { id: profileId } = await seedBrandProfile(userId);
   await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
   await handleIncomingMessage(PHONE, makeButtonMessage('edit_brand'), wa);
+  await handleIncomingMessage(PHONE, makeTextMessage('red and gold'), wa); // colours → logo
+  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // skip logo → tagline
 
   sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('tagline: handcrafted in India'), wa);
+  await handleIncomingMessage(PHONE, makeTextMessage('Crafted for modern brides'), wa); // tagline → finalise
 
   const profile = await getProfile();
+  assert(profile?.tagline === 'Crafted for modern brides', `tagline patched (got "${profile?.tagline}")`);
+
+  const { getBrandAnalysisQueue } = await import('../packages/queue/dist/index.js');
+  const queue = getBrandAnalysisQueue();
+  const queued = await queue.getJobs(['waiting', 'active', 'delayed']);
+  const ourJob = queued.find((j: any) => j.data?.brandProfileId === profileId);
+  assert(!!ourJob, 'brand-analysis job enqueued');
   assert(
-    profile?.tagline === 'handcrafted in India',
-    `tagline patched (got "${profile?.tagline}")`,
+    sent.some((m) => m.type === 'text' && /analy|analyse|analyz/i.test(m.body)),
+    'analysing-ack text sent',
   );
-  const versions = await prisma.brandSummaryVersion.count({ where: { brandProfileId: profileId } });
-  assert(versions === 1, `1 version row created (got ${versions})`);
-  assert(
-    sent.some((m) => m.type === 'text' && /Updated/.test(m.body) && /handcrafted in India/.test(m.body)),
-    'confirmation mentions new tagline',
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Path V — unrecognised instruction → unrecognized message, no patch
-// ---------------------------------------------------------------------------
-
-async function pathEditUnrecognised(): Promise<void> {
-  console.log('\n== Path V: garbage instruction → unrecognised, no patch ==');
-  await cleanup();
-  const { wa, sent } = makeMockWa();
-  const { userId } = await onboardAndOpenMenu(wa);
-  const { id: profileId } = await seedBrandProfile(userId);
-  await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
-  await handleIncomingMessage(PHONE, makeButtonMessage('edit_brand'), wa);
-
-  sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('asdfghjkl'), wa);
-
-  const profile = await getProfile();
-  assert(
-    profile?.tagline === 'Modern heritage jewellery',
-    `tagline unchanged after garbage (got "${profile?.tagline}")`,
-  );
-  const versions = await prisma.brandSummaryVersion.count({ where: { brandProfileId: profileId } });
-  assert(versions === 0, `no version row created on garbage (got ${versions})`);
-  assert(
-    sent.some((m) => m.type === 'text' && /Couldn't parse|Samajh|समझ/i.test(m.body)),
-    'unrecognised message sent',
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Path W — "done" exits editing back to the menu
-// ---------------------------------------------------------------------------
-
-async function pathEditDone(): Promise<void> {
-  console.log('\n== Path W: "done" → back to CHANGE_SETTINGS_MENU ==');
-  await cleanup();
-  const { wa, sent } = makeMockWa();
-  const { userId } = await onboardAndOpenMenu(wa);
-  await seedBrandProfile(userId);
-  await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
-  await handleIncomingMessage(PHONE, makeButtonMessage('edit_brand'), wa);
-
-  sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('done'), wa);
 
   const s = await getSession();
   assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU (got ${s?.state})`);
-  assert(sent.some((m) => m.type === 'text' && /Edits saved|save ho gaye|save हो/i.test(m.body)), 'exit text sent');
-  assert(sent.some((m) => m.type === 'list'), 'menu re-shown after done');
-}
+  assert(s?.brandDetailsStep === 0, `step reset to 0 (got ${s?.brandDetailsStep})`);
+  assert(sent.some((m) => m.type === 'list'), 'menu re-shown after finalise');
 
-// ---------------------------------------------------------------------------
-// Path X — tap Add more → BRAND_DETAILS_COLLECTING
-// ---------------------------------------------------------------------------
-
-async function pathAddMore(): Promise<void> {
-  console.log('\n== Path X: tap Add more → BRAND_DETAILS_COLLECTING ==');
-  await cleanup();
-  const { wa, sent } = makeMockWa();
-  const { userId } = await onboardAndOpenMenu(wa);
-  await seedBrandProfile(userId);
-  await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
-
-  sent.length = 0;
-  await handleIncomingMessage(PHONE, makeButtonMessage('add_more_brand'), wa);
-
-  const s = await getSession();
-  assert(s?.state === 'BRAND_DETAILS_COLLECTING', `state BRAND_DETAILS_COLLECTING (got ${s?.state})`);
-  assert(sent.some((m) => m.type === 'text' && /done|skip|logo/i.test(m.body)), 'collection prompt sent');
+  if (ourJob) await ourJob.remove().catch(() => {});
+  await queue.close().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -426,23 +342,20 @@ async function pathAddMore(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  console.log(`Phase 4 smoke test — fake phone ${PHONE}\n`);
+  console.log(`Brand-profile view + edit smoke test — fake phone ${PHONE}\n`);
   try {
     await cleanup();
     await pathNoProfile();
     await pathViewWithButtons();
     await pathTapEdit();
-    await pathEditColors();
-    await pathEditTagline();
-    await pathEditUnrecognised();
-    await pathEditDone();
-    await pathAddMore();
+    await pathEditColours();
+    await pathFinishEdit();
   } finally {
     await cleanup();
     await prisma.$disconnect();
   }
   if (failures === 0) {
-    console.log('\nPASS — all Phase 4 smoke assertions green.');
+    console.log('\nPASS — all brand-profile smoke assertions green.');
     process.exit(0);
   } else {
     console.error(`\nFAIL — ${failures} assertion(s) failed.`);

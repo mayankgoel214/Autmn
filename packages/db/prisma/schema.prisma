@@ -113,6 +113,9 @@ model Session {
   styleSelection      String?      @map("style_selection")
   styleSelections     String[]     @default([]) @map("style_selections")
   stylePickStep       Int          @default(0) @map("style_pick_step")
+  // Which question the guided brand-details flow is on:
+  // 0 = colours, 1 = logo, 2 = tagline. Reset to 0 on entry.
+  brandDetailsStep    Int          @default(0) @map("brand_details_step")
   voiceInstructions   String?      @map("voice_instructions")
   imageMediaIds       String[]     @map("image_media_ids")
   imageStorageUrls    String[]     @map("image_storage_urls")

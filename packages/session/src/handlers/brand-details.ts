@@ -1,18 +1,21 @@
 /**
- * Phase 3a — BRAND_DETAILS_COLLECTING handler.
+ * BRAND_DETAILS_COLLECTING handler — guided 3-field flow.
  *
- * Captures brand assets (logo / sample images / PDFs / docs / text notes /
- * website URLs) into BrandAsset rows hung off a BrandProfile (1:1 with User,
- * lazy-created on first asset). On "done" runs a STUB summary generator that
- * writes a placeholder BrandProfile.summary + initial BrandSummaryVersion;
- * Phase 3b replaces the stub with real Gemini vision + pdf-parse + Playwright.
+ * Asks for exactly three things, one at a time, each skippable:
+ *   step 0 — brand colours  → BrandProfile.brandColors
+ *   step 1 — logo (image)   → BrandAsset(type='logo') + BrandProfile.logoUrl
+ *   step 2 — tagline        → BrandProfile.tagline
  *
- * Entry: tap "Brand details" in the change-settings menu (Phase 2 wires this).
- * Exit: "skip" or "done" → CHANGE_SETTINGS_MENU.
+ * Brand category + name are NOT asked here — they're collected during
+ * onboarding (SETUP_CATEGORY / SETUP_NAME) and live on the User.
  *
- * Cost rails enforced here:
- *   - max 10 BrandAssets per BrandProfile (MAX_BRAND_ASSETS)
- *   - max 5 MB per uploaded file (MAX_BRAND_ASSET_BYTES)
+ * The current question is tracked in Session.brandDetailsStep so per-field
+ * "skip" can be told apart from "not asked yet". On the final step the handler
+ * enqueues the brand-analysis worker (which keeps the user's typed colours +
+ * tagline authoritative and fills in vibe + summary, analysing the logo).
+ *
+ * Entry: tap "Brand details" in the change-settings menu (resets step to 0).
+ * Exit: completing/skipping the last field → CHANGE_SETTINGS_MENU.
  */
 
 import type { WhatsAppClient } from '@autmn/whatsapp';
@@ -24,69 +27,43 @@ import { transitionTo } from '../db-helpers.js';
 import { downloadWhatsAppMedia, mimeToExt } from './instructions.js';
 import { sendChangeSettingsMenu } from './change-settings.js';
 import {
-  msgAskBrandDetails,
-  btnBrandDetailsDone,
-  msgBrandDetailFileSaved,
-  msgBrandDetailTextSaved,
-  msgBrandDetailUrlSaved,
-  msgBrandLimitReached,
+  msgAskBrandColors,
+  msgAskBrandLogo,
+  msgAskBrandTagline,
+  msgBrandLogoExpected,
   msgBrandFileTooLarge,
   msgBrandAnalyzing,
   msgBrandDetailsSkipped,
-  msgBrandDetailsUnknown,
   msgGenericError,
 } from '../messages.js';
-import { MAX_BRAND_ASSETS, MAX_BRAND_ASSET_BYTES, ButtonIds } from '../types.js';
+import { MAX_BRAND_ASSET_BYTES } from '../types.js';
 import type { Language, MessageContext } from '../types.js';
 import { logger } from '../logger.js';
 
-// Match the first URL in a string; we accept http and https.
-const URL_REGEX = /https?:\/\/[^\s]+/i;
-
-// Local copies so this handler matches the intent set used elsewhere without
-// importing SKIP_INTENT from onboarding (private). Broadened to catch natural
-// "I'm finished" phrasing — e.g. "this is all i had to say" — so users don't
-// have their closing remark silently stored as yet another note.
-const DONE_INTENT =
-  /^(done|bas|bas itna|itna hi|finish(ed)?|khatam|ho ?ga?ya|complete|theek hai|that'?s (all|it)|that is all( i had to say)?|this is all( i had to say)?|all done|i'?m done|im done|nothing else|no more|that'?s everything)\s*[.!]*$/i;
+// Per-field skip — leaves the field unchanged and moves to the next question.
 const SKIP_INTENT = /^(skip|no|nahi|nahin|नहीं|छोड़ो|chodo|chhodo|pass)\s*$/i;
 
-/**
- * Sends the brand-details prompt with a tappable "Done" button so the user can
- * finish without having to type the magic word. Falls back to plain text if the
- * interactive send fails. Exported so the change-settings menu reuses it.
- */
-export async function sendBrandDetailsPrompt(
-  phoneNumber: string,
-  lang: Language,
-  wa: WhatsAppClient,
-): Promise<void> {
-  try {
-    await wa.sendButtons(phoneNumber, msgAskBrandDetails(lang), [
-      { id: ButtonIds.BRAND_DETAILS_DONE, title: btnBrandDetailsDone(lang) },
-    ]);
-  } catch {
-    await wa.sendText(phoneNumber, msgAskBrandDetails(lang));
-  }
-}
+const STEP_COLOURS = 0;
+const STEP_LOGO = 1;
+const STEP_TAGLINE = 2;
 
 /**
- * Sends a "saved ✅ (n/max)" ack with the "Done" button attached, so finishing
- * is always one tap away after any asset is stored.
+ * Starts (or restarts) the guided flow at step 0 and asks for colours. The
+ * caller transitions the session into BRAND_DETAILS_COLLECTING first. Exported
+ * so the change-settings menu can kick the flow off.
  */
-async function sendSavedAck(
+export async function startBrandDetailsFlow(
+  user: User,
   phoneNumber: string,
   lang: Language,
   wa: WhatsAppClient,
-  savedMsg: string,
 ): Promise<void> {
-  try {
-    await wa.sendButtons(phoneNumber, savedMsg, [
-      { id: ButtonIds.BRAND_DETAILS_DONE, title: btnBrandDetailsDone(lang) },
-    ]);
-  } catch {
-    await wa.sendText(phoneNumber, savedMsg);
-  }
+  await prisma.session.update({
+    where: { phoneNumber },
+    data: { brandDetailsStep: STEP_COLOURS },
+  });
+  const profile = await prisma.brandProfile.findUnique({ where: { userId: user.id } });
+  await wa.sendText(phoneNumber, msgAskBrandColors(lang, profile?.brandColors));
 }
 
 export async function handleBrandDetailsCollecting(
@@ -98,203 +75,147 @@ export async function handleBrandDetailsCollecting(
   const lang = (user.language as Language) || 'hi';
   const phoneNumber = session.phoneNumber;
   const text = message.text?.trim() ?? '';
+  const step = (session as any).brandDetailsStep ?? STEP_COLOURS;
+  const isSkip = message.messageType === 'text' && SKIP_INTENT.test(text);
 
-  // ── "Done" button tap — finalise the same way as typing "done" ───────────
-  if (message.messageType === 'interactive' && message.buttonReplyId === ButtonIds.BRAND_DETAILS_DONE) {
-    await finaliseBrandProfile(user, phoneNumber, lang, wa);
-    return;
-  }
-
-  // ── "skip" — abandon collection without finalising a summary ─────────────
-  if (message.messageType === 'text' && SKIP_INTENT.test(text)) {
-    await wa.sendText(phoneNumber, msgBrandDetailsSkipped(lang));
-    await transitionTo(phoneNumber, 'CHANGE_SETTINGS_MENU');
-    await sendChangeSettingsMenu(phoneNumber, lang, wa);
-    return;
-  }
-
-  // ── "done" — finalise + run (stub) summary + return to menu ───────────────
-  if (message.messageType === 'text' && DONE_INTENT.test(text)) {
-    await finaliseBrandProfile(user, phoneNumber, lang, wa);
-    return;
-  }
-
-  // Lazy-create the BrandProfile (1:1 with User) on first inbound asset.
+  // Lazy-create the BrandProfile (1:1 with User) so each step can write to it.
   const profile = await prisma.brandProfile.upsert({
     where: { userId: user.id },
     update: {},
     create: { userId: user.id },
   });
 
-  // ── Cost rail: max-files. Check BEFORE doing any expensive download. ─────
-  const existingCount = await prisma.brandAsset.count({
-    where: { brandProfileId: profile.id },
-  });
-  if (existingCount >= MAX_BRAND_ASSETS) {
-    await wa.sendText(phoneNumber, msgBrandLimitReached(lang, MAX_BRAND_ASSETS));
-    return;
-  }
-  const nextCount = existingCount + 1;
-
-  // ── Image ─────────────────────────────────────────────────────────────────
-  if (message.messageType === 'image' && message.mediaId) {
-    await ingestImage(profile.id, message.mediaId, phoneNumber, lang, wa, nextCount);
-    return;
-  }
-
-  // ── Document (PDF or other) ───────────────────────────────────────────────
-  if (message.messageType === 'document' && message.mediaId) {
-    await ingestDocument(
-      profile.id,
-      message.mediaId,
-      message.documentMimeType ?? null,
-      message.documentFilename ?? null,
-      phoneNumber,
-      lang,
-      wa,
-      nextCount,
-    );
+  // ── Step 0 — brand colours ───────────────────────────────────────────────
+  if (step === STEP_COLOURS) {
+    if (!isSkip && message.messageType === 'text' && text.length > 0) {
+      const colours = parseColours(text);
+      if (colours.length > 0) {
+        await prisma.brandProfile.update({
+          where: { id: profile.id },
+          data: { brandColors: colours },
+        });
+      }
+    } else if (!isSkip && message.messageType !== 'text') {
+      // Non-text (e.g. an image sent early) — re-ask this step.
+      await wa.sendText(phoneNumber, msgAskBrandColors(lang, profile.brandColors));
+      return;
+    }
+    await advanceTo(phoneNumber, STEP_LOGO);
+    const hasLogo = await hasLogoAsset(profile.id);
+    await wa.sendText(phoneNumber, msgAskBrandLogo(lang, hasLogo));
     return;
   }
 
-  // ── Text — URL detection routes to type='website', else 'text' ──────────
-  if (message.messageType === 'text' && text.length > 0) {
-    await ingestText(profile.id, text, phoneNumber, lang, wa, nextCount);
+  // ── Step 1 — logo image ──────────────────────────────────────────────────
+  if (step === STEP_LOGO) {
+    if (!isSkip && message.messageType === 'image' && message.mediaId) {
+      const stored = await ingestLogo(profile.id, message.mediaId, phoneNumber, lang, wa);
+      if (!stored) return; // too-large / download error — stay on this step
+    } else if (!isSkip) {
+      // Anything that isn't an image and isn't "skip" — nudge, stay here.
+      await wa.sendText(phoneNumber, msgBrandLogoExpected(lang));
+      return;
+    }
+    await advanceTo(phoneNumber, STEP_TAGLINE);
+    const fresh = await prisma.brandProfile.findUnique({ where: { id: profile.id } });
+    await wa.sendText(phoneNumber, msgAskBrandTagline(lang, fresh?.tagline));
     return;
   }
 
-  // Anything else (audio, interactive) — nudge the user.
-  await wa.sendText(phoneNumber, msgBrandDetailsUnknown(lang));
+  // ── Step 2 — tagline ─────────────────────────────────────────────────────
+  if (step === STEP_TAGLINE) {
+    if (!isSkip && message.messageType === 'text' && text.length > 0) {
+      await prisma.brandProfile.update({
+        where: { id: profile.id },
+        data: { tagline: text.slice(0, 100) },
+      });
+    } else if (!isSkip && message.messageType !== 'text') {
+      await wa.sendText(phoneNumber, msgAskBrandTagline(lang, profile.tagline));
+      return;
+    }
+    await finaliseBrandProfile(user, phoneNumber, lang, wa);
+    return;
+  }
+
+  // Defensive — unknown step. Restart the flow.
+  await startBrandDetailsFlow(user, phoneNumber, lang, wa);
 }
 
 // ---------------------------------------------------------------------------
-// Asset ingestion helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
-async function ingestImage(
+async function advanceTo(phoneNumber: string, step: number): Promise<void> {
+  await prisma.session.update({
+    where: { phoneNumber },
+    data: { brandDetailsStep: step },
+  });
+}
+
+async function hasLogoAsset(brandProfileId: string): Promise<boolean> {
+  const count = await prisma.brandAsset.count({
+    where: { brandProfileId, type: 'logo' },
+  });
+  return count > 0;
+}
+
+/** Split a free-text colour reply into 1-6 trimmed colour tokens. */
+function parseColours(raw: string): string[] {
+  return raw
+    .split(/[,\n;/]|\band\b|\baur\b|\bor\b|&/i)
+    .map((s) => s.trim().slice(0, 30))
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+/**
+ * Downloads + stores the logo image. Returns true on success, false if the
+ * file was rejected (too large) or the download failed — in which case the
+ * caller keeps the user on the logo step.
+ */
+async function ingestLogo(
   brandProfileId: string,
   mediaId: string,
   phoneNumber: string,
   lang: Language,
   wa: WhatsAppClient,
-  count: number,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const { buffer, mimeType } = await downloadWhatsAppMedia(mediaId);
     if (buffer.byteLength > MAX_BRAND_ASSET_BYTES) {
       await wa.sendText(phoneNumber, msgBrandFileTooLarge(lang));
-      return;
+      return false;
     }
-
-    // First image becomes the logo; later ones are reference shots. Phase 4
-    // adds a way for users to re-label (set type='sample' / swap logo).
-    const existingImages = await prisma.brandAsset.count({
-      where: { brandProfileId, type: { in: ['logo', 'reference_image'] } },
-    });
-    const type = existingImages === 0 ? 'logo' : 'reference_image';
 
     const ext = mimeToExt(mimeType);
     const id = crypto.randomUUID().slice(0, 8);
     const path = `${phoneNumber}/${Date.now()}_${id}${ext}`;
     const storageUrl = await uploadFile(Buckets.BRAND_ASSETS, path, buffer, mimeType);
 
+    // A profile carries a single logo. Replace any previous one so re-running
+    // the flow doesn't pile up stale logo rows.
+    await prisma.brandAsset.deleteMany({ where: { brandProfileId, type: 'logo' } });
     await prisma.brandAsset.create({
-      data: {
-        brandProfileId,
-        type,
-        storageUrl,
-        mimeType,
-      },
+      data: { brandProfileId, type: 'logo', storageUrl, mimeType },
     });
-
-    await sendSavedAck(phoneNumber, lang, wa, msgBrandDetailFileSaved(lang, count, MAX_BRAND_ASSETS));
+    await prisma.brandProfile.update({
+      where: { id: brandProfileId },
+      data: { logoUrl: storageUrl },
+    });
+    return true;
   } catch (err) {
-    logger.error('Brand image upload failed', {
+    logger.error('Brand logo upload failed', {
       phoneNumber,
       error: err instanceof Error ? err.message : String(err),
     });
     await wa.sendText(phoneNumber, msgGenericError(lang));
+    return false;
   }
-}
-
-async function ingestDocument(
-  brandProfileId: string,
-  mediaId: string,
-  hintedMime: string | null,
-  filename: string | null,
-  phoneNumber: string,
-  lang: Language,
-  wa: WhatsAppClient,
-  count: number,
-): Promise<void> {
-  try {
-    const { buffer, mimeType: downloadedMime } = await downloadWhatsAppMedia(mediaId);
-    if (buffer.byteLength > MAX_BRAND_ASSET_BYTES) {
-      await wa.sendText(phoneNumber, msgBrandFileTooLarge(lang));
-      return;
-    }
-
-    const effectiveMime = (hintedMime ?? downloadedMime ?? 'application/octet-stream').toLowerCase();
-    const isPdf = effectiveMime.includes('pdf');
-    const type = isPdf ? 'pdf' : 'document';
-    const ext = isPdf ? '.pdf' : extFromMime(effectiveMime);
-    const id = crypto.randomUUID().slice(0, 8);
-    const path = `${phoneNumber}/${Date.now()}_${id}${ext}`;
-    const storageUrl = await uploadFile(Buckets.BRAND_ASSETS, path, buffer, effectiveMime);
-
-    await prisma.brandAsset.create({
-      data: {
-        brandProfileId,
-        type,
-        storageUrl,
-        mimeType: effectiveMime,
-        originalFilename: filename,
-      },
-    });
-
-    await sendSavedAck(phoneNumber, lang, wa, msgBrandDetailFileSaved(lang, count, MAX_BRAND_ASSETS));
-  } catch (err) {
-    logger.error('Brand document upload failed', {
-      phoneNumber,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    await wa.sendText(phoneNumber, msgGenericError(lang));
-  }
-}
-
-async function ingestText(
-  brandProfileId: string,
-  rawText: string,
-  phoneNumber: string,
-  lang: Language,
-  wa: WhatsAppClient,
-  count: number,
-): Promise<void> {
-  const stored = rawText.slice(0, 5000);
-  const isUrl = URL_REGEX.test(stored);
-
-  await prisma.brandAsset.create({
-    data: {
-      brandProfileId,
-      type: isUrl ? 'website' : 'text',
-      rawText: stored,
-    },
-  });
-
-  await sendSavedAck(
-    phoneNumber,
-    lang,
-    wa,
-    isUrl
-      ? msgBrandDetailUrlSaved(lang, count, MAX_BRAND_ASSETS)
-      : msgBrandDetailTextSaved(lang, count, MAX_BRAND_ASSETS),
-  );
 }
 
 // ---------------------------------------------------------------------------
-// "done" finaliser — enqueues the brand-analysis job and acks the user. The
-// worker writes BrandProfile.summary + structured fields + BrandSummaryVersion
-// and sends the final "saved" message with the structured profile.
+// Finaliser — enqueues the brand-analysis job (keeps user colours + tagline
+// authoritative, fills vibe + summary) and hands the user back to the menu.
 // ---------------------------------------------------------------------------
 
 async function finaliseBrandProfile(
@@ -303,29 +224,32 @@ async function finaliseBrandProfile(
   lang: Language,
   wa: WhatsAppClient,
 ): Promise<void> {
+  // Reset the step so a future entry starts clean, and leave the collecting
+  // state regardless of outcome.
+  await prisma.session.update({
+    where: { phoneNumber },
+    data: { brandDetailsStep: STEP_COLOURS },
+  });
+
   const profile = await prisma.brandProfile.findUnique({ where: { userId: user.id } });
 
-  // User typed "done" without ever sending an asset — treat as skip.
-  if (!profile) {
+  // Nothing meaningful collected (and no prior profile) — treat as a skip.
+  const hasContent =
+    !!profile &&
+    ((profile.brandColors?.length ?? 0) > 0 ||
+      !!profile.tagline ||
+      !!profile.logoUrl ||
+      !!profile.summary);
+
+  if (!profile || !hasContent) {
     await wa.sendText(phoneNumber, msgBrandDetailsSkipped(lang));
     await transitionTo(phoneNumber, 'CHANGE_SETTINGS_MENU');
     await sendChangeSettingsMenu(phoneNumber, lang, wa);
     return;
   }
 
-  const assetCount = await prisma.brandAsset.count({
-    where: { brandProfileId: profile.id },
-  });
-  if (assetCount === 0) {
-    await wa.sendText(phoneNumber, msgBrandDetailsSkipped(lang));
-    await transitionTo(phoneNumber, 'CHANGE_SETTINGS_MENU');
-    await sendChangeSettingsMenu(phoneNumber, lang, wa);
-    return;
-  }
-
-  // Enqueue the worker job. We send the "analysing..." ack synchronously and
-  // hand the user back to the menu — the worker writes the final summary +
-  // sends the saved-profile message in a follow-up.
+  // Enqueue the worker. We ack synchronously and hand the user back to the
+  // menu — the worker writes the final summary + sends a follow-up.
   try {
     const queue = getBrandAnalysisQueue();
     await queue.add(
@@ -349,14 +273,4 @@ async function finaliseBrandProfile(
 
   await transitionTo(phoneNumber, 'CHANGE_SETTINGS_MENU');
   await sendChangeSettingsMenu(phoneNumber, lang, wa);
-}
-
-function extFromMime(mime: string): string {
-  if (mime.includes('pdf')) return '.pdf';
-  if (mime.includes('wordprocessingml') || mime.includes('msword')) return '.docx';
-  if (mime.includes('spreadsheetml') || mime.includes('excel') || mime.includes('ms-excel'))
-    return '.xlsx';
-  if (mime.includes('plain')) return '.txt';
-  if (mime.includes('csv')) return '.csv';
-  return '';
 }

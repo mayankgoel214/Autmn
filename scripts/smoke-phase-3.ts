@@ -1,17 +1,18 @@
 #!/usr/bin/env tsx
 /**
- * Phase 3 smoke test — brand-details capture (text / URL / skip / done /
- * cost-rail). Image and document paths require real WhatsApp media downloads
- * and aren't covered here — Phase 3b's integration tests will hit those.
+ * Brand-details smoke test — guided 3-field flow (colours → logo → tagline).
+ *
+ * The logo step needs a real WhatsApp media download, so it's exercised here
+ * only via "skip" and the wrong-input nudge — never an actual upload.
  *
  * Paths:
- *   K. text note → BrandAsset(type='text'), state stays in collecting.
- *   L. URL → BrandAsset(type='website'), URL extracted from text.
- *   M. "skip" → returns to CHANGE_SETTINGS_MENU.
- *   N. assets + "done" → BrandProfile.summary set, initial BrandSummaryVersion
- *      created (stub), returns to menu.
- *   O. "done" with no assets → treats as skip (no version row).
- *   P. cost rail — 11th asset rejected once 10 are present.
+ *   K. enter flow → BRAND_DETAILS_COLLECTING, step 0, colours prompt asked.
+ *   L. colours text → brandColors parsed + stored, advances to logo step.
+ *   M. "skip" on colours → field left empty, advances to logo step.
+ *   N. logo step: non-image text → nudge, stays on logo step.
+ *   O. full happy path (colours → skip logo → tagline) → fields stored,
+ *      brand-analysis job enqueued, "analysing" ack, back to menu.
+ *   P. skip every field → treated as skip (no job), back to menu.
  *
  * Run: npx tsx scripts/smoke-phase-3.ts
  */
@@ -160,125 +161,129 @@ async function navigateToBrandDetails(wa: any): Promise<void> {
   await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
 }
 
-async function brandProfileFor(): Promise<{ id: string } | null> {
+async function brandProfileFor(): Promise<{ id: string; brandColors: string[]; tagline: string | null } | null> {
   const u = await getUser();
   if (!u) return null;
   return prisma.brandProfile.findUnique({ where: { userId: u.id } });
 }
 
 // ---------------------------------------------------------------------------
-// Path K — text note
+// Path K — entering the flow asks for colours at step 0
 // ---------------------------------------------------------------------------
 
-async function pathTextNote(): Promise<void> {
-  console.log('\n== Path K: text note → BrandAsset(type=text) ==');
+async function pathEnter(): Promise<void> {
+  console.log('\n== Path K: enter flow → step 0 + colours prompt ==');
   await cleanup();
-  const { wa } = makeMockWa();
+  const { wa, sent } = makeMockWa();
+  sent.length = 0;
   await navigateToBrandDetails(wa);
 
-  let s = await getSession();
+  const s = await getSession();
   assert(s?.state === 'BRAND_DETAILS_COLLECTING', `state BRAND_DETAILS_COLLECTING (got ${s?.state})`);
-
-  await handleIncomingMessage(
-    PHONE,
-    makeTextMessage('We make handmade silver jewellery for weddings.'),
-    wa,
-  );
-
-  const profile = await brandProfileFor();
-  assert(!!profile, 'BrandProfile lazy-created');
-  const assets = profile
-    ? await prisma.brandAsset.findMany({ where: { brandProfileId: profile.id } })
-    : [];
-  assert(assets.length === 1, `1 BrandAsset row (got ${assets.length})`);
-  assert(assets[0]?.type === 'text', `type=text (got ${assets[0]?.type})`);
+  assert(s?.brandDetailsStep === 0, `brandDetailsStep=0 (got ${s?.brandDetailsStep})`);
   assert(
-    assets[0]?.rawText?.includes('silver') === true,
-    `rawText preserved (got ${assets[0]?.rawText?.slice(0, 40)})`,
+    sent.some((m) => m.type === 'text' && /colour|color/i.test(m.body)),
+    'colours prompt sent',
   );
-
-  s = await getSession();
-  assert(s?.state === 'BRAND_DETAILS_COLLECTING', 'still in collecting state after text');
 }
 
 // ---------------------------------------------------------------------------
-// Path L — URL detection
+// Path L — colours text stored, advances to the logo step
 // ---------------------------------------------------------------------------
 
-async function pathUrl(): Promise<void> {
-  console.log('\n== Path L: URL → BrandAsset(type=website) ==');
+async function pathColours(): Promise<void> {
+  console.log('\n== Path L: colours text → brandColors stored, advance to logo ==');
   await cleanup();
-  const { wa } = makeMockWa();
+  const { wa, sent } = makeMockWa();
   await navigateToBrandDetails(wa);
 
-  await handleIncomingMessage(
-    PHONE,
-    makeTextMessage('Visit our shop at https://joyaa.example.com — handmade gold jewellery'),
-    wa,
-  );
+  sent.length = 0;
+  await handleIncomingMessage(PHONE, makeTextMessage('red and gold'), wa);
 
   const profile = await brandProfileFor();
-  const assets = profile
-    ? await prisma.brandAsset.findMany({ where: { brandProfileId: profile.id } })
-    : [];
-  assert(assets.length === 1, '1 asset');
-  assert(assets[0]?.type === 'website', `type=website (got ${assets[0]?.type})`);
   assert(
-    assets[0]?.rawText?.includes('https://joyaa.example.com') === true,
-    'rawText contains the URL',
+    JSON.stringify(profile?.brandColors) === JSON.stringify(['red', 'gold']),
+    `brandColors parsed to [red, gold] (got ${JSON.stringify(profile?.brandColors)})`,
   );
+  const s = await getSession();
+  assert(s?.state === 'BRAND_DETAILS_COLLECTING', 'still collecting');
+  assert(s?.brandDetailsStep === 1, `advanced to logo step (got ${s?.brandDetailsStep})`);
+  assert(sent.some((m) => m.type === 'text' && /logo/i.test(m.body)), 'logo prompt sent');
 }
 
 // ---------------------------------------------------------------------------
-// Path M — "skip" exit
+// Path M — "skip" on colours leaves the field empty, advances to logo
 // ---------------------------------------------------------------------------
 
-async function pathSkip(): Promise<void> {
-  console.log('\n== Path M: "skip" → back to change-settings menu ==');
+async function pathSkipColours(): Promise<void> {
+  console.log('\n== Path M: skip colours → empty, advance to logo ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await navigateToBrandDetails(wa);
 
   sent.length = 0;
   await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa);
+
+  const profile = await brandProfileFor();
+  assert((profile?.brandColors.length ?? 0) === 0, 'no colours stored after skip');
   const s = await getSession();
-  assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU (got ${s?.state})`);
-  assert(sent.some((m) => m.type === 'list'), 'menu re-shown after skip');
+  assert(s?.brandDetailsStep === 1, `advanced to logo step (got ${s?.brandDetailsStep})`);
+  assert(sent.some((m) => m.type === 'text' && /logo/i.test(m.body)), 'logo prompt sent');
+}
+
+// ---------------------------------------------------------------------------
+// Path N — logo step nudges on non-image input and stays put
+// ---------------------------------------------------------------------------
+
+async function pathLogoNudge(): Promise<void> {
+  console.log('\n== Path N: logo step + text → nudge, stays on logo step ==');
+  await cleanup();
+  const { wa, sent } = makeMockWa();
+  await navigateToBrandDetails(wa);
+  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // past colours → logo step
+
+  sent.length = 0;
+  await handleIncomingMessage(PHONE, makeTextMessage('here is my brand'), wa);
+
+  const s = await getSession();
+  assert(s?.brandDetailsStep === 1, `stays on logo step (got ${s?.brandDetailsStep})`);
   assert(
-    sent.some((m) => m.type === 'text' && /skip/i.test(m.body)),
-    'skip-confirmation text sent',
+    sent.some((m) => m.type === 'text' && /image|logo/i.test(m.body)),
+    'logo-expected nudge sent',
   );
 }
 
 // ---------------------------------------------------------------------------
-// Path N — "done" with at least one asset enqueues the brand-analysis job
-// (Phase 3b: summary writes are now the worker's job, not the handler's).
+// Path O — full happy path: colours → skip logo → tagline → enqueue + menu
 // ---------------------------------------------------------------------------
 
-async function pathDoneWithAssets(): Promise<void> {
-  console.log('\n== Path N: assets + "done" → brand-analysis job enqueued + menu ==');
+async function pathHappyPath(): Promise<void> {
+  console.log('\n== Path O: colours → skip logo → tagline → job enqueued + menu ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await navigateToBrandDetails(wa);
 
-  await handleIncomingMessage(PHONE, makeTextMessage('Premium silver brand'), wa);
-  await handleIncomingMessage(PHONE, makeTextMessage('https://store.example.com'), wa);
+  await handleIncomingMessage(PHONE, makeTextMessage('emerald, ivory'), wa); // colours → logo
+  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // skip logo → tagline
 
   sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('done'), wa);
+  await handleIncomingMessage(PHONE, makeTextMessage('Handcrafted in India'), wa); // tagline → finalise
 
   const profile = await brandProfileFor();
   assert(!!profile, 'BrandProfile exists');
+  assert(
+    JSON.stringify(profile?.brandColors) === JSON.stringify(['emerald', 'ivory']),
+    `colours persisted (got ${JSON.stringify(profile?.brandColors)})`,
+  );
+  assert(profile?.tagline === 'Handcrafted in India', `tagline persisted (got "${profile?.tagline}")`);
 
-  // The worker writes summary / version asynchronously; nothing should be on
-  // the profile or in BrandSummaryVersion yet from the handler call alone.
-  assert(profile?.summary === null, `profile.summary still null pre-worker (got "${profile?.summary}")`);
-  const preVersions = profile
-    ? await prisma.brandSummaryVersion.count({ where: { brandProfileId: profile.id } })
-    : 0;
-  assert(preVersions === 0, `no BrandSummaryVersion rows pre-worker (got ${preVersions})`);
+  // The worker writes summary asynchronously — nothing on the profile yet.
+  const fullProfile = profile
+    ? await prisma.brandProfile.findUnique({ where: { id: profile.id } })
+    : null;
+  assert(fullProfile?.summary === null, `summary still null pre-worker (got "${fullProfile?.summary}")`);
 
-  // The handler must have enqueued a brand-analysis job carrying this profile.
+  // The handler must have enqueued a brand-analysis job for this profile.
   const { getBrandAnalysisQueue } = await import('../packages/queue/dist/index.js');
   const queue = getBrandAnalysisQueue();
   const queued = await queue.getJobs(['waiting', 'active', 'delayed']);
@@ -289,83 +294,52 @@ async function pathDoneWithAssets(): Promise<void> {
     `job phoneNumber=${PHONE} (got ${ourJob?.data?.phoneNumber})`,
   );
 
-  // User-facing acknowledgement is the "analysing..." text, NOT the final
-  // structured profile — that arrives later from the worker.
   assert(
     sent.some((m) => m.type === 'text' && /analy|analyse|analyz/i.test(m.body)),
     'analysing-ack text sent',
   );
 
   const s = await getSession();
-  assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU after done (got ${s?.state})`);
-  assert(sent.some((m) => m.type === 'list'), 'menu re-shown after done');
+  assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU after finalise (got ${s?.state})`);
+  assert(s?.brandDetailsStep === 0, `step reset to 0 (got ${s?.brandDetailsStep})`);
+  assert(sent.some((m) => m.type === 'list'), 'menu re-shown after finalise');
 
-  // Remove the queued job so a live worker doesn't try to process orphaned
-  // data once we've cleaned the user up.
   if (ourJob) await ourJob.remove().catch(() => {});
   await queue.close().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
-// Path O — "done" with no assets behaves like skip
+// Path P — skipping every field is treated as a skip (no job)
 // ---------------------------------------------------------------------------
 
-async function pathDoneNoAssets(): Promise<void> {
-  console.log('\n== Path O: "done" with no assets → treated as skip ==');
-  await cleanup();
-  const { wa } = makeMockWa();
-  await navigateToBrandDetails(wa);
-
-  await handleIncomingMessage(PHONE, makeTextMessage('done'), wa);
-
-  const profile = await brandProfileFor();
-  assert(!profile, 'no BrandProfile created when nothing was uploaded');
-  const s = await getSession();
-  assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU (got ${s?.state})`);
-}
-
-// ---------------------------------------------------------------------------
-// Path P — cost rail: 11th asset rejected
-// ---------------------------------------------------------------------------
-
-async function pathCostRail(): Promise<void> {
-  console.log('\n== Path P: 11th asset rejected (MAX_BRAND_ASSETS = 10) ==');
+async function pathSkipAll(): Promise<void> {
+  console.log('\n== Path P: skip all fields → treated as skip, no job ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await navigateToBrandDetails(wa);
 
-  // Pre-seed 10 text assets directly to skip the per-message latency.
-  const user = await getUser();
-  if (!user) {
-    failures++;
-    console.error('  ✗ user missing during cost-rail setup');
-    return;
-  }
-  const profile = await prisma.brandProfile.upsert({
-    where: { userId: user.id },
-    update: {},
-    create: { userId: user.id },
-  });
-  await prisma.brandAsset.createMany({
-    data: Array.from({ length: 10 }, (_, i) => ({
-      brandProfileId: profile.id,
-      type: 'text',
-      rawText: `pre-seeded note ${i + 1}`,
-    })),
-  });
-  const seeded = await prisma.brandAsset.count({ where: { brandProfileId: profile.id } });
-  assert(seeded === 10, `seeded 10 assets (got ${seeded})`);
-
-  // 11th text message — must be rejected, no new asset row.
+  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // colours
+  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // logo
   sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('one more note'), wa);
+  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // tagline → finalise
 
-  const afterCount = await prisma.brandAsset.count({ where: { brandProfileId: profile.id } });
-  assert(afterCount === 10, `asset count stayed at 10 (got ${afterCount})`);
+  const profile = await brandProfileFor();
+  // Profile is lazily upserted but carries no content.
   assert(
-    sent.some((m) => m.type === 'text' && /max|done|skip/i.test(m.body)),
-    'rejection message sent',
+    !profile || ((profile.brandColors.length === 0) && !profile.tagline),
+    'no brand content stored',
   );
+
+  const { getBrandAnalysisQueue } = await import('../packages/queue/dist/index.js');
+  const queue = getBrandAnalysisQueue();
+  const queued = await queue.getJobs(['waiting', 'active', 'delayed']);
+  const ourJob = profile ? queued.find((j: any) => j.data?.brandProfileId === profile.id) : undefined;
+  assert(!ourJob, 'no brand-analysis job enqueued on skip-all');
+  await queue.close().catch(() => {});
+
+  assert(sent.some((m) => m.type === 'text' && /skip/i.test(m.body)), 'skip-confirmation text sent');
+  const s = await getSession();
+  assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU (got ${s?.state})`);
 }
 
 // ---------------------------------------------------------------------------
@@ -373,21 +347,21 @@ async function pathCostRail(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  console.log(`Phase 3 smoke test — fake phone ${PHONE}\n`);
+  console.log(`Brand-details smoke test — fake phone ${PHONE}\n`);
   try {
     await cleanup();
-    await pathTextNote();
-    await pathUrl();
-    await pathSkip();
-    await pathDoneWithAssets();
-    await pathDoneNoAssets();
-    await pathCostRail();
+    await pathEnter();
+    await pathColours();
+    await pathSkipColours();
+    await pathLogoNudge();
+    await pathHappyPath();
+    await pathSkipAll();
   } finally {
     await cleanup();
     await prisma.$disconnect();
   }
   if (failures === 0) {
-    console.log('\nPASS — all Phase 3 smoke assertions green.');
+    console.log('\nPASS — all brand-details smoke assertions green.');
     process.exit(0);
   } else {
     console.error(`\nFAIL — ${failures} assertion(s) failed.`);
