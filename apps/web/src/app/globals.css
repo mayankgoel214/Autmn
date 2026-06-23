@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cream: #fffbf5;
+  --cream-deep: #fef3e2;
+  --ink: #2b1a10;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--cream);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle warm grain/gradient backdrop used on hero + section dividers. */
+.warm-gradient {
+  background-image: radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      rgba(245, 158, 11, 0.18),
+      transparent
+    ),
+    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(194, 65, 12, 0.1), transparent);
+}
+
+.section {
+  @apply mx-auto w-full max-w-5xl px-5 sm:px-8;
+}
+
+/* Legal document typography */
+.legal-prose p {
+  @apply leading-relaxed;
+}
+.legal-prose a {
+  @apply font-medium text-terracotta underline underline-offset-2;
+}
+.legal-prose strong {
+  @apply font-semibold text-ink;
+}
+.legal-prose ul {
+  @apply list-disc space-y-1.5 pl-6;
+}
+.legal-prose ol {
+  @apply list-decimal space-y-1.5 pl-6;
+}
