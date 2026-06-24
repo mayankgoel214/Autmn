@@ -1,17 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * Brand-profile view + edit smoke test.
- *
- * "Edit" now restarts the guided 3-field flow (colours → logo → tagline)
- * rather than the old natural-language edit mode. The logo step is exercised
- * via "skip" only (no real media download).
+ * Brand-profile view + edit smoke test (single "brand colours" question).
  *
  * Paths:
- *   Q. No profile → tapping Brand details drops into BRAND_DETAILS_COLLECTING.
- *   R. Profile with content → view + single Edit button; stays CHANGE_SETTINGS_MENU.
- *   S. Tap Edit → BRAND_DETAILS_COLLECTING at step 0 with the colours prompt.
- *   T. Guided colours edit → brandColors patched, advances to the logo step.
- *   U. Finish the guided edit (skip logo → tagline) → job enqueued, back to menu.
+ *   Q. No colours on file → tapping Brand details drops into BRAND_DETAILS_COLLECTING.
+ *   R. Colours on file → view + single Edit button; stays CHANGE_SETTINGS_MENU.
+ *   S. Tap Edit → BRAND_DETAILS_COLLECTING with the colours prompt.
+ *   T. Guided colours edit → brandColors patched, back to the menu.
+ *
+ * Run: npx tsx scripts/smoke-phase-4.ts
  */
 
 import { readFileSync } from 'fs';
@@ -162,45 +159,20 @@ async function onboardAndOpenMenu(wa: any): Promise<{ userId: string }> {
   return { userId: user.id };
 }
 
-async function seedBrandProfile(userId: string): Promise<{ id: string }> {
-  const profile = await prisma.brandProfile.upsert({
+async function seedColours(userId: string): Promise<void> {
+  await prisma.brandProfile.upsert({
     where: { userId },
-    update: {
-      tagline: 'Modern heritage jewellery',
-      brandColors: ['rose gold', 'ivory'],
-      vibe: 'minimalist luxury',
-      summary: 'Joyaa makes minimalist heritage jewellery for modern Indian brides.',
-      logoUrl: 'https://example.com/logo.png',
-      summaryUpdatedAt: new Date(),
-    },
-    create: {
-      userId,
-      tagline: 'Modern heritage jewellery',
-      brandColors: ['rose gold', 'ivory'],
-      vibe: 'minimalist luxury',
-      summary: 'Joyaa makes minimalist heritage jewellery for modern Indian brides.',
-      logoUrl: 'https://example.com/logo.png',
-      summaryUpdatedAt: new Date(),
-    },
+    update: { brandColors: ['rose gold', 'ivory'] },
+    create: { userId, brandColors: ['rose gold', 'ivory'] },
   });
-
-  await prisma.brandAsset.createMany({
-    data: [
-      { brandProfileId: profile.id, type: 'logo', storageUrl: 'https://example.com/logo.png', mimeType: 'image/png' },
-      { brandProfileId: profile.id, type: 'reference_image', storageUrl: 'https://example.com/ref1.jpg', mimeType: 'image/jpeg' },
-      { brandProfileId: profile.id, type: 'website', rawText: 'https://joyaa.example.com' },
-    ],
-  });
-
-  return { id: profile.id };
 }
 
 // ---------------------------------------------------------------------------
-// Path Q — no profile yet → tapping Brand details drops into the guided flow
+// Path Q — no colours yet → tapping Brand details drops into the question
 // ---------------------------------------------------------------------------
 
 async function pathNoProfile(): Promise<void> {
-  console.log('\n== Path Q: no profile → SETTING_BRAND_DETAILS drops into collection ==');
+  console.log('\n== Path Q: no colours → SETTING_BRAND_DETAILS drops into collection ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await onboardAndOpenMenu(wa);
@@ -210,24 +182,23 @@ async function pathNoProfile(): Promise<void> {
 
   const s = await getSession();
   assert(s?.state === 'BRAND_DETAILS_COLLECTING', `state BRAND_DETAILS_COLLECTING (got ${s?.state})`);
-  assert(s?.brandDetailsStep === 0, `brandDetailsStep=0 (got ${s?.brandDetailsStep})`);
   assert(sent.some((m) => m.type === 'text' && /colour|color/i.test(m.body)), 'colours prompt sent');
   assert(
     !sent.some((m) => m.type === 'buttons' && m.buttons?.some((b) => b.id === 'edit_brand')),
-    'no Edit button sent when profile absent',
+    'no Edit button sent when colours absent',
   );
 }
 
 // ---------------------------------------------------------------------------
-// Path R — profile with content → view + single Edit button
+// Path R — colours on file → view + single Edit button
 // ---------------------------------------------------------------------------
 
 async function pathViewWithButtons(): Promise<void> {
-  console.log('\n== Path R: profile exists → view + single Edit button ==');
+  console.log('\n== Path R: colours on file → view + single Edit button ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   const { userId } = await onboardAndOpenMenu(wa);
-  await seedBrandProfile(userId);
+  await seedColours(userId);
 
   sent.length = 0;
   await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
@@ -238,8 +209,7 @@ async function pathViewWithButtons(): Promise<void> {
   const view = sent.find((m) => m.type === 'buttons');
   assert(!!view, 'view sent as buttons');
   assert(/Joyaa/.test(view?.body ?? ''), 'view text mentions brand name');
-  assert(/Tagline:.*Modern heritage/.test(view?.body ?? ''), 'view shows tagline');
-  assert(/Colors:.*rose gold/.test(view?.body ?? ''), 'view shows colors');
+  assert(/Colors:.*rose gold/.test(view?.body ?? ''), 'view shows colours');
 
   const btnIds = (view?.buttons ?? []).map((b) => b.id).sort();
   assert(
@@ -249,22 +219,21 @@ async function pathViewWithButtons(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path S — tap Edit → guided flow at step 0 (colours)
+// Path S — tap Edit → colours question
 // ---------------------------------------------------------------------------
 
 async function pathTapEdit(): Promise<void> {
-  console.log('\n== Path S: tap Edit → BRAND_DETAILS_COLLECTING step 0 ==');
+  console.log('\n== Path S: tap Edit → BRAND_DETAILS_COLLECTING + colours prompt ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   const { userId } = await onboardAndOpenMenu(wa);
-  await seedBrandProfile(userId);
+  await seedColours(userId);
   await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
 
   sent.length = 0;
   await handleIncomingMessage(PHONE, makeButtonMessage('edit_brand'), wa);
   const s = await getSession();
   assert(s?.state === 'BRAND_DETAILS_COLLECTING', `state BRAND_DETAILS_COLLECTING (got ${s?.state})`);
-  assert(s?.brandDetailsStep === 0, `brandDetailsStep=0 (got ${s?.brandDetailsStep})`);
   assert(
     sent.some((m) => m.type === 'text' && /colour|color/i.test(m.body)),
     'colours prompt sent',
@@ -276,65 +245,30 @@ async function pathTapEdit(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function pathEditColours(): Promise<void> {
-  console.log('\n== Path T: guided colours edit → brandColors patched, advance to logo ==');
+  console.log('\n== Path T: guided colours edit → brandColors patched + menu ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   const { userId } = await onboardAndOpenMenu(wa);
-  await seedBrandProfile(userId);
+  await seedColours(userId);
   await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
   await handleIncomingMessage(PHONE, makeButtonMessage('edit_brand'), wa);
 
   sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('red and gold'), wa);
+  await handleIncomingMessage(PHONE, makeTextMessage('emerald and gold'), wa);
 
   const profile = await getProfile();
   assert(
-    JSON.stringify(profile?.brandColors) === JSON.stringify(['red', 'gold']),
-    `brandColors patched to [red, gold] (got ${JSON.stringify(profile?.brandColors)})`,
+    JSON.stringify(profile?.brandColors) === JSON.stringify(['emerald', 'gold']),
+    `brandColors patched to [emerald, gold] (got ${JSON.stringify(profile?.brandColors)})`,
   );
-  const s = await getSession();
-  assert(s?.brandDetailsStep === 1, `advanced to logo step (got ${s?.brandDetailsStep})`);
-  assert(sent.some((m) => m.type === 'text' && /logo/i.test(m.body)), 'logo prompt sent');
-}
-
-// ---------------------------------------------------------------------------
-// Path U — finishing the guided edit enqueues the worker + returns to menu
-// ---------------------------------------------------------------------------
-
-async function pathFinishEdit(): Promise<void> {
-  console.log('\n== Path U: skip logo → tagline → job enqueued + menu ==');
-  await cleanup();
-  const { wa, sent } = makeMockWa();
-  const { userId } = await onboardAndOpenMenu(wa);
-  const { id: profileId } = await seedBrandProfile(userId);
-  await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
-  await handleIncomingMessage(PHONE, makeButtonMessage('edit_brand'), wa);
-  await handleIncomingMessage(PHONE, makeTextMessage('red and gold'), wa); // colours → logo
-  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // skip logo → tagline
-
-  sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('Crafted for modern brides'), wa); // tagline → finalise
-
-  const profile = await getProfile();
-  assert(profile?.tagline === 'Crafted for modern brides', `tagline patched (got "${profile?.tagline}")`);
-
-  const { getBrandAnalysisQueue } = await import('../packages/queue/dist/index.js');
-  const queue = getBrandAnalysisQueue();
-  const queued = await queue.getJobs(['waiting', 'active', 'delayed']);
-  const ourJob = queued.find((j: any) => j.data?.brandProfileId === profileId);
-  assert(!!ourJob, 'brand-analysis job enqueued');
   assert(
-    sent.some((m) => m.type === 'text' && /analy|analyse|analyz/i.test(m.body)),
-    'analysing-ack text sent',
+    sent.some((m) => m.type === 'text' && /saved|save ho|save हो/i.test(m.body)),
+    'saved-confirmation text sent',
   );
-
   const s = await getSession();
   assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU (got ${s?.state})`);
-  assert(s?.brandDetailsStep === 0, `step reset to 0 (got ${s?.brandDetailsStep})`);
-  assert(sent.some((m) => m.type === 'list'), 'menu re-shown after finalise');
-
-  if (ourJob) await ourJob.remove().catch(() => {});
-  await queue.close().catch(() => {});
+  // NB: the menu re-render can be suppressed by sendChangeSettingsMenu's 6s
+  // dedupe when the test runs faster than that window — not asserted here.
 }
 
 // ---------------------------------------------------------------------------
@@ -349,7 +283,6 @@ async function main(): Promise<void> {
     await pathViewWithButtons();
     await pathTapEdit();
     await pathEditColours();
-    await pathFinishEdit();
   } finally {
     await cleanup();
     await prisma.$disconnect();

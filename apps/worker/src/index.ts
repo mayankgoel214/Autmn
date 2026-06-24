@@ -14,7 +14,6 @@ import { getConfig } from './config.js';
 import { processImageJob } from './processors/image-processing.js';
 import { processPaymentCheck } from './processors/payment-check.js';
 import { processSessionTimeout } from './processors/session-timeout.js';
-import { processBrandAnalysis } from './processors/brand-analysis.js';
 import { processStorageCleanup } from './processors/storage-cleanup.js';
 
 // ---------------------------------------------------------------------------
@@ -88,18 +87,6 @@ async function main() {
     },
   );
 
-  // Phase 3b — brand-analysis worker. Concurrency 2: Playwright + Gemini are
-  // RAM-heavy and we want to avoid stampeding the Supabase storage CDN.
-  const brandAnalysisWorker = new Worker(
-    QueueNames.BRAND_ANALYSIS,
-    processBrandAnalysis,
-    {
-      connection: getRedisConnection().duplicate(),
-      concurrency: 2,
-      lockDuration: 240_000, // 4 min — Playwright cold start can take 10-20s
-    },
-  );
-
   // Storage TTL cleanup worker — concurrency 1 because we want at most
   // one sweep in flight at any time. The lockDuration covers the
   // longest expected run (large buckets paginate through many list
@@ -151,7 +138,6 @@ async function main() {
     { name: 'image', worker: imageWorker },
     { name: 'payment', worker: paymentWorker },
     { name: 'session', worker: sessionWorker },
-    { name: 'brand-analysis', worker: brandAnalysisWorker },
     { name: 'storage-cleanup', worker: storageCleanupWorker },
   ];
 

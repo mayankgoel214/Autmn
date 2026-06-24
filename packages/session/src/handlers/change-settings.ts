@@ -193,24 +193,15 @@ export async function handleChangeSettingsMenu(
     }
 
     case ListIds.SETTING_BRAND_DETAILS: {
-      // Phase 4 — branch on whether the user already has a BrandProfile with
-      // content. With content: render the structured view + Edit/Add-more
-      // buttons, stay in CHANGE_SETTINGS_MENU. Without content: drop straight
-      // into the collection flow (Phase 3a behaviour).
+      // With colours already on file: render the view + Edit button and stay
+      // in CHANGE_SETTINGS_MENU. Otherwise drop into the colours question.
       const profile = await prisma.brandProfile.findUnique({
         where: { userId: user.id },
       });
 
-      if (profile) {
-        const assets = await prisma.brandAsset.findMany({
-          where: { brandProfileId: profile.id },
-          select: { type: true },
-        });
-        const hasContent = assets.length > 0 || profile.summary !== null;
-        if (hasContent) {
-          await sendBrandProfileView(user, profile, assets, phoneNumber, lang, wa);
-          return;
-        }
+      if (profile && profile.brandColors.length > 0) {
+        await sendBrandProfileView(user, profile, phoneNumber, lang, wa);
+        return;
       }
 
       await transitionTo(phoneNumber, 'BRAND_DETAILS_COLLECTING');
@@ -233,34 +224,22 @@ export async function handleChangeSettingsMenu(
 }
 
 // ---------------------------------------------------------------------------
-// Phase 4 — brand-profile view renderer. Called when SETTING_BRAND_DETAILS is
-// tapped AND the user already has a BrandProfile with assets or summary.
+// Brand-profile view renderer. Called when SETTING_BRAND_DETAILS is tapped AND
+// the user already has brand colours on file.
 // ---------------------------------------------------------------------------
 
 async function sendBrandProfileView(
   user: User,
-  profile: { tagline: string | null; brandColors: string[]; vibe: string | null },
-  assets: Array<{ type: string }>,
+  profile: { brandColors: string[] },
   phoneNumber: string,
   lang: Language,
   wa: WhatsAppClient,
 ): Promise<void> {
-  const counts = { image: 0, pdf: 0, doc: 0, text: 0, website: 0 };
-  for (const a of assets) {
-    if (a.type === 'logo' || a.type === 'reference_image' || a.type === 'sample') counts.image++;
-    else if (a.type === 'pdf') counts.pdf++;
-    else if (a.type === 'document') counts.doc++;
-    else if (a.type === 'text') counts.text++;
-    else if (a.type === 'website') counts.website++;
-  }
-
   const viewText = msgBrandProfileView(
     {
       brandName: (user as any).brandName ?? user.name ?? undefined,
-      tagline: profile.tagline,
       brandColors: profile.brandColors,
-      vibe: profile.vibe,
-      assetCounts: counts,
+      assetCounts: { image: 0, pdf: 0, doc: 0, text: 0, website: 0 },
     },
     lang,
   );
@@ -276,7 +255,7 @@ async function sendBrandProfileView(
     });
     await wa.sendText(
       phoneNumber,
-      `${viewText}\n\nReply "edit" to update your brand colours, logo or tagline.`,
+      `${viewText}\n\nReply "edit" to update your brand colours.`,
     );
   }
 }

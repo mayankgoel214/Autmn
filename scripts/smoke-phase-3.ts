@@ -1,18 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * Brand-details smoke test — guided 3-field flow (colours → logo → tagline).
- *
- * The logo step needs a real WhatsApp media download, so it's exercised here
- * only via "skip" and the wrong-input nudge — never an actual upload.
+ * Brand-details smoke test — single "brand colours" question.
  *
  * Paths:
- *   K. enter flow → BRAND_DETAILS_COLLECTING, step 0, colours prompt asked.
- *   L. colours text → brandColors parsed + stored, advances to logo step.
- *   M. "skip" on colours → field left empty, advances to logo step.
- *   N. logo step: non-image text → nudge, stays on logo step.
- *   O. full happy path (colours → skip logo → tagline) → fields stored,
- *      brand-analysis job enqueued, "analysing" ack, back to menu.
- *   P. skip every field → treated as skip (no job), back to menu.
+ *   K. enter flow → BRAND_DETAILS_COLLECTING, colours prompt asked.
+ *   L. colours text → brandColors parsed + stored, back to CHANGE_SETTINGS_MENU.
+ *   M. "skip" → no colours stored, back to CHANGE_SETTINGS_MENU.
+ *   N. non-text input → re-ask, stays in collecting state.
  *
  * Run: npx tsx scripts/smoke-phase-3.ts
  */
@@ -113,6 +107,14 @@ function makeListMessage(listReplyId: string): MessageContext {
     timestamp: Date.now(),
   };
 }
+function makeImageMessage(): MessageContext {
+  return {
+    messageId: `smoke3-${PHONE}-${msgCounter++}`,
+    messageType: 'image',
+    mediaId: `media-${msgCounter}`,
+    timestamp: Date.now(),
+  };
+}
 
 let failures = 0;
 function assert(cond: unknown, msg: string): void {
@@ -132,7 +134,7 @@ async function getUser() {
 }
 
 async function cleanup(): Promise<void> {
-  // brand_summary_versions + brand_assets cascade off brand_profiles, which
+  // brand_assets / brand_summary_versions cascade off brand_profiles, which
   // cascades off users. Deleting the user is enough; we explicitly delete
   // sessions/orders/processed_messages first to satisfy non-cascading FKs.
   await prisma.session.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
@@ -161,18 +163,18 @@ async function navigateToBrandDetails(wa: any): Promise<void> {
   await handleIncomingMessage(PHONE, makeListMessage('setting_brand_details'), wa);
 }
 
-async function brandProfileFor(): Promise<{ id: string; brandColors: string[]; tagline: string | null } | null> {
+async function brandProfileFor(): Promise<{ id: string; brandColors: string[] } | null> {
   const u = await getUser();
   if (!u) return null;
   return prisma.brandProfile.findUnique({ where: { userId: u.id } });
 }
 
 // ---------------------------------------------------------------------------
-// Path K — entering the flow asks for colours at step 0
+// Path K — entering the flow asks for colours
 // ---------------------------------------------------------------------------
 
 async function pathEnter(): Promise<void> {
-  console.log('\n== Path K: enter flow → step 0 + colours prompt ==');
+  console.log('\n== Path K: enter flow → colours prompt ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   sent.length = 0;
@@ -180,7 +182,6 @@ async function pathEnter(): Promise<void> {
 
   const s = await getSession();
   assert(s?.state === 'BRAND_DETAILS_COLLECTING', `state BRAND_DETAILS_COLLECTING (got ${s?.state})`);
-  assert(s?.brandDetailsStep === 0, `brandDetailsStep=0 (got ${s?.brandDetailsStep})`);
   assert(
     sent.some((m) => m.type === 'text' && /colour|color/i.test(m.body)),
     'colours prompt sent',
@@ -188,11 +189,11 @@ async function pathEnter(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Path L — colours text stored, advances to the logo step
+// Path L — colours text stored, returns to the menu
 // ---------------------------------------------------------------------------
 
 async function pathColours(): Promise<void> {
-  console.log('\n== Path L: colours text → brandColors stored, advance to logo ==');
+  console.log('\n== Path L: colours text → stored + back to menu ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await navigateToBrandDetails(wa);
@@ -205,18 +206,22 @@ async function pathColours(): Promise<void> {
     JSON.stringify(profile?.brandColors) === JSON.stringify(['red', 'gold']),
     `brandColors parsed to [red, gold] (got ${JSON.stringify(profile?.brandColors)})`,
   );
+  assert(
+    sent.some((m) => m.type === 'text' && /saved|save ho|save हो/i.test(m.body)),
+    'saved-confirmation text sent',
+  );
   const s = await getSession();
-  assert(s?.state === 'BRAND_DETAILS_COLLECTING', 'still collecting');
-  assert(s?.brandDetailsStep === 1, `advanced to logo step (got ${s?.brandDetailsStep})`);
-  assert(sent.some((m) => m.type === 'text' && /logo/i.test(m.body)), 'logo prompt sent');
+  assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU (got ${s?.state})`);
+  // NB: the menu re-render can be suppressed by sendChangeSettingsMenu's 6s
+  // dedupe when the test runs faster than that window — not asserted here.
 }
 
 // ---------------------------------------------------------------------------
-// Path M — "skip" on colours leaves the field empty, advances to logo
+// Path M — "skip" returns to the menu without storing colours
 // ---------------------------------------------------------------------------
 
-async function pathSkipColours(): Promise<void> {
-  console.log('\n== Path M: skip colours → empty, advance to logo ==');
+async function pathSkip(): Promise<void> {
+  console.log('\n== Path M: "skip" → back to menu, no colours ==');
   await cleanup();
   const { wa, sent } = makeMockWa();
   await navigateToBrandDetails(wa);
@@ -225,121 +230,31 @@ async function pathSkipColours(): Promise<void> {
   await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa);
 
   const profile = await brandProfileFor();
-  assert((profile?.brandColors.length ?? 0) === 0, 'no colours stored after skip');
-  const s = await getSession();
-  assert(s?.brandDetailsStep === 1, `advanced to logo step (got ${s?.brandDetailsStep})`);
-  assert(sent.some((m) => m.type === 'text' && /logo/i.test(m.body)), 'logo prompt sent');
-}
-
-// ---------------------------------------------------------------------------
-// Path N — logo step nudges on non-image input and stays put
-// ---------------------------------------------------------------------------
-
-async function pathLogoNudge(): Promise<void> {
-  console.log('\n== Path N: logo step + text → nudge, stays on logo step ==');
-  await cleanup();
-  const { wa, sent } = makeMockWa();
-  await navigateToBrandDetails(wa);
-  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // past colours → logo step
-
-  sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('here is my brand'), wa);
-
-  const s = await getSession();
-  assert(s?.brandDetailsStep === 1, `stays on logo step (got ${s?.brandDetailsStep})`);
-  assert(
-    sent.some((m) => m.type === 'text' && /image|logo/i.test(m.body)),
-    'logo-expected nudge sent',
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Path O — full happy path: colours → skip logo → tagline → enqueue + menu
-// ---------------------------------------------------------------------------
-
-async function pathHappyPath(): Promise<void> {
-  console.log('\n== Path O: colours → skip logo → tagline → job enqueued + menu ==');
-  await cleanup();
-  const { wa, sent } = makeMockWa();
-  await navigateToBrandDetails(wa);
-
-  await handleIncomingMessage(PHONE, makeTextMessage('emerald, ivory'), wa); // colours → logo
-  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // skip logo → tagline
-
-  sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('Handcrafted in India'), wa); // tagline → finalise
-
-  const profile = await brandProfileFor();
-  assert(!!profile, 'BrandProfile exists');
-  assert(
-    JSON.stringify(profile?.brandColors) === JSON.stringify(['emerald', 'ivory']),
-    `colours persisted (got ${JSON.stringify(profile?.brandColors)})`,
-  );
-  assert(profile?.tagline === 'Handcrafted in India', `tagline persisted (got "${profile?.tagline}")`);
-
-  // The worker writes summary asynchronously — nothing on the profile yet.
-  const fullProfile = profile
-    ? await prisma.brandProfile.findUnique({ where: { id: profile.id } })
-    : null;
-  assert(fullProfile?.summary === null, `summary still null pre-worker (got "${fullProfile?.summary}")`);
-
-  // The handler must have enqueued a brand-analysis job for this profile.
-  const { getBrandAnalysisQueue } = await import('../packages/queue/dist/index.js');
-  const queue = getBrandAnalysisQueue();
-  const queued = await queue.getJobs(['waiting', 'active', 'delayed']);
-  const ourJob = queued.find((j: any) => j.data?.brandProfileId === profile!.id);
-  assert(!!ourJob, 'brand-analysis job enqueued');
-  assert(
-    ourJob?.data?.phoneNumber === PHONE,
-    `job phoneNumber=${PHONE} (got ${ourJob?.data?.phoneNumber})`,
-  );
-
-  assert(
-    sent.some((m) => m.type === 'text' && /analy|analyse|analyz/i.test(m.body)),
-    'analysing-ack text sent',
-  );
-
-  const s = await getSession();
-  assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU after finalise (got ${s?.state})`);
-  assert(s?.brandDetailsStep === 0, `step reset to 0 (got ${s?.brandDetailsStep})`);
-  assert(sent.some((m) => m.type === 'list'), 'menu re-shown after finalise');
-
-  if (ourJob) await ourJob.remove().catch(() => {});
-  await queue.close().catch(() => {});
-}
-
-// ---------------------------------------------------------------------------
-// Path P — skipping every field is treated as a skip (no job)
-// ---------------------------------------------------------------------------
-
-async function pathSkipAll(): Promise<void> {
-  console.log('\n== Path P: skip all fields → treated as skip, no job ==');
-  await cleanup();
-  const { wa, sent } = makeMockWa();
-  await navigateToBrandDetails(wa);
-
-  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // colours
-  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // logo
-  sent.length = 0;
-  await handleIncomingMessage(PHONE, makeTextMessage('skip'), wa); // tagline → finalise
-
-  const profile = await brandProfileFor();
-  // Profile is lazily upserted but carries no content.
-  assert(
-    !profile || ((profile.brandColors.length === 0) && !profile.tagline),
-    'no brand content stored',
-  );
-
-  const { getBrandAnalysisQueue } = await import('../packages/queue/dist/index.js');
-  const queue = getBrandAnalysisQueue();
-  const queued = await queue.getJobs(['waiting', 'active', 'delayed']);
-  const ourJob = profile ? queued.find((j: any) => j.data?.brandProfileId === profile.id) : undefined;
-  assert(!ourJob, 'no brand-analysis job enqueued on skip-all');
-  await queue.close().catch(() => {});
-
+  assert((profile?.brandColors.length ?? 0) === 0, 'no colours stored on skip');
   assert(sent.some((m) => m.type === 'text' && /skip/i.test(m.body)), 'skip-confirmation text sent');
   const s = await getSession();
   assert(s?.state === 'CHANGE_SETTINGS_MENU', `state CHANGE_SETTINGS_MENU (got ${s?.state})`);
+}
+
+// ---------------------------------------------------------------------------
+// Path N — non-text input re-asks and stays in the collecting state
+// ---------------------------------------------------------------------------
+
+async function pathNonText(): Promise<void> {
+  console.log('\n== Path N: image input → re-ask, stays collecting ==');
+  await cleanup();
+  const { wa, sent } = makeMockWa();
+  await navigateToBrandDetails(wa);
+
+  sent.length = 0;
+  await handleIncomingMessage(PHONE, makeImageMessage(), wa);
+
+  const s = await getSession();
+  assert(s?.state === 'BRAND_DETAILS_COLLECTING', `stays BRAND_DETAILS_COLLECTING (got ${s?.state})`);
+  assert(
+    sent.some((m) => m.type === 'text' && /colour|color/i.test(m.body)),
+    'colours prompt re-asked',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -352,10 +267,8 @@ async function main(): Promise<void> {
     await cleanup();
     await pathEnter();
     await pathColours();
-    await pathSkipColours();
-    await pathLogoNudge();
-    await pathHappyPath();
-    await pathSkipAll();
+    await pathSkip();
+    await pathNonText();
   } finally {
     await cleanup();
     await prisma.$disconnect();

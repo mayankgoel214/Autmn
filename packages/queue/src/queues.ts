@@ -5,7 +5,6 @@ import type {
   ImageProcessingJobData,
   PaymentCheckJobData,
   SessionTimeoutJobData,
-  BrandAnalysisJobData,
   StorageCleanupJobData,
 } from "./jobs.js";
 
@@ -28,7 +27,6 @@ const defaultJobOptions = {
 let _imageQueue: Queue<ImageProcessingJobData> | null = null;
 let _paymentCheckQueue: Queue<PaymentCheckJobData> | null = null;
 let _sessionTimeoutQueue: Queue<SessionTimeoutJobData> | null = null;
-let _brandAnalysisQueue: Queue<BrandAnalysisJobData> | null = null;
 let _storageCleanupQueue: Queue<StorageCleanupJobData> | null = null;
 
 export function getImageQueue(): Queue<ImageProcessingJobData> {
@@ -75,29 +73,6 @@ export function getSessionTimeoutQueue(): Queue<SessionTimeoutJobData> {
     );
   }
   return _sessionTimeoutQueue;
-}
-
-export function getBrandAnalysisQueue(): Queue<BrandAnalysisJobData> {
-  if (!_brandAnalysisQueue) {
-    _brandAnalysisQueue = new Queue<BrandAnalysisJobData>(
-      QueueNames.BRAND_ANALYSIS,
-      {
-        connection: getRedisConnection(),
-        defaultJobOptions: {
-          ...defaultJobOptions,
-          // AI calls + Playwright can transiently fail; allow generous retries
-          // with exponential backoff so a single Gemini blip doesn't drop the
-          // brand profile silently.
-          attempts: 4,
-          backoff: {
-            type: "exponential" as const,
-            delay: 10_000,
-          },
-        },
-      }
-    );
-  }
-  return _brandAnalysisQueue;
 }
 
 export function getStorageCleanupQueue(): Queue<StorageCleanupJobData> {

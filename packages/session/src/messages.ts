@@ -1852,7 +1852,7 @@ export function msgAskBrandDetails(lang: Lang): string {
 }
 
 /**
- * Guided brand-details flow — Step 1: brand colours.
+ * Brand-details prompt — the single "brand colours" question.
  * `current` is shown when the user already has colours saved, so they know
  * what's on file and can keep them by skipping.
  */
@@ -1869,42 +1869,17 @@ export function msgAskBrandColors(lang: Lang, current?: string[]): string {
   }
 }
 
-/** Guided brand-details flow — Step 2: logo image. */
-export function msgAskBrandLogo(lang: Lang, hasLogo?: boolean): string {
+/** Confirmation after brand colours are saved. */
+export function msgBrandColorsSaved(lang: Lang, colours: string[]): string {
+  const list = colours.join(', ');
   switch (lang) {
     case 'hi':
-      return `अब अपना logo भेजें (एक image के रूप में)।${hasLogo ? '\n\n(पहले से एक logo है — नया भेजें या "skip" करें)' : ''}\n\n(skip करने के लिए "skip" लिखें)`;
+      return `Brand colours save हो गए ✅\n${list}`;
     case 'hinglish':
-      return `Ab apna logo bhejein (ek image ke roop mein).${hasLogo ? '\n\n(Pehle se ek logo hai — naya bhejein ya "skip" karein)' : ''}\n\n(skip karna ho to "skip" likhein)`;
+      return `Brand colours save ho gaye ✅\n${list}`;
     case 'en':
     default:
-      return `Now send your logo (as an image).${hasLogo ? '\n\n(You already have one on file — send a new one or "skip")' : ''}\n\n(type "skip" to skip)`;
-  }
-}
-
-/** Guided brand-details flow — Step 3: tagline. */
-export function msgAskBrandTagline(lang: Lang, current?: string | null): string {
-  switch (lang) {
-    case 'hi':
-      return `आपके ब्रांड की tagline क्या है?${current ? `\n\nअभी set: ${current}` : ''}\n\n(skip करने के लिए "skip" लिखें)`;
-    case 'hinglish':
-      return `Aapke brand ki tagline kya hai?${current ? `\n\nAbhi set: ${current}` : ''}\n\n(skip karna ho to "skip" likhein)`;
-    case 'en':
-    default:
-      return `What's your brand tagline?${current ? `\n\nCurrently set: ${current}` : ''}\n\n(type "skip" to skip)`;
-  }
-}
-
-/** Nudge when the logo step gets something other than an image. */
-export function msgBrandLogoExpected(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'कृपया logo एक image के रूप में भेजें, या "skip" लिखें।';
-    case 'hinglish':
-      return 'Logo ek image ke roop mein bhejein, ya "skip" likhein.';
-    case 'en':
-    default:
-      return 'Please send the logo as an image, or type "skip".';
+      return `Brand colours saved ✅\n${list}`;
   }
 }
 
