@@ -198,7 +198,7 @@ export function msgSendProductPhotos(lang: Lang): string {
     case 'hinglish':
       return 'Ab apne product ki photos bhejein! Ek hi product ki alag-alag angles se 1-5 photos bhej saktein hain. Jab ho jaye, "done" bolein.';
     case 'hi':
-      return 'अब अपने प्रोडक्ट की फ़ोटो भेजें। एक ही प्रोडक्ट की अलग-अलग एंगल से 5 तक फ़ोटो भेज सकते हैं — जितनी ज़्यादा एंगल, उतना बेहतर रिज़ल्ट।\n\nसब भेज दें तो "done" लिखें।';
+      return 'अब अपने प्रोडक्ट की फ़ोटो भेजें। एक ही प्रोडक्ट की अलग-अलग एंगल से 5 तक फ़ोटो भेज सकते हैं - जितनी ज़्यादा एंगल, उतना बेहतर रिज़ल्ट।\n\nसब भेज दें तो "done" लिखें।';
     case 'ta':
       return 'இப்போது உங்கள் product photos அனுப்புங்கள்! ஒரே product-ஐ வெவ்வேறு angles-ல் 1-5 photos அனுப்பலாம். முடிந்ததும் "done" என்று சொல்லுங்கள்.';
     case 'te':
@@ -226,30 +226,30 @@ export function msgSendProductPhotos(lang: Lang): string {
 export function msgPickStylePack(lang: Lang): string {
   switch (lang) {
     case 'hinglish':
-      return 'Ek style pack chuniye — ek tap mein 3 best styles ready ho jayenge!';
+      return 'Ek style pack chuniye - ek tap mein 3 best styles ready ho jayenge!';
     case 'hi':
       return 'अब अपने ऐड के लिए 3 स्टाइल चुनें।\n\nपक्का नहीं है? Smart Pack आपके प्रोडक्ट के हिसाब से सबसे अच्छे स्टाइल खुद चुन लेगा।';
     case 'ta':
-      return 'ஒரு style pack தேர்ந்தெடுங்கள் — ஒரே tap-ல் 3 best styles ready ஆகும்!';
+      return 'ஒரு style pack தேர்ந்தெடுங்கள் - ஒரே tap-ல் 3 best styles ready ஆகும்!';
     case 'te':
-      return 'ఒక style pack ఎంచుకోండి — ఒక్క tap లో 3 best styles ready అవుతాయి!';
+      return 'ఒక style pack ఎంచుకోండి - ఒక్క tap లో 3 best styles ready అవుతాయి!';
     case 'bn':
-      return 'একটা style pack বেছে নিন — এক tap-এ 3 best styles ready হয়ে যাবে!';
+      return 'একটা style pack বেছে নিন - এক tap-এ 3 best styles ready হয়ে যাবে!';
     case 'mr':
-      return 'एक style pack निवडा — एका tap मध्ये 3 best styles ready होतील!';
+      return 'एक style pack निवडा - एका tap मध्ये 3 best styles ready होतील!';
     case 'gu':
-      return 'એક style pack પસંદ કરો — એક tap માં 3 styles ready!';
+      return 'એક style pack પસંદ કરો - એક tap માં 3 styles ready!';
     case 'kn':
-      return 'ಒಂದು style pack ಆಯ್ಕೆ ಮಾಡಿ — ಒಂದೇ tap-ನಲ್ಲಿ 3 styles ready!';
+      return 'ಒಂದು style pack ಆಯ್ಕೆ ಮಾಡಿ - ಒಂದೇ tap-ನಲ್ಲಿ 3 styles ready!';
     case 'ml':
-      return 'ഒരു style pack തിരഞ്ഞെടുക്കൂ — ഒറ്റ tap-ൽ 3 styles ready!';
+      return 'ഒരു style pack തിരഞ്ഞെടുക്കൂ - ഒറ്റ tap-ൽ 3 styles ready!';
     case 'pa':
-      return 'ਇੱਕ style pack ਚੁਣੋ — ਇੱਕ tap ਵਿੱਚ 3 styles ready!';
+      return 'ਇੱਕ style pack ਚੁਣੋ - ਇੱਕ tap ਵਿੱਚ 3 styles ready!';
     case 'or':
-      return 'ଏକ style pack ବାଛନ୍ତୁ — ଏକ tap ରେ 3 styles ready!';
+      return 'ଏକ style pack ବାଛନ୍ତୁ - ଏକ tap ରେ 3 styles ready!';
     case 'en':
     default:
-      return 'Pick a style pack — one tap and 3 styles are ready!';
+      return 'Pick a style pack - one tap and 3 styles are ready!';
   }
 }
 
@@ -291,30 +291,30 @@ export function msgStylePackReady(lang: Lang, packName: string, styleNames: stri
 export function msgWelcomeBackWithStyle(lang: Lang, name: string, styleName: string): string {
   switch (lang) {
     case 'hinglish':
-      return `${name} ji! Photo bhejiye — ${styleName} mein banayenge.\nStyle badlana hai?`;
+      return `${name} ji! Photo bhejiye - ${styleName} mein banayenge.\nStyle badlana hai?`;
     case 'hi':
-      return `${name} जी! Photo भेजिए — ${styleName} में बनाएंगे।\nStyle बदलना है?`;
+      return `${name} जी! Photo भेजिए - ${styleName} में बनाएंगे।\nStyle बदलना है?`;
     case 'ta':
-      return `${name}! Photo அனுப்புங்கள் — ${styleName}-ல் தயாரிப்போம்.\nStyle மாற்ற வேண்டுமா?`;
+      return `${name}! Photo அனுப்புங்கள் - ${styleName}-ல் தயாரிப்போம்.\nStyle மாற்ற வேண்டுமா?`;
     case 'te':
-      return `${name}! Photo పంపండి — ${styleName} లో చేస్తాం.\nStyle మార్చాలా?`;
+      return `${name}! Photo పంపండి - ${styleName} లో చేస్తాం.\nStyle మార్చాలా?`;
     case 'bn':
-      return `${name}! Photo পাঠান — ${styleName}-এ বানাবো।\nStyle বদলাতে চান?`;
+      return `${name}! Photo পাঠান - ${styleName}-এ বানাবো।\nStyle বদলাতে চান?`;
     case 'mr':
-      return `${name}! Photo पाठवा — ${styleName} मध्ये बनवतो.\nStyle बदलायचा आहे का?`;
+      return `${name}! Photo पाठवा - ${styleName} मध्ये बनवतो.\nStyle बदलायचा आहे का?`;
     case 'gu':
-      return `${name}! Photo મોકલો — ${styleName} માં બનાવીશું.\nStyle બદલવો છે?`;
+      return `${name}! Photo મોકલો - ${styleName} માં બનાવીશું.\nStyle બદલવો છે?`;
     case 'kn':
-      return `${name}! Photo ಕಳಿಸಿ — ${styleName} ಲ್ಲಿ ಮಾಡ್ತೀವಿ.\nStyle ಬದಲಾಯಿಸಬೇಕಾ?`;
+      return `${name}! Photo ಕಳಿಸಿ - ${styleName} ಲ್ಲಿ ಮಾಡ್ತೀವಿ.\nStyle ಬದಲಾಯಿಸಬೇಕಾ?`;
     case 'ml':
-      return `${name}! Photo അയക്കൂ — ${styleName} ൽ ഉണ്ടാക്കാം.\nStyle മാറ്റണോ?`;
+      return `${name}! Photo അയക്കൂ - ${styleName} ൽ ഉണ്ടാക്കാം.\nStyle മാറ്റണോ?`;
     case 'pa':
-      return `${name}! Photo ਭੇਜੋ — ${styleName} ਵਿੱਚ ਬਣਾਵਾਂਗੇ.\nStyle ਬਦਲਣਾ ਹੈ?`;
+      return `${name}! Photo ਭੇਜੋ - ${styleName} ਵਿੱਚ ਬਣਾਵਾਂਗੇ.\nStyle ਬਦਲਣਾ ਹੈ?`;
     case 'or':
-      return `${name}! Photo ପଠାନ୍ତୁ — ${styleName} ରେ ବନାଇ ଦେବୁ.\nStyle ବଦଳାଇବେ?`;
+      return `${name}! Photo ପଠାନ୍ତୁ - ${styleName} ରେ ବନାଇ ଦେବୁ.\nStyle ବଦଳାଇବେ?`;
     case 'en':
     default:
-      return `${name}! Send your photo — we'll use ${styleName}.\nWant a different style?`;
+      return `${name}! Send your photo - we'll use ${styleName}.\nWant a different style?`;
   }
 }
 
@@ -352,58 +352,58 @@ export function msgSendPhoto(lang: Lang, isFirstOrder: boolean): string {
   if (isFirstOrder) {
     switch (lang) {
       case 'hinglish':
-        return 'Apne product photos bhejiye — 5 tak bhej sakte hain.\nPehla free hai! (Baaki Rs 99 each.)';
+        return 'Apne product photos bhejiye - 5 tak bhej sakte hain.\nPehla free hai! (Baaki Rs 99 each.)';
       case 'hi':
-        return 'अपने product photos भेजिए — 5 तक भेज सकते हैं।\nपहला free है! (बाकी Rs 99 each.)';
+        return 'अपने product photos भेजिए - 5 तक भेज सकते हैं।\nपहला free है! (बाकी Rs 99 each.)';
       case 'ta':
-        return 'உங்கள் product photos அனுப்புங்கள் — 5 வரை அனுப்பலாம்.\nமுதலாவது free! (மற்றவை Rs 99 each.)';
+        return 'உங்கள் product photos அனுப்புங்கள் - 5 வரை அனுப்பலாம்.\nமுதலாவது free! (மற்றவை Rs 99 each.)';
       case 'te':
-        return 'మీ product photos పంపండి — 5 వరకు పంపవచ్చు.\nమొదటిది free! (మిగతావి Rs 99 each.)';
+        return 'మీ product photos పంపండి - 5 వరకు పంపవచ్చు.\nమొదటిది free! (మిగతావి Rs 99 each.)';
       case 'bn':
-        return 'আপনার product photos পাঠান — 5 পর্যন্ত পাঠাতে পারেন।\nপ্রথমটা free! (বাকিগুলো Rs 99 each.)';
+        return 'আপনার product photos পাঠান - 5 পর্যন্ত পাঠাতে পারেন।\nপ্রথমটা free! (বাকিগুলো Rs 99 each.)';
       case 'mr':
-        return 'तुमच्या product photos पाठवा — 5 पर्यंत पाठवता येतात.\nपहिला free! (बाकी Rs 99 each.)';
+        return 'तुमच्या product photos पाठवा - 5 पर्यंत पाठवता येतात.\nपहिला free! (बाकी Rs 99 each.)';
       case 'gu':
-        return 'તમારા product ની photos મોકલો — એક વખતે 5 સુધી.\nપહેલી free! (બાકી Rs 99 each.)';
+        return 'તમારા product ની photos મોકલો - એક વખતે 5 સુધી.\nપહેલી free! (બાકી Rs 99 each.)';
       case 'kn':
-        return 'ನಿಮ್ಮ product photos ಕಳಿಸಿ — ಒಂದು ಬಾರಿ 5 ವರೆಗೆ.\nಮೊದಲ free! (ಉಳಿದವು Rs 99 each.)';
+        return 'ನಿಮ್ಮ product photos ಕಳಿಸಿ - ಒಂದು ಬಾರಿ 5 ವರೆಗೆ.\nಮೊದಲ free! (ಉಳಿದವು Rs 99 each.)';
       case 'ml':
-        return 'നിങ്ങളുടെ product photos അയക്കൂ — ഒരു തവണ 5 വരെ.\nആദ്യത്തേത് free! (ബാക്കി Rs 99 each.)';
+        return 'നിങ്ങളുടെ product photos അയക്കൂ - ഒരു തവണ 5 വരെ.\nആദ്യത്തേത് free! (ബാക്കി Rs 99 each.)';
       case 'pa':
-        return 'ਆਪਣੇ product ਦੀਆਂ photos ਭੇਜੋ — ਇੱਕ ਵਾਰੀ 5 ਤੱਕ.\nਪਹਿਲੀ free! (ਬਾਕੀ Rs 99 each.)';
+        return 'ਆਪਣੇ product ਦੀਆਂ photos ਭੇਜੋ - ਇੱਕ ਵਾਰੀ 5 ਤੱਕ.\nਪਹਿਲੀ free! (ਬਾਕੀ Rs 99 each.)';
       case 'or':
-        return 'ଆପଣଙ୍କ product ର photos ପଠାନ୍ତୁ — ଏକ ଥରରେ 5 ପର୍ଯ୍ୟନ୍ତ.\nପ୍ରଥମ free! (ବାକି Rs 99 each.)';
+        return 'ଆପଣଙ୍କ product ର photos ପଠାନ୍ତୁ - ଏକ ଥରରେ 5 ପର୍ଯ୍ୟନ୍ତ.\nପ୍ରଥମ free! (ବାକି Rs 99 each.)';
       case 'en':
       default:
-        return 'Send your product photos — up to 5 at a time.\nFirst one is free! (Additional photos Rs 99 each.)';
+        return 'Send your product photos - up to 5 at a time.\nFirst one is free! (Additional photos Rs 99 each.)';
     }
   }
   switch (lang) {
     case 'hinglish':
-      return 'Apne product photos bhejiye — 5 tak bhej sakte hain.\nRs 99 per photo.';
+      return 'Apne product photos bhejiye - 5 tak bhej sakte hain.\nRs 99 per photo.';
     case 'hi':
-      return 'अपने product photos भेजिए — 5 तक भेज सकते हैं।\nRs 99 per photo.';
+      return 'अपने product photos भेजिए - 5 तक भेज सकते हैं।\nRs 99 per photo.';
     case 'ta':
-      return 'உங்கள் product photos அனுப்புங்கள் — 5 வரை அனுப்பலாம்.\nRs 99 per photo.';
+      return 'உங்கள் product photos அனுப்புங்கள் - 5 வரை அனுப்பலாம்.\nRs 99 per photo.';
     case 'te':
-      return 'మీ product photos పంపండి — 5 వరకు పంపవచ్చు.\nRs 99 per photo.';
+      return 'మీ product photos పంపండి - 5 వరకు పంపవచ్చు.\nRs 99 per photo.';
     case 'bn':
-      return 'আপনার product photos পাঠান — 5 পর্যন্ত পাঠাতে পারেন।\nRs 99 per photo.';
+      return 'আপনার product photos পাঠান - 5 পর্যন্ত পাঠাতে পারেন।\nRs 99 per photo.';
     case 'mr':
-      return 'तुमच्या product photos पाठवा — 5 पर्यंत पाठवता येतात.\nRs 99 per photo.';
+      return 'तुमच्या product photos पाठवा - 5 पर्यंत पाठवता येतात.\nRs 99 per photo.';
     case 'gu':
-      return 'તમારા product ની photos મોકલો — એક વખતે 5 સુધી.\nRs 99 per photo.';
+      return 'તમારા product ની photos મોકલો - એક વખતે 5 સુધી.\nRs 99 per photo.';
     case 'kn':
-      return 'ನಿಮ್ಮ product photos ಕಳಿಸಿ — ಒಂದು ಬಾರಿ 5 ವರೆಗೆ.\nRs 99 per photo.';
+      return 'ನಿಮ್ಮ product photos ಕಳಿಸಿ - ಒಂದು ಬಾರಿ 5 ವರೆಗೆ.\nRs 99 per photo.';
     case 'ml':
-      return 'നിങ്ങളുടെ product photos അയക്കൂ — ഒരു തവണ 5 വരെ.\nRs 99 per photo.';
+      return 'നിങ്ങളുടെ product photos അയക്കൂ - ഒരു തവണ 5 വരെ.\nRs 99 per photo.';
     case 'pa':
-      return 'ਆਪਣੇ product ਦੀਆਂ photos ਭੇਜੋ — ਇੱਕ ਵਾਰੀ 5 ਤੱਕ.\nRs 99 per photo.';
+      return 'ਆਪਣੇ product ਦੀਆਂ photos ਭੇਜੋ - ਇੱਕ ਵਾਰੀ 5 ਤੱਕ.\nRs 99 per photo.';
     case 'or':
-      return 'ଆପଣଙ୍କ product ର photos ପଠାନ୍ତୁ — ଏକ ଥରରେ 5 ପର୍ଯ୍ୟନ୍ତ.\nRs 99 per photo.';
+      return 'ଆପଣଙ୍କ product ର photos ପଠାନ୍ତୁ - ଏକ ଥରରେ 5 ପର୍ଯ୍ୟନ୍ତ.\nRs 99 per photo.';
     case 'en':
     default:
-      return 'Send your product photos — up to 5 at a time.\nRs 99 per photo.';
+      return 'Send your product photos - up to 5 at a time.\nRs 99 per photo.';
   }
 }
 
@@ -692,30 +692,30 @@ export function msgPaymentPending(lang: Lang): string {
 export function msgPaymentFailed(lang: Lang): string {
   switch (lang) {
     case 'hinglish':
-      return 'Payment fail ho gayi. Ek aur try karein — link fir se bhej raha hun.';
+      return 'Payment fail ho gayi. Ek aur try karein - link fir se bhej raha hun.';
     case 'hi':
-      return 'Payment fail हो गई। एक और try करें — link फिर से भेज रहा हूं।';
+      return 'Payment fail हो गई। एक और try करें - link फिर से भेज रहा हूं।';
     case 'ta':
-      return 'Payment fail ஆனது. மீண்டும் try பண்ணுங்கள் — link மீண்டும் அனுப்புகிறேன்.';
+      return 'Payment fail ஆனது. மீண்டும் try பண்ணுங்கள் - link மீண்டும் அனுப்புகிறேன்.';
     case 'te':
-      return 'Payment fail అయింది. మళ్ళీ try చేయండి — link మళ్ళీ పంపుతున్నాను.';
+      return 'Payment fail అయింది. మళ్ళీ try చేయండి - link మళ్ళీ పంపుతున్నాను.';
     case 'bn':
-      return 'Payment fail হয়েছে। আবার try করুন — link আবার পাঠাচ্ছি।';
+      return 'Payment fail হয়েছে। আবার try করুন - link আবার পাঠাচ্ছি।';
     case 'mr':
-      return 'Payment fail झाली. एकदा आणखी try करा — link परत पाठवतो.';
+      return 'Payment fail झाली. एकदा आणखी try करा - link परत पाठवतो.';
     case 'gu':
-      return 'Payment fail થઈ. ફરી try કરો — link મોકલું છું.';
+      return 'Payment fail થઈ. ફરી try કરો - link મોકલું છું.';
     case 'kn':
-      return 'Payment fail ಆಯ್ತು. ಮತ್ತೆ try ಮಾಡಿ — link ಮತ್ತೊಮ್ಮೆ ಕಳಿಸ್ತೀನಿ.';
+      return 'Payment fail ಆಯ್ತು. ಮತ್ತೆ try ಮಾಡಿ - link ಮತ್ತೊಮ್ಮೆ ಕಳಿಸ್ತೀನಿ.';
     case 'ml':
-      return 'Payment fail ആയി. വീണ്ടും try ചെയ്യൂ — link ഒന്ന് കൂടി അയക്കുന്നു.';
+      return 'Payment fail ആയി. വീണ്ടും try ചെയ്യൂ - link ഒന്ന് കൂടി അയക്കുന്നു.';
     case 'pa':
-      return 'Payment fail ਹੋ ਗਈ। ਦੁਬਾਰਾ try ਕਰੋ — link ਫਿਰ ਭੇਜ ਰਿਹਾ ਹਾਂ.';
+      return 'Payment fail ਹੋ ਗਈ। ਦੁਬਾਰਾ try ਕਰੋ - link ਫਿਰ ਭੇਜ ਰਿਹਾ ਹਾਂ.';
     case 'or':
-      return 'Payment fail ହୋଇଗଲା। ଆଉ ଥରେ try କରନ୍ତୁ — link ପୁଣି ପଠାଉଛି.';
+      return 'Payment fail ହୋଇଗଲା। ଆଉ ଥରେ try କରନ୍ତୁ - link ପୁଣି ପଠାଉଛି.';
     case 'en':
     default:
-      return 'Payment failed. Try again — sending the link once more.';
+      return 'Payment failed. Try again - sending the link once more.';
   }
 }
 
@@ -758,27 +758,27 @@ export function msgProcessingStarted(lang: Lang, name: string, isFree: boolean):
 export function msgProgressProductAnalyzed(lang: Lang, productName: string): string {
   switch (lang) {
     case 'hinglish':
-      return `📷 Aapka *${productName}* samajh aa gaya!\n\n🎨 Teeno styles ban rahe hain — bas thodi der...`;
+      return `📷 Aapka *${productName}* samajh aa gaya!\n\n🎨 Teeno styles ban rahe hain - bas thodi der...`;
     case 'hi':
-      return `📷 आपका *${productName}* समझ आ गया!\n\n🎨 तीनों styles बन रहे हैं — बस थोड़ी देर...`;
+      return `📷 आपका *${productName}* समझ आ गया!\n\n🎨 तीनों styles बन रहे हैं - बस थोड़ी देर...`;
     case 'ta':
-      return `📷 உங்கள் *${productName}* புரிந்துவிட்டது!\n\n🎨 3 styles-உம் தயாராகின்றன — கொஞ்சம் நேரம்...`;
+      return `📷 உங்கள் *${productName}* புரிந்துவிட்டது!\n\n🎨 3 styles-உம் தயாராகின்றன - கொஞ்சம் நேரம்...`;
     case 'te':
-      return `📷 మీ *${productName}* అర్థమైంది!\n\n🎨 3 styles-అన్నీ తయారవుతున్నాయి — కొంచెం సేపు...`;
+      return `📷 మీ *${productName}* అర్థమైంది!\n\n🎨 3 styles-అన్నీ తయారవుతున్నాయి - కొంచెం సేపు...`;
     case 'bn':
-      return `📷 আপনার *${productName}* বুঝেছি!\n\n🎨 তিনটে styles তৈরি হচ্ছে — একটু অপেক্ষা...`;
+      return `📷 আপনার *${productName}* বুঝেছি!\n\n🎨 তিনটে styles তৈরি হচ্ছে - একটু অপেক্ষা...`;
     case 'mr':
-      return `📷 तुमचा *${productName}* समजला!\n\n🎨 तिन्ही styles बनत आहेत — थोडं थांबा...`;
+      return `📷 तुमचा *${productName}* समजला!\n\n🎨 तिन्ही styles बनत आहेत - थोडं थांबा...`;
     case 'gu':
-      return `📷 તમારો *${productName}* સમજ્યો!\n\n🎨 ત્રણેય styles બની રહ્યા છે — બસ થોડી વાર...`;
+      return `📷 તમારો *${productName}* સમજ્યો!\n\n🎨 ત્રણેય styles બની રહ્યા છે - બસ થોડી વાર...`;
     case 'kn':
-      return `📷 ನಿಮ್ಮ *${productName}* ಅರ್ಥ ಆಯ್ತು!\n\n🎨 3 styles-ಅನ್ನೂ ಮಾಡ್ತಿದ್ದೀವಿ — ಸ್ವಲ್ಪ ಸಮಯ...`;
+      return `📷 ನಿಮ್ಮ *${productName}* ಅರ್ಥ ಆಯ್ತು!\n\n🎨 3 styles-ಅನ್ನೂ ಮಾಡ್ತಿದ್ದೀವಿ - ಸ್ವಲ್ಪ ಸಮಯ...`;
     case 'ml':
-      return `📷 നിങ്ങളുടെ *${productName}* മനസ്സിലായി!\n\n🎨 3 styles-ഉം ഉണ്ടാക്കുന്നു — കൊഞ്ചം നേരം...`;
+      return `📷 നിങ്ങളുടെ *${productName}* മനസ്സിലായി!\n\n🎨 3 styles-ഉം ഉണ്ടാക്കുന്നു - കൊഞ്ചം നേരം...`;
     case 'pa':
-      return `📷 ਤੁਹਾਡਾ *${productName}* ਸਮਝ ਗਿਆ!\n\n🎨 ਤਿੰਨੇ styles ਬਣ ਰਹੇ ਹਨ — ਬੱਸ ਥੋੜੀ ਦੇਰ...`;
+      return `📷 ਤੁਹਾਡਾ *${productName}* ਸਮਝ ਗਿਆ!\n\n🎨 ਤਿੰਨੇ styles ਬਣ ਰਹੇ ਹਨ - ਬੱਸ ਥੋੜੀ ਦੇਰ...`;
     case 'or':
-      return `📷 ଆପଣଙ୍କ *${productName}* ବୁଝିଲି!\n\n🎨 ତିନୋଟି styles ବনাଉଛୁ — ଟିକ ଅପେକ୍ଷା...`;
+      return `📷 ଆପଣଙ୍କ *${productName}* ବୁଝିଲି!\n\n🎨 ତିନୋଟି styles ବনাଉଛୁ - ଟିକ ଅପେକ୍ଷା...`;
     case 'en':
     default:
       return `📷 Got your *${productName}*!\n\n🎨 Generating all 3 styles now...`;
@@ -915,30 +915,30 @@ export function msgProcessingDelay(lang: Lang): string {
 export function msgProcessingStuck(lang: Lang): string {
   switch (lang) {
     case 'hinglish':
-      return "Arre! Kuch gadbad ho gayi. Kripya dobara try karein — 'hi' bhej ke naya order shuru karein.";
+      return "Arre! Kuch gadbad ho gayi. Kripya dobara try karein - 'hi' bhej ke naya order shuru karein.";
     case 'hi':
-      return "अरे! कुछ गड़बड़ हो गई। दोबारा try करें — 'hi' भेजकर नया order शुरू करें।";
+      return "अरे! कुछ गड़बड़ हो गई। दोबारा try करें - 'hi' भेजकर नया order शुरू करें।";
     case 'ta':
-      return "அய்யோ! ஏதோ பிரச்சனை ஆனது. மீண்டும் try பண்ணுங்கள் — 'hi' அனுப்பி புதிய order ஆரம்பியுங்கள்.";
+      return "அய்யோ! ஏதோ பிரச்சனை ஆனது. மீண்டும் try பண்ணுங்கள் - 'hi' அனுப்பி புதிய order ஆரம்பியுங்கள்.";
     case 'te':
-      return "అరె! ఏదో తేడా వచ్చింది. మళ్ళీ try చేయండి — 'hi' పంపి కొత్త order మొదలు పెట్టండి.";
+      return "అరె! ఏదో తేడా వచ్చింది. మళ్ళీ try చేయండి - 'hi' పంపి కొత్త order మొదలు పెట్టండి.";
     case 'bn':
-      return "আরে! কিছু একটা গোলমাল হয়েছে। আবার try করুন — 'hi' পাঠিয়ে নতুন order শুরু করুন।";
+      return "আরে! কিছু একটা গোলমাল হয়েছে। আবার try করুন - 'hi' পাঠিয়ে নতুন order শুরু করুন।";
     case 'mr':
-      return "अरे! काहीतरी चुकलं. परत try करा — 'hi' पाठवून नवीन order सुरू करा.";
+      return "अरे! काहीतरी चुकलं. परत try करा - 'hi' पाठवून नवीन order सुरू करा.";
     case 'gu':
-      return "અરે! કંઈ ગડબડ થઈ. ફરી try કરો — 'hi' મોકલો, નવો order શરૂ કરો.";
+      return "અરે! કંઈ ગડબડ થઈ. ફરી try કરો - 'hi' મોકલો, નવો order શરૂ કરો.";
     case 'kn':
-      return "ಅಯ್ಯೋ! ಏನೋ ತೊಂದರೆ ಆಯ್ತು. ಮತ್ತೆ try ಮಾಡಿ — 'hi' ಕಳಿಸಿ ಹೊಸ order ಶುರು ಮಾಡಿ.";
+      return "ಅಯ್ಯೋ! ಏನೋ ತೊಂದರೆ ಆಯ್ತು. ಮತ್ತೆ try ಮಾಡಿ - 'hi' ಕಳಿಸಿ ಹೊಸ order ಶುರು ಮಾಡಿ.";
     case 'ml':
-      return "അയ്യോ! എന്തോ തെറ്റ് പറ്റി. വീണ്ടും try ചെയ്യൂ — 'hi' അയച്ച് പുതിയ order ആരംഭിക്കൂ.";
+      return "അയ്യോ! എന്തോ തെറ്റ് പറ്റി. വീണ്ടും try ചെയ്യൂ - 'hi' അയച്ച് പുതിയ order ആരംഭിക്കൂ.";
     case 'pa':
-      return "ਅਰੇ! ਕੁਝ ਗੜਬੜ ਹੋ ਗਈ। ਦੁਬਾਰਾ try ਕਰੋ — 'hi' ਭੇਜ ਕੇ ਨਵਾਂ order ਸ਼ੁਰੂ ਕਰੋ.";
+      return "ਅਰੇ! ਕੁਝ ਗੜਬੜ ਹੋ ਗਈ। ਦੁਬਾਰਾ try ਕਰੋ - 'hi' ਭੇਜ ਕੇ ਨਵਾਂ order ਸ਼ੁਰੂ ਕਰੋ.";
     case 'or':
-      return "ଆରେ! କିଛି ଗଡ଼ବଡ ହୋଇଗଲା। ଆଉ ଥରେ try କରନ୍ତୁ — 'hi' ପଠାଇ ନୂଆ order ଆରମ୍ଭ କରନ୍ତୁ.";
+      return "ଆରେ! କିଛି ଗଡ଼ବଡ ହୋଇଗଲା। ଆଉ ଥରେ try କରନ୍ତୁ - 'hi' ପଠାଇ ନୂଆ order ଆରମ୍ଭ କରନ୍ତୁ.";
     case 'en':
     default:
-      return "Oops! Something went wrong. Please try again — send 'hi' to start a new order.";
+      return "Oops! Something went wrong. Please try again - send 'hi' to start a new order.";
   }
 }
 
@@ -1085,58 +1085,58 @@ export function msgThankYou(lang: Lang, isFirstOrder: boolean): string {
   if (isFirstOrder) {
     switch (lang) {
       case 'hinglish':
-        return 'Bahut badiya! 🎉\nYeh photo Instagram ya WhatsApp group pe share karein — customers ko dikhao!\n\nAgle baar sirf Rs 99 mein. Ek aur photo banwani hai?';
+        return 'Bahut badiya! 🎉\nYeh photo Instagram ya WhatsApp group pe share karein - customers ko dikhao!\n\nAgle baar sirf Rs 99 mein. Ek aur photo banwani hai?';
       case 'hi':
-        return 'बहुत बढ़िया! 🎉\nयह photo Instagram या WhatsApp group पर share करें — customers को दिखाएं!\n\nअगली बार सिर्फ Rs 99 में। एक और photo बनवानी है?';
+        return 'बहुत बढ़िया! 🎉\nयह photo Instagram या WhatsApp group पर share करें - customers को दिखाएं!\n\nअगली बार सिर्फ Rs 99 में। एक और photo बनवानी है?';
       case 'ta':
-        return 'அருமை! 🎉\nInstagram அல்லது WhatsApp group-ல் share பண்ணுங்கள் — customers-கு காட்டுங்கள்!\n\nஅடுத்த முறை வெறும் Rs 99. இன்னொரு photo வேண்டுமா?';
+        return 'அருமை! 🎉\nInstagram அல்லது WhatsApp group-ல் share பண்ணுங்கள் - customers-கு காட்டுங்கள்!\n\nஅடுத்த முறை வெறும் Rs 99. இன்னொரு photo வேண்டுமா?';
       case 'te':
-        return 'చాలా బాగుంది! 🎉\nInstagram లేదా WhatsApp group లో share చేయండి — customers కు చూపండి!\n\nతర్వాత కేవలం Rs 99. ఇంకో photo కావాలా?';
+        return 'చాలా బాగుంది! 🎉\nInstagram లేదా WhatsApp group లో share చేయండి - customers కు చూపండి!\n\nతర్వాత కేవలం Rs 99. ఇంకో photo కావాలా?';
       case 'bn':
-        return 'দারুণ! 🎉\nInstagram বা WhatsApp group-এ share করুন — customers-দের দেখান!\n\nপরেরবার মাত্র Rs 99. আরেকটা photo বানাবেন?';
+        return 'দারুণ! 🎉\nInstagram বা WhatsApp group-এ share করুন - customers-দের দেখান!\n\nপরেরবার মাত্র Rs 99. আরেকটা photo বানাবেন?';
       case 'mr':
-        return 'एकदम छान! 🎉\nInstagram किंवा WhatsApp group वर share करा — customers ला दाखवा!\n\nपुढच्या वेळी फक्त Rs 99. आणखी एक photo बनवायची आहे का?';
+        return 'एकदम छान! 🎉\nInstagram किंवा WhatsApp group वर share करा - customers ला दाखवा!\n\nपुढच्या वेळी फक्त Rs 99. आणखी एक photo बनवायची आहे का?';
       case 'gu':
-        return 'ઘણું સરસ! 🎉\nInstagram અથવા WhatsApp group પર share કરો — customers ને બતાવો!\n\nઆગળ ફક્ત Rs 99. બીજો photo બનાવવો છે?';
+        return 'ઘણું સરસ! 🎉\nInstagram અથવા WhatsApp group પર share કરો - customers ને બતાવો!\n\nઆગળ ફક્ત Rs 99. બીજો photo બનાવવો છે?';
       case 'kn':
-        return 'ತುಂಬಾ ಚೆನ್ನಾಗಿದೆ! 🎉\nInstagram ಅಥವಾ WhatsApp group-ಲ್ಲಿ share ಮಾಡಿ — customers-ಗೆ ತೋರಿಸಿ!\n\nಮುಂದಿನ ಬಾರಿ ಬರೀ Rs 99. ಇನ್ನೊಂದು photo ಬೇಕಾ?';
+        return 'ತುಂಬಾ ಚೆನ್ನಾಗಿದೆ! 🎉\nInstagram ಅಥವಾ WhatsApp group-ಲ್ಲಿ share ಮಾಡಿ - customers-ಗೆ ತೋರಿಸಿ!\n\nಮುಂದಿನ ಬಾರಿ ಬರೀ Rs 99. ಇನ್ನೊಂದು photo ಬೇಕಾ?';
       case 'ml':
-        return 'ഭംഗിയായി! 🎉\nInstagram അല്ലെങ്കിൽ WhatsApp group-ൽ share ചെയ്യൂ — customers-ക്ക് കാണിക്കൂ!\n\nഅടുത്തത് വെറും Rs 99. ഇനിയൊരു photo വേണോ?';
+        return 'ഭംഗിയായി! 🎉\nInstagram അല്ലെങ്കിൽ WhatsApp group-ൽ share ചെയ്യൂ - customers-ക്ക് കാണിക്കൂ!\n\nഅടുത്തത് വെറും Rs 99. ഇനിയൊരു photo വേണോ?';
       case 'pa':
-        return 'ਬਹੁਤ ਵਧੀਆ! 🎉\nInstagram ਜਾਂ WhatsApp group ਤੇ share ਕਰੋ — customers ਨੂੰ ਦਿਖਾਓ!\n\nਅਗਲੀ ਵਾਰ ਸਿਰਫ Rs 99. ਇੱਕ ਹੋਰ photo ਬਣਾਉਣੀ ਹੈ?';
+        return 'ਬਹੁਤ ਵਧੀਆ! 🎉\nInstagram ਜਾਂ WhatsApp group ਤੇ share ਕਰੋ - customers ਨੂੰ ਦਿਖਾਓ!\n\nਅਗਲੀ ਵਾਰ ਸਿਰਫ Rs 99. ਇੱਕ ਹੋਰ photo ਬਣਾਉਣੀ ਹੈ?';
       case 'or':
-        return 'ଖୁବ ଭଲ! 🎉\nInstagram ବା WhatsApp group ରେ share କରନ୍ତୁ — customers ଙ୍କୁ ଦେଖାନ୍ତୁ!\n\nପରବର୍ତ୍ତୀ ଥର ମାତ୍ର Rs 99. ଆଉ ଏକ photo ବନାଇବେ?';
+        return 'ଖୁବ ଭଲ! 🎉\nInstagram ବା WhatsApp group ରେ share କରନ୍ତୁ - customers ଙ୍କୁ ଦେଖାନ୍ତୁ!\n\nପରବର୍ତ୍ତୀ ଥର ମାତ୍ର Rs 99. ଆଉ ଏକ photo ବନାଇବେ?';
       case 'en':
       default:
-        return 'Awesome! 🎉\nShare this on Instagram or your WhatsApp group — show it to customers!\n\nNext one is just Rs 99. Want another photo?';
+        return 'Awesome! 🎉\nShare this on Instagram or your WhatsApp group - show it to customers!\n\nNext one is just Rs 99. Want another photo?';
     }
   }
   switch (lang) {
     case 'hinglish':
-      return 'Bahut badiya! 🎉\nYeh photo share karein — customers ko dikhao!\n\nEk aur product ki photo banwani hai?';
+      return 'Bahut badiya! 🎉\nYeh photo share karein - customers ko dikhao!\n\nEk aur product ki photo banwani hai?';
     case 'hi':
-      return 'बहुत बढ़िया! 🎉\nयह photo share करें — customers को दिखाएं!\n\nएक और product की photo बनवानी है?';
+      return 'बहुत बढ़िया! 🎉\nयह photo share करें - customers को दिखाएं!\n\nएक और product की photo बनवानी है?';
     case 'ta':
-      return 'அருமை! 🎉\nPhoto share பண்ணுங்கள் — customers-கு காட்டுங்கள்!\n\nइன்னொரு product photo வேண்டுமா?';
+      return 'அருமை! 🎉\nPhoto share பண்ணுங்கள் - customers-கு காட்டுங்கள்!\n\nइன்னொரு product photo வேண்டுமா?';
     case 'te':
-      return 'చాలా బాగుంది! 🎉\nPhoto share చేయండి — customers కు చూపండి!\n\nఇంకో product photo కావాలా?';
+      return 'చాలా బాగుంది! 🎉\nPhoto share చేయండి - customers కు చూపండి!\n\nఇంకో product photo కావాలా?';
     case 'bn':
-      return 'দারুণ! 🎉\nPhoto share করুন — customers-দের দেখান!\n\nআরেকটা product photo বানাবেন?';
+      return 'দারুণ! 🎉\nPhoto share করুন - customers-দের দেখান!\n\nআরেকটা product photo বানাবেন?';
     case 'mr':
-      return 'एकदम छान! 🎉\nPhoto share करा — customers ला दाखवा!\n\nआणखी एक product photo बनवायची आहे का?';
+      return 'एकदम छान! 🎉\nPhoto share करा - customers ला दाखवा!\n\nआणखी एक product photo बनवायची आहे का?';
     case 'gu':
-      return 'ઘણું સરસ! 🎉\nPhoto share કરો — customers ને બતાવો!\n\nબીજો product photo બનાવવો છે?';
+      return 'ઘણું સરસ! 🎉\nPhoto share કરો - customers ને બતાવો!\n\nબીજો product photo બનાવવો છે?';
     case 'kn':
-      return 'ತುಂಬಾ ಚೆನ್ನಾಗಿದೆ! 🎉\nPhoto share ಮಾಡಿ — customers-ಗೆ ತೋರಿಸಿ!\n\nಇನ್ನೊಂದು product photo ಬೇಕಾ?';
+      return 'ತುಂಬಾ ಚೆನ್ನಾಗಿದೆ! 🎉\nPhoto share ಮಾಡಿ - customers-ಗೆ ತೋರಿಸಿ!\n\nಇನ್ನೊಂದು product photo ಬೇಕಾ?';
     case 'ml':
-      return 'ഭംഗിയായി! 🎉\nPhoto share ചെയ്യൂ — customers-ക്ക് കാണിക്കൂ!\n\nഇനിയൊരു product photo വേണോ?';
+      return 'ഭംഗിയായി! 🎉\nPhoto share ചെയ്യൂ - customers-ക്ക് കാണിക്കൂ!\n\nഇനിയൊരു product photo വേണോ?';
     case 'pa':
-      return 'ਬਹੁਤ ਵਧੀਆ! 🎉\nPhoto share ਕਰੋ — customers ਨੂੰ ਦਿਖਾਓ!\n\nਇੱਕ ਹੋਰ product photo ਬਣਾਉਣੀ ਹੈ?';
+      return 'ਬਹੁਤ ਵਧੀਆ! 🎉\nPhoto share ਕਰੋ - customers ਨੂੰ ਦਿਖਾਓ!\n\nਇੱਕ ਹੋਰ product photo ਬਣਾਉਣੀ ਹੈ?';
     case 'or':
-      return 'ଖୁବ ଭଲ! 🎉\nPhoto share କରନ୍ତୁ — customers ଙ୍କୁ ଦେଖାନ୍ତୁ!\n\nଆଉ ଏକ product photo ବନାଇବେ?';
+      return 'ଖୁବ ଭଲ! 🎉\nPhoto share କରନ୍ତୁ - customers ଙ୍କୁ ଦେଖାନ୍ତୁ!\n\nଆଉ ଏକ product photo ବନାଇବେ?';
     case 'en':
     default:
-      return 'Awesome! 🎉\nShare this photo — show it to customers!\n\nWant another product photo?';
+      return 'Awesome! 🎉\nShare this photo - show it to customers!\n\nWant another product photo?';
   }
 }
 
@@ -1183,30 +1183,30 @@ export function msgRevisionLimitReached(lang: Lang, imageCount = 1): string {
   const freeRedos = imageCount;
   switch (lang) {
     case 'hinglish':
-      return `${freeRedos} free redo${freeRedos > 1 ? 's' : ''} ho ${freeRedos > 1 ? 'chuke' : 'chuka'} hai is order ke liye. Abhi naya photo start karein — "hi" bhejein!`;
+      return `${freeRedos} free redo${freeRedos > 1 ? 's' : ''} ho ${freeRedos > 1 ? 'chuke' : 'chuka'} hai is order ke liye. Abhi naya photo start karein - "hi" bhejein!`;
     case 'hi':
-      return `इस order के लिए ${freeRedos} free redo हो ${freeRedos > 1 ? 'चुके' : 'चुका'} है। नई photo शुरू करें — "hi" भेजें!`;
+      return `इस order के लिए ${freeRedos} free redo हो ${freeRedos > 1 ? 'चुके' : 'चुका'} है। नई photo शुरू करें - "hi" भेजें!`;
     case 'ta':
-      return `இந்த order-க்கு ${freeRedos} free redo${freeRedos > 1 ? 'கள்' : ''} ஆகிவிட்டது. புதிய photo ஆரம்பியுங்கள் — "hi" அனுப்புங்கள்!`;
+      return `இந்த order-க்கு ${freeRedos} free redo${freeRedos > 1 ? 'கள்' : ''} ஆகிவிட்டது. புதிய photo ஆரம்பியுங்கள் - "hi" அனுப்புங்கள்!`;
     case 'te':
-      return `ఈ order కోసం ${freeRedos} free redo${freeRedos > 1 ? 'లు' : ''} అయిపోయాయి. కొత్త photo మొదలు పెట్టండి — "hi" పంపండి!`;
+      return `ఈ order కోసం ${freeRedos} free redo${freeRedos > 1 ? 'లు' : ''} అయిపోయాయి. కొత్త photo మొదలు పెట్టండి - "hi" పంపండి!`;
     case 'bn':
-      return `এই order-এর জন্য ${freeRedos}টা free redo শেষ হয়ে গেছে। নতুন photo শুরু করুন — "hi" পাঠান!`;
+      return `এই order-এর জন্য ${freeRedos}টা free redo শেষ হয়ে গেছে। নতুন photo শুরু করুন - "hi" পাঠান!`;
     case 'mr':
-      return `या order साठी ${freeRedos} free redo${freeRedos > 1 ? 'ं' : ''} झाले. नवीन photo सुरू करा — "hi" पाठवा!`;
+      return `या order साठी ${freeRedos} free redo${freeRedos > 1 ? 'ं' : ''} झाले. नवीन photo सुरू करा - "hi" पाठवा!`;
     case 'gu':
-      return `આ order ના ${freeRedos} free redo${freeRedos > 1 ? 's' : ''} વપરાઈ ગયા. નવો photo શરૂ કરો — "hi" મોકલો!`;
+      return `આ order ના ${freeRedos} free redo${freeRedos > 1 ? 's' : ''} વપરાઈ ગયા. નવો photo શરૂ કરો - "hi" મોકલો!`;
     case 'kn':
-      return `ಈ order ಗೆ ${freeRedos} free redo${freeRedos > 1 ? 'ಗಳು' : ''} ಆಗಿಹೋಯ್ತು. ಹೊಸ photo ಶುರು ಮಾಡಿ — "hi" ಕಳಿಸಿ!`;
+      return `ಈ order ಗೆ ${freeRedos} free redo${freeRedos > 1 ? 'ಗಳು' : ''} ಆಗಿಹೋಯ್ತು. ಹೊಸ photo ಶುರು ಮಾಡಿ - "hi" ಕಳಿಸಿ!`;
     case 'ml':
-      return `ഈ order-നുള്ള ${freeRedos} free redo${freeRedos > 1 ? 'കൾ' : ''} തീർന്നു. പുതിയ photo ആരംഭിക്കൂ — "hi" അയക്കൂ!`;
+      return `ഈ order-നുള്ള ${freeRedos} free redo${freeRedos > 1 ? 'കൾ' : ''} തീർന്നു. പുതിയ photo ആരംഭിക്കൂ - "hi" അയക്കൂ!`;
     case 'pa':
-      return `ਇਸ order ਲਈ ${freeRedos} free redo${freeRedos > 1 ? 'ਆਂ' : ''} ਹੋ ਗਏ। ਨਵਾਂ photo ਸ਼ੁਰੂ ਕਰੋ — "hi" ਭੇਜੋ!`;
+      return `ਇਸ order ਲਈ ${freeRedos} free redo${freeRedos > 1 ? 'ਆਂ' : ''} ਹੋ ਗਏ। ਨਵਾਂ photo ਸ਼ੁਰੂ ਕਰੋ - "hi" ਭੇਜੋ!`;
     case 'or':
-      return `ଏ order ପାଇଁ ${freeRedos} free redo${freeRedos > 1 ? 's' : ''} ଶେଷ ହୋଇଗଲା। ନୂଆ photo ଆରମ୍ଭ କରନ୍ତୁ — "hi" ପଠାନ୍ତୁ!`;
+      return `ଏ order ପାଇଁ ${freeRedos} free redo${freeRedos > 1 ? 's' : ''} ଶେଷ ହୋଇଗଲା। ନୂଆ photo ଆରମ୍ଭ କରନ୍ତୁ - "hi" ପଠାନ୍ତୁ!`;
     case 'en':
     default:
-      return `You've used your ${freeRedos} free redo${freeRedos > 1 ? 's' : ''} for this order. Start a new photo — send "hi"!`;
+      return `You've used your ${freeRedos} free redo${freeRedos > 1 ? 's' : ''} for this order. Start a new photo - send "hi"!`;
   }
 }
 
@@ -1614,7 +1614,7 @@ export function msgAskLanguage(): string {
 export function msgAskBrandName(lang: Lang): string {
   switch (lang) {
     case 'hi':
-      return 'आपके ब्रांड का नाम क्या है?\n\n(skipping is fine — type "skip")';
+      return 'आपके ब्रांड का नाम क्या है?\n\n(skipping is fine - type "skip")';
     case 'hinglish':
       return 'Aapke brand ka naam kya hai?\n\n(skip karna ho to "skip" likhein)';
     case 'en':
@@ -1624,7 +1624,7 @@ export function msgAskBrandName(lang: Lang): string {
 }
 
 export function msgAskCategoryHeader(lang: Lang, name?: string): string {
-  const lead = name ? `${name} — ` : '';
+  const lead = name ? `${name} - ` : '';
   switch (lang) {
     case 'hi':
       return `${lead}आप क्या बेचते हैं?`;
@@ -2000,12 +2000,12 @@ export function msgRefundAlreadyRequested(lang: Lang, currentStatus: string): st
 export function msgFreeOrderNoRefund(lang: Lang): string {
   switch (lang) {
     case 'hi':
-      return 'यह free order था — कोई charge नहीं हुआ. नया product भेजना चाहेंगे? Delivery menu में "Send new product" tap करें.';
+      return 'यह free order था - कोई charge नहीं हुआ. नया product भेजना चाहेंगे? Delivery menu में "Send new product" tap करें.';
     case 'hinglish':
-      return 'Yeh free order tha — koi charge nahi hua. Naya product bhejna chahein? Delivery menu mein "Send new product" tap karein.';
+      return 'Yeh free order tha - koi charge nahi hua. Naya product bhejna chahein? Delivery menu mein "Send new product" tap karein.';
     case 'en':
     default:
-      return "This was a free order — there's no charge to refund. Want to send a new product? Tap \"Send new product\" in the delivery menu.";
+      return "This was a free order - there's no charge to refund. Want to send a new product? Tap \"Send new product\" in the delivery menu.";
   }
 }
 
@@ -2022,7 +2022,7 @@ export function msgAskRefundReason(lang: Lang): string {
       return 'Kripya bataiye kya galat hua. Text ya voice note bhej sakte hain.';
     case 'en':
     default:
-      return 'Tell us what went wrong — text or voice note.';
+      return 'Tell us what went wrong - text or voice note.';
   }
 }
 

@@ -55,8 +55,8 @@ export async function processSessionTimeout(job: Job): Promise<void> {
         await wa.sendText(
           data.phoneNumber,
           (lang === 'hi' || lang === 'hinglish')
-            ? 'Kya aap abhi busy hain? Koi baat nahi.\nJab time ho, sirf "Hi" bhejiye — main yahan hun.'
-            : 'Are you busy right now? No problem.\nWhen ready, just send "Hi" — I\'m here.',
+            ? 'Kya aap abhi busy hain? Koi baat nahi.\nJab time ho, sirf "Hi" bhejiye - main yahan hun.'
+            : 'Are you busy right now? No problem.\nWhen ready, just send "Hi" - I\'m here.',
         );
       }
       break;

@@ -107,8 +107,8 @@ export async function handleIncomingMessage(
   if (isHelpIntent(message.text)) {
     const lang = user.language as Language;
     const helpText = isHindi(lang)
-      ? `🙏 *Autmn Help*\n\n📸 Product photo bhejein → AI professional creative banayega\n\n*Commands:*\n• "hi" — Naya order shuru karein\n• Photo bhejein — Creative banaye\n• Voice note — Instructions dein\n• "hindi" / "english" — Bhasha badlein\n\n*Current status:* ${session.state === 'IDLE' ? 'Ready! Photo bhejein.' : session.state === 'PROCESSING' ? 'Aapka photo process ho raha hai...' : session.state === 'DELIVERED' ? 'Photo deliver ho gaya. Edit karein ya naya bhejein.' : 'Setup chal raha hai.'}`
-      : `🙏 *Autmn Help*\n\n📸 Send a product photo → AI creates a professional creative\n\n*Commands:*\n• "hi" — Start a new order\n• Send a photo — Create a creative\n• Voice note — Give instructions\n• "hindi" / "english" — Change language\n\n*Current status:* ${session.state === 'IDLE' ? 'Ready! Send a photo.' : session.state === 'PROCESSING' ? 'Your photo is being processed...' : session.state === 'DELIVERED' ? 'Photo delivered. Edit or send a new one.' : 'Setting up your preferences.'}`;
+      ? `🙏 *Autmn Help*\n\n📸 Product photo bhejein → AI professional creative banayega\n\n*Commands:*\n• "hi" - Naya order shuru karein\n• Photo bhejein - Creative banaye\n• Voice note - Instructions dein\n• "hindi" / "english" - Bhasha badlein\n\n*Current status:* ${session.state === 'IDLE' ? 'Ready! Photo bhejein.' : session.state === 'PROCESSING' ? 'Aapka photo process ho raha hai...' : session.state === 'DELIVERED' ? 'Photo deliver ho gaya. Edit karein ya naya bhejein.' : 'Setup chal raha hai.'}`
+      : `🙏 *Autmn Help*\n\n📸 Send a product photo → AI creates a professional creative\n\n*Commands:*\n• "hi" - Start a new order\n• Send a photo - Create a creative\n• Voice note - Give instructions\n• "hindi" / "english" - Change language\n\n*Current status:* ${session.state === 'IDLE' ? 'Ready! Send a photo.' : session.state === 'PROCESSING' ? 'Your photo is being processed...' : session.state === 'DELIVERED' ? 'Photo delivered. Edit or send a new one.' : 'Setting up your preferences.'}`;
     await wa.sendText(phoneNumber, helpText);
     return;
   }
@@ -294,8 +294,8 @@ export async function handleIncomingMessage(
           const timeoutMsg = timeoutLang === 'hi'
             ? 'काफी समय हो गया। आपका order फिर से शुरू हो जाएगा।'
             : isHindi(timeoutLang)
-            ? 'Bohot time ho gaya — aapka order reset ho gaya. Nayi photo bhejiye!'
-            : 'It\'s been a while — your order has been reset. Send new photos to start again.';
+            ? 'Bohot time ho gaya - aapka order reset ho gaya. Nayi photo bhejiye!'
+            : 'It\'s been a while - your order has been reset. Send new photos to start again.';
           await wa.sendText(phoneNumber, timeoutMsg);
           await transitionTo(phoneNumber, 'IDLE', {
             currentOrderId: null, styleSelection: null, styleSelections: [],
@@ -372,8 +372,8 @@ export async function handleIncomingMessage(
           await wa.sendText(
             phoneNumber,
             isHindi(lang)
-              ? 'Aapki photo process ho rahi hai — bas thoda wait karein!'
-              : 'Your photo is being processed — just a moment!',
+              ? 'Aapki photo process ho rahi hai - bas thoda wait karein!'
+              : 'Your photo is being processed - just a moment!',
           );
         }
         break;
@@ -525,31 +525,31 @@ function buildSessionRecoveryMessage(
         ? 'वापस आए! ब्रांड सेटअप जारी है।'
         : isHindi(lang)
         ? 'Wapas aaye! Brand setup continue kar lete hain.'
-        : 'Welcome back — picking up your brand setup.';
+        : 'Welcome back - picking up your brand setup.';
     case 'photo_upload':
       return lang === 'hi'
         ? 'वापस आए! फ़ोटो भेजना जारी है।'
         : isHindi(lang)
         ? 'Wapas aaye! Photo upload continue kar lete hain.'
-        : 'Welcome back — continuing your photo upload.';
+        : 'Welcome back - continuing your photo upload.';
     case 'style_selection':
       return lang === 'hi'
         ? 'वापस आए! स्टाइल चुनना जारी है।'
         : isHindi(lang)
         ? 'Wapas aaye! Style selection continue kar lete hain.'
-        : 'Welcome back — continuing your style selection.';
+        : 'Welcome back - continuing your style selection.';
     case 'payment':
       return lang === 'hi'
         ? 'वापस आए! पेमेंट पेंडिंग है।'
         : isHindi(lang)
         ? 'Wapas aaye! Payment abhi baki hai.'
-        : 'Welcome back — your payment is still pending.';
+        : 'Welcome back - your payment is still pending.';
     case 'generation':
       return lang === 'hi'
-        ? 'वापस आए! ऐड बन रहे थे — देखते हैं।'
+        ? 'वापस आए! ऐड बन रहे थे - देखते हैं।'
         : isHindi(lang)
         ? 'Wapas aaye! Aapke creatives process ho rahe the.'
-        : 'Welcome back — your creatives were being generated.';
+        : 'Welcome back - your creatives were being generated.';
     case 'delivery':
       return lang === 'hi'
         ? 'वापस आए!'

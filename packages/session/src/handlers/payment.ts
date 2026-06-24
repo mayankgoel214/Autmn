@@ -338,8 +338,8 @@ export async function sendPaymentLink(
     await wa.sendPaymentLink(
       phoneNumber,
       isHindi(lang)
-        ? `Rs ${order.amount / 100} hai. Pay karne ke baad creatives ban jayenge.\nSirf UPI accept karte hain — GPay, PhonePe, Paytm, BHIM, WhatsApp Pay.`
-        : `Rs ${order.amount / 100}. We'll start creating your creatives right after payment.\nUPI only — GPay, PhonePe, Paytm, BHIM, WhatsApp Pay.`,
+        ? `Rs ${order.amount / 100} hai. Pay karne ke baad creatives ban jayenge.\nSirf UPI accept karte hain - GPay, PhonePe, Paytm, BHIM, WhatsApp Pay.`
+        : `Rs ${order.amount / 100}. We'll start creating your creatives right after payment.\nUPI only - GPay, PhonePe, Paytm, BHIM, WhatsApp Pay.`,
       order.razorpayPaymentLinkUrl,
       isHindi(lang) ? 'UPI se pay karo' : 'Pay with UPI',
     );

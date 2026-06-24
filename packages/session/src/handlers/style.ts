@@ -162,8 +162,8 @@ export async function handleSetupStyle(
       await wa.sendText(
         phoneNumber,
         isHindi(lang)
-          ? `*${styleName}* mein bana rahe hain — bas thoda wait karein!`
-          : `Reprocessing in *${styleName}* — just a moment!`,
+          ? `*${styleName}* mein bana rahe hain - bas thoda wait karein!`
+          : `Reprocessing in *${styleName}* - just a moment!`,
       );
 
       const inputImageUrls = (order.inputImageUrls as string[]) ?? [];

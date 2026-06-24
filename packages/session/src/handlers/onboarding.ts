@@ -718,8 +718,8 @@ export async function sendStyleList(
     // Phase 7 — upfront copy explains the order shape so users don't think
     // they're locked into picking exactly 3 styles up front.
     const upfront = isHindi(lang)
-      ? '1-3 styles chuniye — hum 3 creatives banayenge, baaki AI khud bhar dega.'
-      : "Pick 1-3 styles — we'll generate 3 creatives, AI fills in the rest.";
+      ? '1-3 styles chuniye - hum 3 creatives banayenge, baaki AI khud bhar dega.'
+      : "Pick 1-3 styles - we'll generate 3 creatives, AI fills in the rest.";
     const ask = isHindi(lang) ? 'Style chuniye:' : 'Pick your style:';
     await wa.sendList(
       phoneNumber,
@@ -768,7 +768,7 @@ export async function sendStyleList(
 
     const doneRow = {
       id: ListIds.STYLE_DONE,
-      title: isHindi(lang) ? '✅ Ho gaya — bas itne' : '✅ Done — no more',
+      title: isHindi(lang) ? '✅ Ho gaya - bas itne' : '✅ Done - no more',
     };
 
     await wa.sendList(

@@ -64,12 +64,12 @@ export function faqResponse(intent: FaqIntent, lang: Language): string {
     case 'refund':
       switch (lang) {
         case 'hi':
-          return 'खुश नहीं हैं? पूरा refund मिल जाएगा — बस बता दीजिए।';
+          return 'खुश नहीं हैं? पूरा refund मिल जाएगा - बस बता दीजिए।';
         case 'hinglish':
-          return 'Khush nahi? Poora refund mil jaayega — bas bata dijiye.';
+          return 'Khush nahi? Poora refund mil jaayega - bas bata dijiye.';
         case 'en':
         default:
-          return 'Not happy? Full refund on request — just tell us.';
+          return 'Not happy? Full refund on request - just tell us.';
       }
     case 'turnaround':
       switch (lang) {

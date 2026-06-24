@@ -459,8 +459,8 @@ export async function onPhotoBatchTimeout(
     }
 
     const nudgeMsg = isHindi(lang)
-      ? `${imageCount} photos ready hain — "done" bolein ya aur photos bhejein.`
-      : `${imageCount} photos ready — say "done" or send more photos.`;
+      ? `${imageCount} photos ready hain - "done" bolein ya aur photos bhejein.`
+      : `${imageCount} photos ready - say "done" or send more photos.`;
 
     await wa.sendText(phoneNumber, nudgeMsg);
     // NO auto-advance. Just a reminder. User must act.
