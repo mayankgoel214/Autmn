@@ -26,7 +26,6 @@ import {
 } from './handlers/onboarding.js';
 import { handleChangeSettingsMenu } from './handlers/change-settings.js';
 import { handleBrandDetailsCollecting } from './handlers/brand-details.js';
-import { handleBrandDetailsEditing } from './handlers/brand-details-edit.js';
 import { handleRefundRequest } from './handlers/refund.js';
 import { matchFaqIntent, faqResponse } from './handlers/faq.js';
 import { handleSetupStyle } from './handlers/style.js';
@@ -418,20 +417,10 @@ export async function handleIncomingMessage(
         break;
       }
 
-      case 'BRAND_DETAILS_EDITING': {
-        if (isEscapeIntent(message)) {
-          logger.info('Escape intent in BRAND_DETAILS_EDITING — resetting to IDLE', { phoneNumber });
-          await transitionTo(phoneNumber, 'IDLE', {
-            currentOrderId: null, styleSelection: null, styleSelections: [],
-            stylePickStep: 0, earlyPhotoMediaId: null, inChangeSettings: false,
-          });
-          const freshSession = await getSession(phoneNumber);
-          if (freshSession) await handleIdle(freshSession, user, message, wa);
-          break;
-        }
-        await handleBrandDetailsEditing(session, user, message, wa);
-        break;
-      }
+      // BRAND_DETAILS_EDITING (natural-language brand edit) removed — brand
+      // details is now a single colours question, edited by re-running the
+      // collection flow. The SessionState enum value is retained (like
+      // EDIT_PROCESSING); any stale session in it hits the default arm → IDLE.
 
       // Phase 8: AWAITING_REVISION_PAYMENT case removed alongside the rest
       // of the edit/revision flow. Stale sessions in that state hit the

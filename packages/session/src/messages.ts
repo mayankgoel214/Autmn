@@ -1808,19 +1808,6 @@ export function rowBack(lang: Lang): string {
   }
 }
 
-/** Brand-details row stub until Phase 3 wires it. */
-export function msgBrandDetailsComingSoon(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'ब्रांड डिटेल्स जल्द आ रहा है ✨';
-    case 'hinglish':
-      return 'Brand details jaldi aa raha hai ✨';
-    case 'en':
-    default:
-      return 'Brand details — coming soon ✨';
-  }
-}
-
 /** Confirmation sent on tapping Back to leave the change-settings menu. */
 export function msgSettingsExit(lang: Lang): string {
   switch (lang) {
@@ -1835,21 +1822,8 @@ export function msgSettingsExit(lang: Lang): string {
 }
 
 // ---------------------------------------------------------------------------
-// PHASE 3 — BRAND DETAILS CAPTURE
+// BRAND DETAILS — single "brand colours" question
 // ---------------------------------------------------------------------------
-
-/** Single open prompt that opens the BRAND_DETAILS_COLLECTING state. */
-export function msgAskBrandDetails(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'अपने ब्रांड के बारे में कुछ भी भेजें — लोगो, sample creatives, descriptions, website URL.\n\nहो जाए तो "done" लिखें या "skip" करें.';
-    case 'hinglish':
-      return 'Apne brand ke baare mein kuch bhi bhejein — logo, sample creatives, descriptions, website URL.\n\nHo jaaye to "done" likhein ya "skip" karein.';
-    case 'en':
-    default:
-      return 'Send anything about your brand — logo, sample creatives, descriptions, website URL.\n\nTap "Done" when finished, or type "skip".';
-  }
-}
 
 /**
  * Brand-details prompt — the single "brand colours" question.
@@ -1883,99 +1857,7 @@ export function msgBrandColorsSaved(lang: Lang, colours: string[]): string {
   }
 }
 
-/** Button label to finish the brand-details collection step. */
-export function btnBrandDetailsDone(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return '✅ हो गया';
-    case 'hinglish':
-      return '✅ Ho gaya';
-    case 'en':
-    default:
-      return '✅ Done';
-  }
-}
-
-/** Confirmation after a file (image/document) asset lands. */
-export function msgBrandDetailFileSaved(lang: Lang, count: number, max: number): string {
-  switch (lang) {
-    case 'hi':
-      return `File save हो गई ✅ (${count}/${max})`;
-    case 'hinglish':
-      return `File save ho gayi ✅ (${count}/${max})`;
-    case 'en':
-    default:
-      return `Saved ✅ (${count}/${max})`;
-  }
-}
-
-/** Confirmation after a plain-text note is saved. */
-export function msgBrandDetailTextSaved(lang: Lang, count: number, max: number): string {
-  switch (lang) {
-    case 'hi':
-      return `Note save हो गया ✅ (${count}/${max})`;
-    case 'hinglish':
-      return `Note save ho gaya ✅ (${count}/${max})`;
-    case 'en':
-    default:
-      return `Note saved ✅ (${count}/${max})`;
-  }
-}
-
-/** Confirmation after a website URL is captured. */
-export function msgBrandDetailUrlSaved(lang: Lang, count: number, max: number): string {
-  switch (lang) {
-    case 'hi':
-      return `Website link save हो गया ✅ (${count}/${max})`;
-    case 'hinglish':
-      return `Website link save ho gaya ✅ (${count}/${max})`;
-    case 'en':
-    default:
-      return `Website link saved ✅ (${count}/${max})`;
-  }
-}
-
-/** Rejection — user hit the 10-file cap. */
-export function msgBrandLimitReached(lang: Lang, max: number): string {
-  switch (lang) {
-    case 'hi':
-      return `${max} files max हैं। "done" लिखें save करने के लिए या "skip" करें.`;
-    case 'hinglish':
-      return `${max} files max hain. "done" likhein save ke liye ya "skip" karein.`;
-    case 'en':
-    default:
-      return `${max} files max. Type "done" to save what you have or "skip".`;
-  }
-}
-
-/** Rejection — file exceeds 5 MB. */
-export function msgBrandFileTooLarge(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'File बहुत बड़ी है. 5 MB से छोटी भेजें.';
-    case 'hinglish':
-      return 'File bahut badi hai. 5 MB se chhoti bhejein.';
-    case 'en':
-    default:
-      return 'File too big. Send under 5 MB please.';
-  }
-}
-
-/** Final "saved" message after 'done' — Phase 3b will replace the trailing
- *  "(AI summary still being built)" line with the structured profile. */
-export function msgBrandProfileSaved(lang: Lang, assetCount: number): string {
-  switch (lang) {
-    case 'hi':
-      return `Brand profile save हो गया ✅\n${assetCount} assets जोड़े गए।`;
-    case 'hinglish':
-      return `Brand profile save ho gaya ✅\n${assetCount} assets jode gaye.`;
-    case 'en':
-    default:
-      return `Brand profile saved ✅\n${assetCount} asset(s) added.`;
-  }
-}
-
-/** Exit message on "skip" from inside brand-details collection. */
+/** Exit message on "skip" from the brand-colours question. */
 export function msgBrandDetailsSkipped(lang: Lang): string {
   switch (lang) {
     case 'hi':
@@ -1988,68 +1870,23 @@ export function msgBrandDetailsSkipped(lang: Lang): string {
   }
 }
 
-/** Friendly nudge when user sends an unexpected input during collection. */
-export function msgBrandDetailsUnknown(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'Image, PDF, text, या website URL भेजें. "done" या "skip" लिखें finish करने के लिए.';
-    case 'hinglish':
-      return 'Image, PDF, text, ya website URL bhejein. "done" ya "skip" likhein finish karne ke liye.';
-    case 'en':
-    default:
-      return 'Send an image, PDF, text, or website URL. Type "done" or "skip" to finish.';
-  }
-}
-
-/**
- * Sent immediately on "done" while the brand-analysis worker is still running.
- * The full structured profile arrives in a follow-up message a few seconds
- * later (msgBrandProfileSaved + structured fields, built by the worker).
- */
-export function msgBrandAnalyzing(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'आपके brand assets analyze हो रहे हैं ✨ कुछ ही seconds में profile ready होगा।';
-    case 'hinglish':
-      return 'Aapke brand assets analyze ho rahe hain ✨ Kuch hi seconds mein profile ready hoga.';
-    case 'en':
-    default:
-      return 'Analysing your brand assets ✨ Profile will be ready in a few seconds.';
-  }
-}
-
 // ---------------------------------------------------------------------------
-// PHASE 4 — BRAND PROFILE VIEW + EDIT
+// BRAND PROFILE VIEW
 // ---------------------------------------------------------------------------
 
 export interface BrandProfileViewInput {
   brandName?: string | null;
-  tagline?: string | null;
   brandColors?: string[] | null;
-  vibe?: string | null;
-  assetCounts: { image: number; pdf: number; doc: number; text: number; website: number };
 }
 
-/** Structured field summary sent before the Edit / Add-more buttons. */
+/** Structured summary sent before the Edit button. */
 export function msgBrandProfileView(view: BrandProfileViewInput, lang: Lang): string {
   const hi = lang === 'hi' || lang === 'hinglish';
   const header = hi ? 'Aapka brand profile:' : 'Your brand profile:';
   const lines: string[] = [header];
-  if (view.brandName) lines.push(`• ${hi ? 'Brand' : 'Brand'}: ${view.brandName}`);
-  if (view.tagline) lines.push(`• ${hi ? 'Tagline' : 'Tagline'}: ${view.tagline}`);
+  if (view.brandName) lines.push(`• Brand: ${view.brandName}`);
   if (view.brandColors && view.brandColors.length > 0)
-    lines.push(`• ${hi ? 'Colors' : 'Colors'}: ${view.brandColors.join(', ')}`);
-  if (view.vibe) lines.push(`• ${hi ? 'Vibe' : 'Vibe'}: ${view.vibe}`);
-
-  const counts = view.assetCounts;
-  const assetParts: string[] = [];
-  if (counts.image > 0) assetParts.push(`${counts.image} image${counts.image === 1 ? '' : 's'}`);
-  if (counts.pdf > 0) assetParts.push(`${counts.pdf} PDF${counts.pdf === 1 ? '' : 's'}`);
-  if (counts.doc > 0) assetParts.push(`${counts.doc} document${counts.doc === 1 ? '' : 's'}`);
-  if (counts.text > 0) assetParts.push(`${counts.text} note${counts.text === 1 ? '' : 's'}`);
-  if (counts.website > 0) assetParts.push(`${counts.website} website link${counts.website === 1 ? '' : 's'}`);
-  if (assetParts.length > 0) lines.push(`• ${hi ? 'Assets' : 'Assets'}: ${assetParts.join(', ')}`);
-
+    lines.push(`• Colors: ${view.brandColors.join(', ')}`);
   return lines.join('\n');
 }
 
@@ -2059,58 +1896,6 @@ export function btnEditBrand(lang: Lang): string {
     case 'hinglish': return 'Badlein';
     case 'en':
     default:         return 'Edit';
-  }
-}
-
-export function btnAddMoreBrand(lang: Lang): string {
-  switch (lang) {
-    case 'hi':       return 'और जोड़ें';
-    case 'hinglish': return 'Aur jodein';
-    case 'en':
-    default:         return 'Add more';
-  }
-}
-
-export function msgAskBrandEdit(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'क्या बदलना है? Natural language में लिखें — जैसे "change colors to red and gold" या "tagline: handcrafted in India".\n\n"done" लिखें finish करने के लिए.';
-    case 'hinglish':
-      return 'Kya badalna hai? Natural language mein likhein — jaise "change colors to red and gold" ya "tagline: handcrafted in India".\n\n"done" likhein finish karne ke liye.';
-    case 'en':
-    default:
-      return 'What would you like to change? Write in natural language — e.g. "change colors to red and gold" or "tagline: handcrafted in India".\n\nType "done" to finish.';
-  }
-}
-
-/** Field-aware confirmation. The orchestrator passes a short summary of the
- *  applied patch so the user sees exactly what changed. */
-export function msgBrandEditApplied(field: string, valueDisplay: string, lang: Lang): string {
-  const hi = lang === 'hi' || lang === 'hinglish';
-  const label = brandFieldLabel(field, lang);
-  return hi
-    ? `Updated ✅\n• ${label}: ${valueDisplay}`
-    : `Updated ✅\n• ${label}: ${valueDisplay}`;
-}
-
-export function msgBrandEditUnrecognized(lang: Lang): string {
-  switch (lang) {
-    case 'hi':
-      return 'समझ नहीं आया. Tagline, colors, vibe, या summary बदलने का instruction दें — जैसे "change colors to red".';
-    case 'hinglish':
-      return 'Samajh nahi aaya. Tagline, colors, vibe, ya summary badalne ka instruction dein — jaise "change colors to red".';
-    case 'en':
-    default:
-      return 'Couldn\'t parse that. Try something like "change colors to red and gold" or "tagline: handcrafted in India".';
-  }
-}
-
-export function msgBrandEditExit(lang: Lang): string {
-  switch (lang) {
-    case 'hi':       return 'Edits save हो गए ✅';
-    case 'hinglish': return 'Edits save ho gaye ✅';
-    case 'en':
-    default:         return 'Edits saved ✅';
   }
 }
 
@@ -2337,16 +2122,5 @@ export function msgProcessingEstimate(stylesCount: number, photosCount: number, 
     case 'en':
     default:
       return `Your creatives are being made. Approximately ${x}-${y} minutes 🎨`;
-  }
-}
-
-function brandFieldLabel(field: string, lang: Lang): string {
-  const hi = lang === 'hi' || lang === 'hinglish';
-  switch (field) {
-    case 'brandColors': return hi ? 'Colors' : 'Colors';
-    case 'tagline':     return hi ? 'Tagline' : 'Tagline';
-    case 'vibe':        return hi ? 'Vibe' : 'Vibe';
-    case 'summary':     return hi ? 'Summary' : 'Summary';
-    default:            return field;
   }
 }

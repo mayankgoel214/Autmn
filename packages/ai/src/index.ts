@@ -193,22 +193,3 @@ export {
   type OpenAIGenerateParams,
   type OpenAIModelId,
 } from './pipeline/openai-generate.js';
-
-// ---------------------------------------------------------------------------
-// Brand analysis (Phase 3b) — image / pdf / website / structured summary
-// ---------------------------------------------------------------------------
-
-export {
-  analyzeImage,
-  analyzePDF,
-  scrapeWebsite,
-  fetchHtml,
-  generateSummary,
-  parseBrandEdit,
-  type AnalyzeImageParams,
-  type ScrapeResult,
-  type BrandSummary,
-  type AssetDescriptor,
-  type BrandEditPatch,
-  type BrandEditField,
-} from './brand/index.js';

@@ -1,17 +1,5 @@
 # syntax=docker/dockerfile:1
 #
-# Phase 3b note — brand-analysis website scraping uses Playwright/Chromium.
-# Alpine is not supported by the upstream Playwright project (no musl Chromium
-# binaries). The worker code falls back to a plain `fetch` + HTML-regex parser
-# inside scrape-website.ts when Playwright can't launch, so Alpine still works
-# for the common SSR-site case. For full JS-rendered SPA support in production
-# either:
-#   (a) switch this base to `mcr.microsoft.com/playwright:v1.49.0-noble`, or
-#   (b) switch to `node:22-bookworm-slim` and add
-#       `RUN pnpm --filter @autmn/ai exec playwright install --with-deps chromium`
-#       after the install step in the runner stage.
-# Tracked separately from the Phase 3b state-machine + AI shipping.
-#
 # ─── Stage 1: deps ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate

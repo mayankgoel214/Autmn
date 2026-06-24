@@ -239,7 +239,6 @@ async function sendBrandProfileView(
     {
       brandName: (user as any).brandName ?? user.name ?? undefined,
       brandColors: profile.brandColors,
-      assetCounts: { image: 0, pdf: 0, doc: 0, text: 0, website: 0 },
     },
     lang,
   );
