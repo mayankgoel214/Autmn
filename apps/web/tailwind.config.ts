@@ -1,36 +1,35 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * Autmn brand tokens. Warm autumn palette — see src/app/brand/page.tsx for the
- * one-page brand sheet. Two brand colors (terracotta + amber), one accent (olive),
- * cream background, warm-ink text.
+ * Autmn brand tokens. Ink + Gold premium palette.
+ *   ink   = near-black canvas
+ *   gold  = the one confident accent (the bloom, CTAs, "Au")
+ *   cream = light surfaces / text on ink
+ *   sand  = muted text on ink
  */
 const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        terracotta: {
-          DEFAULT: '#C2410C',
-          dark: '#9A3412',
-          light: '#EA580C',
+        ink: {
+          DEFAULT: '#17120E',
+          soft: '#211913',
+          raised: '#2A2018',
+          line: 'rgba(201,154,63,0.18)',
         },
-        amber: {
-          DEFAULT: '#F59E0B',
-          dark: '#D97706',
-          light: '#FBBF24',
-        },
-        olive: {
-          DEFAULT: '#4D7C0F',
-          dark: '#3F6212',
+        gold: {
+          DEFAULT: '#C99A3F',
+          dark: '#A87E2E',
+          light: '#E0B860',
         },
         cream: {
-          DEFAULT: '#FFFBF5',
-          deep: '#FEF3E2',
+          DEFAULT: '#F7F2E9',
+          deep: '#ECE6DA',
         },
-        ink: {
-          DEFAULT: '#2B1A10',
-          soft: '#6B5544',
+        sand: {
+          DEFAULT: '#C9BBA3',
+          dim: '#8A7E6C',
         },
       },
       fontFamily: {
@@ -38,11 +37,25 @@ const config: Config = {
         body: ['var(--font-body)', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        warm: '0 10px 40px -12px rgba(194, 65, 12, 0.25)',
-        card: '0 4px 24px -8px rgba(43, 26, 16, 0.12)',
+        gold: '0 0 0 6px rgba(201,154,63,0.08)',
+        lift: '0 18px 50px -20px rgba(0,0,0,0.55)',
       },
       borderRadius: {
         '4xl': '2rem',
+      },
+      keyframes: {
+        bloomIn: {
+          '0%': { opacity: '0', transform: 'scale(0.92)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+      },
+      animation: {
+        bloomIn: 'bloomIn 0.6s cubic-bezier(0.22,1,0.36,1) both',
+        marquee: 'marquee 40s linear infinite',
       },
     },
   },

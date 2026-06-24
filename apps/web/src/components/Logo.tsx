@@ -39,10 +39,11 @@ export function Logo({ size = 40 }: { size?: number }) {
     <span className="inline-flex items-center gap-2.5">
       <LogoIcon size={size} />
       <span
-        className="font-heading font-semibold tracking-tight text-ink"
+        className="font-heading font-medium tracking-tight text-cream"
         style={{ fontSize: size * 0.62 }}
       >
-        {site.name}
+        <span className="text-gold">Au</span>
+        {site.name.slice(2)}
       </span>
     </span>
   );

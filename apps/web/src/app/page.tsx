@@ -1,213 +1,146 @@
+import Link from 'next/link';
 import { site } from '@/site.config';
-import { Logo } from '@/components/Logo';
-import { WhatsAppButton } from '@/components/WhatsAppButton';
-import { BeforeAfter } from '@/components/BeforeAfter';
-import { Footer } from '@/components/Footer';
+import { Bloom } from '@/components/Bloom';
+import { Menu } from '@/components/Menu';
+import { WaButton } from '@/components/WaButton';
+import { SampleShowcase } from '@/components/SampleShowcase';
+
+const AFTERS = [
+  'earrings',
+  'indian-sweets',
+  'perfume-bottle',
+  'handbag',
+  'scented-candle',
+  'serum-bottle',
+  'white-sneakers',
+];
+
+const STEPS = [
+  { n: '1', t: 'Send a photo', d: 'Snap your product and send it to Autmn on WhatsApp. The phone you already use.' },
+  { n: '2', t: 'Pick a style', d: 'Choose a look, or let Autmn art-direct it for you. Add a note if you like.' },
+  { n: '3', t: 'Get your ads', d: 'Brand-ready ads come back in minutes. Post them, list them, sell.' },
+];
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
-      <Header />
-      <Hero />
-      <Gallery />
-      <HowItWorks />
-      <Pricing />
-      <FAQ />
-      <Footer />
-    </main>
-  );
-}
-
-function Header() {
-  return (
-    <header className="section flex items-center justify-between py-5">
-      <Logo size={34} />
-      <WhatsAppButton label="Try it free" className="hidden px-5 py-2.5 text-sm sm:inline-flex" />
-    </header>
-  );
-}
-
-function Hero() {
-  return (
-    <section className="warm-gradient">
-      <div className="section grid items-center gap-10 py-12 sm:py-20 lg:grid-cols-2">
-        <div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-amber/15 px-3 py-1 text-sm font-medium text-terracotta-dark">
-            ✨ First image free
+    <main className="min-h-screen bg-ink text-cream">
+      {/* top bar */}
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-ink-line bg-ink/80 px-5 py-4 backdrop-blur sm:px-8">
+        <Link href="/" className="flex items-center gap-2.5">
+          <Bloom size={26} />
+          <span className="font-heading text-[22px] font-medium">
+            <span className="text-gold">Au</span>tmn
           </span>
-          <h1 className="mt-5 font-heading text-4xl font-semibold leading-[1.1] tracking-tight text-ink sm:text-5xl lg:text-6xl">
-            {site.tagline}
-          </h1>
-          <p className="mt-5 max-w-md text-lg text-ink-soft">
-            Send a product photo on WhatsApp. Get a brand-ready ad back in minutes.
-            No app, no studio, no design skills — just the phone you already use.
-          </p>
-          <p className="mt-2 max-w-md text-base text-ink-soft/80">
-            Photo bhejiye, professional ad wapas paaiye. {site.currency}
-            {site.pricePerImage} per image.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <WhatsAppButton label="Make my first ad — free" />
-            <span className="text-sm text-ink-soft">No sign-up. Works on WhatsApp.</span>
-          </div>
-        </div>
+        </Link>
+        <Menu />
+      </header>
 
-        <div className="relative">
-          <div className="absolute -inset-4 -z-10 rounded-[2.5rem] bg-gradient-to-br from-amber/20 to-terracotta/20 blur-2xl" />
-          <BeforeAfter category="Your product → a ready-to-post ad" />
-          <p className="mt-3 text-center text-xs text-ink-soft/60">
-            Real seller example coming soon
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Gallery() {
-  const categories = ['Jewellery', 'Food', 'Garments'];
-  return (
-    <section className="section py-16 sm:py-24">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="font-heading text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-          One photo in. A whole catalogue out.
-        </h2>
-        <p className="mt-3 text-ink-soft">
-          Every category, every style — lifestyle, clean studio, festive, and more.
+      {/* hero */}
+      <section className="section pb-10 pt-12 sm:pt-16">
+        <p className="mb-5 text-sm font-medium tracking-wide text-gold">
+          Made on WhatsApp. Back in minutes.
         </p>
-      </div>
-      <div className="mt-10 grid gap-5 sm:grid-cols-3">
-        {categories.map((c) => (
-          <BeforeAfter key={c} category={c} />
-        ))}
-      </div>
-    </section>
-  );
-}
+        <h1 className="max-w-2xl font-heading text-[42px] font-medium leading-[1.05] tracking-tight sm:text-6xl">
+          Send a photo.
+          <br />
+          Get a <span className="italic text-gold">studio ad</span> back.
+        </h1>
+        <p className="mt-5 max-w-md text-[15px] leading-relaxed text-sand sm:text-lg">
+          No app. No designer. Just WhatsApp. Snap your product, pick a style, and
+          Autmn returns a brand-ready ad. Your first one is free.
+        </p>
 
-function HowItWorks() {
-  const steps = [
-    {
-      n: '1',
-      title: 'Send a photo',
-      body: 'Message us on WhatsApp with a photo of your product — even a plain phone snap works.',
-    },
-    {
-      n: '2',
-      title: 'Pick a style',
-      body: 'Choose up to 3 looks, or let our AI pick the best. Add instructions by text or voice.',
-    },
-    {
-      n: '3',
-      title: 'Get your ads',
-      body: `Professional, ready-to-post images back in minutes. ${site.currency}${site.pricePerImage} each — first one free.`,
-    },
-  ];
-  return (
-    <section className="bg-cream-deep py-16 sm:py-24">
-      <div className="section">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-heading text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            How it works
-          </h2>
-          <p className="mt-3 text-ink-soft">Three steps. All inside WhatsApp.</p>
+        <div className="mt-12">
+          <SampleShowcase />
         </div>
-        <div className="mt-12 grid gap-8 sm:grid-cols-3">
-          {steps.map((s) => (
-            <div key={s.n} className="text-center sm:text-left">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-terracotta font-heading text-xl font-semibold text-cream sm:mx-0">
+
+        <div className="mt-12 flex flex-col items-center">
+          <WaButton label="Begin your first ad" />
+          <p className="mt-3 text-xs text-sand-dim">
+            Opens WhatsApp. {site.currency}
+            {site.pricePerImage} an ad after your free one.
+          </p>
+        </div>
+      </section>
+
+      {/* marquee wall of ads */}
+      <section id="work" className="overflow-hidden py-10">
+        <div className="flex w-max animate-marquee gap-4 pl-4">
+          {[...AFTERS, ...AFTERS].map((slug, idx) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={`${slug}-${idx}`}
+              src={`/gallery/${slug}/after.jpg`}
+              alt=""
+              loading="lazy"
+              className="h-[200px] w-auto rounded-xl border border-ink-line object-cover sm:h-[260px]"
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* how it works */}
+      <section id="how" className="section py-16">
+        <h2 className="font-heading text-3xl font-medium sm:text-4xl">
+          Three taps. One photo. Done.
+        </h2>
+        <div className="mt-10 grid gap-6 sm:grid-cols-3">
+          {STEPS.map((s) => (
+            <div key={s.n} className="rounded-2xl border border-ink-line bg-ink-soft p-6">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-gold/40 font-heading text-lg text-gold">
                 {s.n}
               </div>
-              <h3 className="mt-4 font-heading text-xl font-semibold text-ink">{s.title}</h3>
-              <p className="mt-2 text-ink-soft">{s.body}</p>
+              <h3 className="font-heading text-xl text-cream">{s.t}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-sand">{s.d}</p>
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
 
-function Pricing() {
-  return (
-    <section className="section py-16 sm:py-24">
-      <div className="mx-auto max-w-md rounded-4xl bg-white p-8 text-center shadow-card ring-1 ring-ink/5">
-        <h2 className="font-heading text-3xl font-semibold tracking-tight text-ink">
-          Simple pricing
-        </h2>
-        <div className="mt-6 flex items-end justify-center gap-1">
-          <span className="font-heading text-6xl font-semibold text-terracotta">
+      {/* pricing */}
+      <section id="pricing" className="section py-16">
+        <div className="mx-auto max-w-md rounded-3xl border border-gold/30 bg-ink-soft p-8 text-center shadow-gold">
+          <p className="text-sm uppercase tracking-[0.18em] text-sand">Pricing</p>
+          <p className="mt-4 font-heading text-5xl font-medium text-cream">
             {site.currency}
             {site.pricePerImage}
-          </span>
-          <span className="mb-2 text-ink-soft">/ image</span>
+            <span className="text-2xl text-sand"> / ad</span>
+          </p>
+          <p className="mt-3 text-sand">
+            Your first ad is <span className="text-gold">completely free.</span> No
+            subscription, no commitment. Pay only for what you make.
+          </p>
+          <WaButton label="Make my first ad" className="mt-7 w-full" />
         </div>
-        <p className="mt-2 font-medium text-olive">Your first image is completely free.</p>
-        <ul className="mt-6 space-y-3 text-left text-ink-soft">
-          {[
-            'Pay only for the images you keep',
-            'Up to 3 styles per product',
-            'Add instructions by text or voice',
-            'Delivered in minutes, right on WhatsApp',
-          ].map((f) => (
-            <li key={f} className="flex items-start gap-2">
-              <span className="mt-0.5 text-olive">✓</span>
-              {f}
-            </li>
-          ))}
-        </ul>
-        <WhatsAppButton label="Start free" className="mt-8 w-full" />
-      </div>
-    </section>
-  );
-}
+      </section>
 
-function FAQ() {
-  const faqs = [
-    {
-      q: 'Do I need to download an app?',
-      a: 'No. Autmn works entirely inside WhatsApp on the phone you already use.',
-    },
-    {
-      q: 'How much does it cost?',
-      a: `${site.currency}${site.pricePerImage} per finished image, and your very first one is free so you can try it risk-free.`,
-    },
-    {
-      q: 'How long does it take?',
-      a: 'Most ads are ready within a few minutes of sending your photo.',
-    },
-    {
-      q: 'What if I don’t like the result?',
-      a: 'If something went wrong with your order, you can request a refund right in the chat and our team will review it.',
-    },
-    {
-      q: 'What kinds of products work?',
-      a: 'Jewellery, food, garments, skincare, candles, bags, and more — anything you sell.',
-    },
-  ];
-  return (
-    <section className="bg-cream-deep py-16 sm:py-24">
-      <div className="section mx-auto max-w-2xl">
-        <h2 className="text-center font-heading text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-          Questions
-        </h2>
-        <div className="mt-10 space-y-4">
-          {faqs.map((f) => (
-            <details
-              key={f.q}
-              className="group rounded-2xl bg-white p-5 shadow-card ring-1 ring-ink/5"
-            >
-              <summary className="cursor-pointer list-none font-heading text-lg font-medium text-ink marker:hidden">
-                {f.q}
-              </summary>
-              <p className="mt-2 text-ink-soft">{f.a}</p>
-            </details>
-          ))}
+      {/* footer */}
+      <footer className="border-t border-ink-line px-5 py-10 sm:px-8">
+        <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2.5">
+            <Bloom size={22} />
+            <span className="font-heading text-lg">
+              <span className="text-gold">Au</span>tmn
+            </span>
+          </div>
+          <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-sand-dim">
+            <Link href="/privacy" className="hover:text-sand">Privacy</Link>
+            <Link href="/terms" className="hover:text-sand">Terms</Link>
+            <Link href="/refund" className="hover:text-sand">Refunds</Link>
+            <Link href="/contact" className="hover:text-sand">Contact</Link>
+          </nav>
         </div>
-        <div className="mt-12 text-center">
-          <WhatsAppButton label="Make my first ad — free" />
-        </div>
+        <p className="mx-auto mt-8 max-w-5xl text-xs text-sand-dim">
+          {site.currency}
+          {site.pricePerImage} per ad. First one free. {site.domain}
+        </p>
+      </footer>
+
+      {/* sticky mobile CTA */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-line bg-ink/90 p-3 backdrop-blur sm:hidden">
+        <WaButton label="Begin your first ad" className="w-full" />
       </div>
-    </section>
+      <div className="h-20 sm:hidden" aria-hidden="true" />
+    </main>
   );
 }

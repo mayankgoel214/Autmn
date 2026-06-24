@@ -3,49 +3,61 @@
 @tailwind utilities;
 
 :root {
-  --cream: #fffbf5;
-  --cream-deep: #fef3e2;
-  --ink: #2b1a10;
+  --ink: #17120e;
+  --gold: #c99a3f;
+  --cream: #f7f2e9;
 }
 
 html {
   scroll-behavior: smooth;
+  background-color: var(--ink);
 }
 
 body {
-  background-color: var(--cream);
-  color: var(--ink);
+  background-color: var(--ink);
+  color: var(--cream);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-}
-
-/* Subtle warm grain/gradient backdrop used on hero + section dividers. */
-.warm-gradient {
-  background-image: radial-gradient(
-      ellipse 80% 50% at 50% -20%,
-      rgba(245, 158, 11, 0.18),
-      transparent
-    ),
-    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(194, 65, 12, 0.1), transparent);
 }
 
 .section {
   @apply mx-auto w-full max-w-5xl px-5 sm:px-8;
 }
 
-/* Legal document typography */
+/* hide scrollbar on horizontal rails */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Legal document typography (light text on ink) */
 .legal-prose p {
-  @apply leading-relaxed;
+  @apply leading-relaxed text-sand;
 }
 .legal-prose a {
-  @apply font-medium text-terracotta underline underline-offset-2;
+  @apply font-medium text-gold underline underline-offset-2;
 }
 .legal-prose strong {
-  @apply font-semibold text-ink;
+  @apply font-medium text-cream;
 }
 .legal-prose ul {
-  @apply list-disc space-y-1.5 pl-6;
+  @apply list-disc space-y-1.5 pl-6 text-sand;
 }
 .legal-prose ol {
-  @apply list-decimal space-y-1.5 pl-6;
+  @apply list-decimal space-y-1.5 pl-6 text-sand;
 }
