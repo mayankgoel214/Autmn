@@ -107,6 +107,30 @@ async function handleApprove(
     }));
   }
 
+  // H3 — atomically CLAIM the decision before calling Razorpay so two
+  // concurrent confirm POSTs (double-click / retry) can't both issue a refund.
+  // Only the first transition out of 'pending' wins.
+  const claim = await prisma.order.updateMany({
+    where: { id: order.id, refundStatus: 'pending' },
+    data: {
+      refundStatus: 'approved',
+      refundDecidedAt: new Date(),
+      refundDecisionNote: 'Approved via magic link',
+    },
+  });
+  if (claim.count === 0) {
+    const fresh = await prisma.order
+      .findUnique({ where: { id: order.id }, select: { refundStatus: true, refundDecidedAt: true } })
+      .catch(() => null);
+    return renderHtml(reply, 200, renderRefundDecisionPage({
+      status: 'already_decided',
+      shortId: order.shortId ?? undefined,
+      previousStatus: (fresh?.refundStatus as 'approved' | 'denied') ?? 'approved',
+      previousDecidedAt: fresh?.refundDecidedAt?.toISOString(),
+    }));
+  }
+
+  // We own the decision — issue the Razorpay refund exactly once.
   let razorpayRefundId: string | null = null;
   let razorpayError: string | null = null;
   try {
@@ -121,18 +145,12 @@ async function handleApprove(
     app.log.error({ orderId: order.id, err: razorpayError }, 'Razorpay refund issuance failed');
   }
 
-  // Record the decision regardless of Razorpay outcome — once the founder
-  // clicks Approve, the refundStatus is locked. razorpayRefundError gives
-  // the founder a clear "retry the API call" signal without rewriting state.
+  // Record the Razorpay outcome on the already-claimed row. razorpayRefundError
+  // gives the founder a clear "retry the API call" signal without rewriting the
+  // locked decision state.
   await prisma.order.update({
     where: { id: order.id },
-    data: {
-      refundStatus: 'approved',
-      refundDecidedAt: new Date(),
-      refundDecisionNote: 'Approved via magic link',
-      razorpayRefundId,
-      razorpayRefundError: razorpayError,
-    },
+    data: { razorpayRefundId, razorpayRefundError: razorpayError },
   });
 
   if (razorpayError) {
@@ -173,14 +191,26 @@ async function handleDeny(
   order: NonNullable<OrderWithUserLang>,
   lang: Language,
 ): Promise<FastifyReply> {
-  await prisma.order.update({
-    where: { id: order.id },
+  // H3 — atomic claim so a double-click can't double-fire the deny side effects.
+  const claim = await prisma.order.updateMany({
+    where: { id: order.id, refundStatus: 'pending' },
     data: {
       refundStatus: 'denied',
       refundDecidedAt: new Date(),
       refundDecisionNote: 'Denied via magic link',
     },
   });
+  if (claim.count === 0) {
+    const fresh = await prisma.order
+      .findUnique({ where: { id: order.id }, select: { refundStatus: true, refundDecidedAt: true } })
+      .catch(() => null);
+    return renderHtml(reply, 200, renderRefundDecisionPage({
+      status: 'already_decided',
+      shortId: order.shortId ?? undefined,
+      previousStatus: (fresh?.refundStatus as 'approved' | 'denied') ?? 'denied',
+      previousDecidedAt: fresh?.refundDecidedAt?.toISOString(),
+    }));
+  }
 
   const supportPhone = process.env['SUPPORT_PHONE_NUMBER'];
   const userMsg = msgRefundDenied(null, lang, order.shortId ?? undefined, supportPhone);
@@ -394,6 +424,18 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/admin/reset/:phone', async (req: FastifyRequest, reply: FastifyReply) => {
     const { phone } = req.params as { phone: string };
+
+    // Validate the phone — digits only, plausible length — so a malformed or
+    // hostile param can't fan out into an unintended match set.
+    if (!/^\d{8,15}$/.test(phone)) {
+      return reply.code(400).send({ ok: false, error: 'Invalid phone format (digits only, 8-15)' });
+    }
+    // This permanently deletes a user + their orders/jobs/sessions + storage.
+    // Require an explicit confirm so a stray click/prefetch can't wipe a user.
+    // (The route is already behind the x-admin-secret preHandler guard.)
+    if ((req.query as { confirm?: string })?.confirm !== 'YES') {
+      return reply.code(400).send({ ok: false, error: 'Destructive: add ?confirm=YES to proceed' });
+    }
 
     try {
       // Step 1: collect storage URLs from all orders before deleting DB records

@@ -64,7 +64,14 @@ async function main() {
   // Routes
   await app.register(healthRoutes);
   await app.register(adminRoutes);
-  await app.register(adminTestRoutes);
+  // The /admin/test debug UI authenticates via a ?key=<ADMIN_SECRET> query
+  // string, which leaks through access logs, Referer headers, and browser
+  // history. It's a pre-launch testing tool — never register it in production,
+  // so the master secret can't leak there. Real prod admin ops use the
+  // header-authed endpoints (adminRoutes) and the signed refund magic links.
+  if (config.NODE_ENV !== 'production') {
+    await app.register(adminTestRoutes);
+  }
   await app.register(adminKeypoolRoutes);
   await app.register(whatsappWebhookRoutes);
   await app.register(razorpayWebhookRoutes);
