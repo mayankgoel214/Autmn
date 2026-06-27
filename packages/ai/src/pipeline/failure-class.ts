@@ -23,6 +23,14 @@ const PERMANENT_SIGNALS = [
   'content_policy_violation',
   'invalid_api_key',
   'billing_hard_limit_reached',
+  // OpenAI billing/quota exhausted — retrying will not help. NOTE: we do NOT
+  // add Gemini's 'RESOURCE_EXHAUSTED' here: Gemini returns it for ordinary
+  // per-minute rate limits too, which ARE retryable. Marking it permanent
+  // would wrongfully refund recoverable orders. 429 / rate limit stay transient.
+  'insufficient_quota',
+  'You exceeded your current quota',
+  // Bad/oversized input that no retry can fix.
+  'context_length_exceeded',
 ];
 
 // Transient — provider busy / overloaded / network blips / breaker open.

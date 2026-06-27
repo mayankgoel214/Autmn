@@ -24,6 +24,10 @@ import { getConfig } from '../config.js';
 // processing; only then does a still-failing transient error become a refund.
 const TRANSIENT_RETRY_WINDOW_MS = 45 * 60 * 1000; // 45 minutes
 const RETRY_MAX_DELAY_MS = 5 * 60 * 1000;         // cap backoff at 5 min
+// Hard backstop on per-image retries. The 45-min window is the primary stop;
+// this bounds AI spend if a style flaps transiently fast within that window
+// (each retry costs a full tier-1+tier-2 budget). Past this we refund.
+const MAX_PER_IMAGE_RETRIES = 8;
 
 // Phase 13 — the in-flight progress-update helper was removed. The worker no
 // longer emits status messages during PROCESSING; the user sees the single
@@ -517,7 +521,15 @@ export async function processImageJob(job: Job): Promise<void> {
       const elapsedMs = Date.now() - new Date(windowStart).getTime();
       const withinWindow = elapsedMs < TRANSIENT_RETRY_WINDOW_MS;
 
-      if (failureClass === 'transient' && withinWindow) {
+      // Per-image retry cap (cost backstop). Read current attempts without
+      // mutating so we can decide retry-vs-refund; past the cap we fall through
+      // to the terminal-refund path below instead of re-queueing forever.
+      const attemptsSoFar = await prisma.imageJob
+        .findUnique({ where: { id: data.imageJobId }, select: { attempts: true } })
+        .catch(() => null);
+      const underRetryCap = (attemptsSoFar?.attempts ?? 0) + 1 <= MAX_PER_IMAGE_RETRIES;
+
+      if (failureClass === 'transient' && withinWindow && underRetryCap) {
         // ── Keep THIS image alive — re-queue with growing backoff. ───────────
         // Atomically INCREMENT attempts and use the returned value, so each
         // retry gets a larger delay and a unique jobId. Independent of the
@@ -586,9 +598,12 @@ export async function processImageJob(job: Job): Promise<void> {
         failureClass,
         elapsedMs,
         windowExceeded: !withinWindow,
+        retryCapExceeded: failureClass === 'transient' && withinWindow && !underRetryCap,
         reason: failureClass === 'permanent'
           ? 'Permanent failure — retrying will not help'
-          : 'Transient failures persisted past the 45-minute retry window',
+          : !withinWindow
+            ? 'Transient failures persisted past the 45-minute retry window'
+            : `Transient failures hit the per-image retry cap (${MAX_PER_IMAGE_RETRIES})`,
       }));
     }
 
