@@ -9,7 +9,7 @@ import type { Job } from 'bullmq';
 import { prisma } from '@autmn/db';
 import { pollPaymentStatus } from '@autmn/payment';
 import { WhatsAppClient } from '@autmn/whatsapp';
-import { onPaymentConfirmed, onRevisionPaymentConfirmed } from '@autmn/session';
+import { onPaymentConfirmed } from '@autmn/session';
 import { getPaymentCheckQueue, PaymentCheckJobDataSchema } from '@autmn/queue';
 import { getConfig } from '../config.js';
 
@@ -29,10 +29,7 @@ export async function processPaymentCheck(job: Job): Promise<void> {
     return;
   }
 
-  // Determine if this is a revision payment check by comparing link IDs
-  const isRevisionPayment = order.razorpayRevisionLinkId === data.paymentLinkId;
-
-  if (!isRevisionPayment && order.status !== 'payment_pending') {
+  if (order.status !== 'payment_pending') {
     log('Order no longer pending, skipping', { status: order.status });
     return;
   }
@@ -41,7 +38,7 @@ export async function processPaymentCheck(job: Job): Promise<void> {
   const status = await pollPaymentStatus(data.paymentLinkId);
 
   if (status.status === 'paid' && status.paymentId) {
-    log('Payment confirmed via polling', { isRevisionPayment });
+    log('Payment confirmed via polling');
 
     // Check idempotency
     const existing = await prisma.payment.findUnique({
@@ -54,44 +51,28 @@ export async function processPaymentCheck(job: Job): Promise<void> {
         phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
       });
 
-      if (isRevisionPayment) {
-        // Record revision payment and trigger edit job
-        await prisma.payment.create({
+      // Create payment record and update order atomically
+      await prisma.$transaction([
+        prisma.payment.create({
           data: {
             orderId: order.id,
             razorpayPaymentId: status.paymentId,
             razorpayPaymentLinkId: data.paymentLinkId,
-            amount: 2900, // Rs 29 revision fee in paise
+            amount: order.amount,
             status: 'captured',
             capturedAt: new Date(),
           },
-        });
+        }),
+        prisma.order.update({
+          where: { id: order.id },
+          data: {
+            status: 'payment_confirmed',
+            razorpayPaymentId: status.paymentId,
+          },
+        }),
+      ]);
 
-        await onRevisionPaymentConfirmed(order.id, wa);
-      } else {
-        // Create payment record and update order atomically
-        await prisma.$transaction([
-          prisma.payment.create({
-            data: {
-              orderId: order.id,
-              razorpayPaymentId: status.paymentId,
-              razorpayPaymentLinkId: data.paymentLinkId,
-              amount: order.amount,
-              status: 'captured',
-              capturedAt: new Date(),
-            },
-          }),
-          prisma.order.update({
-            where: { id: order.id },
-            data: {
-              status: 'payment_confirmed',
-              razorpayPaymentId: status.paymentId,
-            },
-          }),
-        ]);
-
-        await onPaymentConfirmed(order.id, status.paymentId, wa);
-      }
+      await onPaymentConfirmed(order.id, status.paymentId, wa);
     }
     return;
   }

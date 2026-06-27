@@ -8,7 +8,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { verifyRazorpaySignature, parsePaymentLinkPaidEvent } from '@autmn/payment';
 import { prisma } from '@autmn/db';
 import { WhatsAppClient } from '@autmn/whatsapp';
-import { onPaymentConfirmed, onRevisionPaymentConfirmed } from '@autmn/session';
+import { onPaymentConfirmed } from '@autmn/session';
 import { getConfig } from '../../config.js';
 
 export async function razorpayWebhookRoutes(app: FastifyInstance): Promise<void> {
@@ -28,33 +28,49 @@ export async function razorpayWebhookRoutes(app: FastifyInstance): Promise<void>
       return reply.code(400).send('Invalid signature');
     }
 
-    // Return 200 immediately
-    reply.code(200).send('OK');
-
+    // Durably persist the raw event BEFORE acking. Razorpay treats a 200 as
+    // "received — won't retry", so acking before the event is saved risks losing
+    // a real payment if the process crashes mid-handler. The insert is a single
+    // fast write, well within Razorpay's window. If it fails we do NOT ack →
+    // Razorpay retries, which is exactly what we want.
+    const body = req.body as any;
     try {
-      const body = req.body as any;
-
-      // Store raw event
       await prisma.webhookEvent.create({
         data: {
           source: 'razorpay',
-          eventType: body.event,
+          eventType: body?.event ?? 'unknown',
           rawPayload: body,
         },
-      }).catch((err: unknown) => app.log.error({ err }, 'Failed to store webhook event'));
+      });
+    } catch (err) {
+      app.log.error({ err }, 'Failed to persist Razorpay webhook event — returning 500 for retry');
+      return reply.code(500).send('persist failed');
+    }
 
-      // Only handle payment_link.paid
+    // Event is durable — safe to ack. Heavy processing continues async.
+    reply.code(200).send('OK');
+
+    try {
+      // Only payment_link.paid drives order state.
       if (body.event !== 'payment_link.paid') {
         return;
       }
 
-      const event = parsePaymentLinkPaidEvent(body);
+      // parsePaymentLinkPaidEvent can throw on a malformed body; the raw event
+      // is already saved, so swallow and bail rather than crash post-ack.
+      let event: ReturnType<typeof parsePaymentLinkPaidEvent>;
+      try {
+        event = parsePaymentLinkPaidEvent(body);
+      } catch (err) {
+        app.log.warn({ err }, 'Malformed payment_link.paid event — skipping');
+        return;
+      }
       if (!event) {
         app.log.warn('Could not parse payment_link.paid event');
         return;
       }
 
-      // Idempotency check — skip if payment already recorded
+      // Idempotency check — skip if payment already recorded.
       const existingPayment = await prisma.payment.findUnique({
         where: { razorpayPaymentId: event.paymentId },
       });
@@ -63,32 +79,18 @@ export async function razorpayWebhookRoutes(app: FastifyInstance): Promise<void>
         return;
       }
 
-      // Find order by primary payment link ID OR revision payment link ID
       const order = await prisma.order.findFirst({
-        where: {
-          OR: [
-            { razorpayPaymentLinkId: event.paymentLinkId },
-            { razorpayRevisionLinkId: event.paymentLinkId },
-          ],
-        },
+        where: { razorpayPaymentLinkId: event.paymentLinkId },
       });
-
       if (!order) {
         app.log.error({ paymentLinkId: event.paymentLinkId }, 'Order not found for payment');
         return;
       }
 
-      // Create WhatsApp client — shared for both payment paths
-      const wa = new WhatsAppClient({
-        accessToken: config.WHATSAPP_ACCESS_TOKEN,
-        phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
-      });
-
-      // Check if this is a revision payment (Rs 29) vs primary order payment (Rs 199)
-      if (order.razorpayRevisionLinkId === event.paymentLinkId) {
-        app.log.info({ orderId: order.id, paymentLinkId: event.paymentLinkId }, 'Revision payment received');
-
-        // Record the payment
+      // Record the payment. The unique constraint on razorpayPaymentId closes
+      // the check-then-create race between two concurrent deliveries: the loser
+      // hits P2002 and bails rather than double-confirming the order.
+      try {
         await prisma.payment.create({
           data: {
             orderId: order.id,
@@ -100,25 +102,20 @@ export async function razorpayWebhookRoutes(app: FastifyInstance): Promise<void>
             capturedAt: new Date(),
           },
         });
-
-        await onRevisionPaymentConfirmed(order.id, wa);
-        return;
+      } catch (err: any) {
+        if (err?.code === 'P2002') {
+          app.log.info({ paymentId: event.paymentId }, 'Concurrent duplicate payment webhook, skipping');
+          return;
+        }
+        throw err;
       }
 
-      // Create payment record only — onPaymentConfirmed handles the order status
-      // transition atomically with its own idempotency guard.
-      await prisma.payment.create({
-        data: {
-          orderId: order.id,
-          razorpayPaymentId: event.paymentId,
-          razorpayPaymentLinkId: event.paymentLinkId,
-          amount: event.amount,
-          method: event.method,
-          status: 'captured',
-          capturedAt: new Date(),
-        },
+      // onPaymentConfirmed handles the order status transition atomically with
+      // its own idempotency guard.
+      const wa = new WhatsAppClient({
+        accessToken: config.WHATSAPP_ACCESS_TOKEN,
+        phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
       });
-
       await onPaymentConfirmed(order.id, event.paymentId, wa);
     } catch (err) {
       app.log.error({ err }, 'Razorpay webhook processing error');
