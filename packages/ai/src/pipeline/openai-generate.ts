@@ -21,7 +21,6 @@
 
 import { getProviderKey } from '@autmn/keypool';
 import type { GeminiGenerateResult } from './gemini-generate.js';
-import { forceFailureIfRequested } from './_force-failure.js'; // TEMP TEST SCAFFOLDING — REMOVE
 
 // ---------------------------------------------------------------------------
 // Types
@@ -119,8 +118,6 @@ export async function openaiGenerateImage(
 ): Promise<GeminiGenerateResult> {
   const { inputImageBuffer, prompt, referenceImageBuffers } = params;
   const startMs = Date.now();
-
-  forceFailureIfRequested('openai.tier2'); // TEMP TEST SCAFFOLDING — REMOVE
 
   // Admin testing: caller pinned a specific model — skip chain, single attempt.
   if (params.model) {
