@@ -44,8 +44,10 @@ const { buildPaymentLinkPayload } = await import('../packages/payment/dist/payme
 
 let failures = 0;
 function assert(cond: unknown, msg: string): void {
-  if (!cond) { console.error(`  ✗ ${msg}`); failures++; }
-  else console.log(`  ✓ ${msg}`);
+  if (!cond) {
+    console.error(`  ✗ ${msg}`);
+    failures++;
+  } else console.log(`  ✓ ${msg}`);
 }
 
 function pathDefaultUpiOnly(): void {
@@ -55,8 +57,9 @@ function pathDefaultUpiOnly(): void {
     customerPhone: '919876543210',
     amount: 4900,
   });
-  const methods = (payload['options'] as { checkout?: { method?: Record<string, boolean> } } | undefined)
-    ?.checkout?.method;
+  const methods = (
+    payload['options'] as { checkout?: { method?: Record<string, boolean> } } | undefined
+  )?.checkout?.method;
   assert(!!methods, 'options.checkout.method exists');
   assert(methods?.upi === true, `upi: true (got ${methods?.upi})`);
   assert(methods?.card === false, `card: false (got ${methods?.card})`);
@@ -76,8 +79,9 @@ function pathExplicitOverride(): void {
     amount: 9800,
     paymentMethods: { card: true }, // staging-only override
   });
-  const methods = (payload['options'] as { checkout?: { method?: Record<string, boolean> } } | undefined)
-    ?.checkout?.method;
+  const methods = (
+    payload['options'] as { checkout?: { method?: Record<string, boolean> } } | undefined
+  )?.checkout?.method;
   assert(methods?.card === true, 'card override applied');
   assert(methods?.upi === true, 'upi still on');
   assert(methods?.wallet === false, 'wallet still off');
@@ -112,7 +116,12 @@ function pathPlanSpecFields(): void {
   assert(payload['payment_capture'] === true, 'payment_capture: true (auto-capture)');
   const notes = payload['notes'] as Record<string, unknown> | undefined;
   assert(notes?.['order_id'] === 'order_test_plan', 'notes.order_id threaded');
-  assert(notes?.['phone'] === '919876543210', 'notes.phone threaded');
+  // DPDP data-minimization: the phone is intentionally NOT duplicated into
+  // notes. It rides on customer.contact only; order_id is the dashboard
+  // traceability key. (Updated from the old notes.phone expectation.)
+  assert(notes?.['phone'] === undefined, 'notes.phone intentionally omitted (DPDP minimization)');
+  const customer = payload['customer'] as Record<string, unknown> | undefined;
+  assert(customer?.['contact'] === '+919876543210', 'phone carried on customer.contact');
   const now = Math.floor(Date.now() / 1000);
   const ttl = expireBy - now;
   // 60 min ± 30s budget for execution drift.

@@ -296,6 +296,7 @@ export async function handleIdle(
       [
         { id: ButtonIds.LANG_HINDI, title: 'हिंदी' },
         { id: ButtonIds.LANG_ENGLISH, title: 'English' },
+        { id: ButtonIds.LANG_HINGLISH, title: 'Hinglish' },
       ],
     );
   } catch (btnErr) {
@@ -305,7 +306,7 @@ export async function handleIdle(
     });
     await wa.sendText(
       session.phoneNumber,
-      `${msgAskLanguage()}\n\nReply: hindi / english (or 1 / 2)`,
+      `${msgAskLanguage()}\n\nReply: hindi / english / hinglish (or 1 / 2 / 3)`,
     );
   }
 }
@@ -411,6 +412,7 @@ function parseLanguagePick(text: string): Language | null {
   const t = text.trim().toLowerCase();
   if (/^(hindi|1|हिंदी|हिन्दी)$/.test(t)) return 'hi';
   if (/^(english|2|angrezi)$/.test(t)) return 'en';
+  if (/^(hinglish|3)$/.test(t)) return 'hinglish';
   return null;
 }
 
