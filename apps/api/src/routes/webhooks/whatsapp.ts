@@ -165,23 +165,33 @@ export async function whatsappWebhookRoutes(app: FastifyInstance): Promise<void>
       }
     }
 
-    // Signature passed (or skipped in dev). Respond 200 immediately so Meta is
-    // satisfied within its 20-second window. All DB writes and processing below
-    // run asynchronously after the response is flushed.
-    reply.code(200).send('OK');
-
+    // Persist the raw envelope BEFORE acking. Meta stops retrying after a 200,
+    // so acking before the event is durable risks losing a message on a crash
+    // or rolling deploy. The insert is one fast write inside Meta's 20s window;
+    // if it fails we do NOT ack (return 500) so Meta retries.
+    // NOTE: this makes non-media messages (text, buttons, payment triggers)
+    // replayable. Media bytes still aren't durable — Meta media URLs expire in
+    // ~5 min — so true photo durability needs a download-before-ack/enqueue
+    // step (tracked as a follow-up), not just envelope persistence.
+    const body = req.body as WhatsAppWebhookBody;
     try {
-      const body = req.body as WhatsAppWebhookBody;
-
-      // Store raw event for debugging/audit
       await prisma.webhookEvent.create({
         data: {
           source: 'whatsapp',
           eventType: 'message',
           rawPayload: body as any,
         },
-      }).catch((err: unknown) => app.log.error({ err }, 'Failed to store webhook event'));
+      });
+    } catch (err) {
+      app.log.error({ err }, 'Failed to persist WhatsApp webhook event — returning 500 for retry');
+      return reply.code(500).send({ error: 'persist failed', code: 'PERSIST_FAILED' });
+    }
 
+    // Event is durable — ack now so Meta is satisfied; all heavy processing
+    // (media download, AI enqueue, state machine) runs async below.
+    reply.code(200).send('OK');
+
+    try {
       // Extract message
       const extracted = extractMessage(body);
       if (!extracted?.message) {
