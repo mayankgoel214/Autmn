@@ -81,6 +81,9 @@ export interface NeverFailResult {
   /** 1 = Pro, 2 = GPT-2. (Tier 4 retained on type for old callers but unused in V1.) */
   tier: 1 | 2 | 3 | 4;
   tierReason?: string;
+  /** Real INR cost of producing this style (from the production chain). The
+   *  worker accumulates this onto Order.actualCostInr for margin tracking. */
+  costInr?: number;
   outputBuffer?: Buffer;
   inputAssessment?: unknown;
   rejected?: boolean;
@@ -220,5 +223,6 @@ export async function processImageNeverFail(
     tierReason: tier === 1
       ? 'Pro succeeded'
       : 'Pro failed — GPT-2 succeeded',
+    costInr: styleResult.costInr,
   };
 }

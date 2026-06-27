@@ -255,6 +255,25 @@ export async function processImageJob(job: Job): Promise<void> {
           context: 'imageJob_mark_completed',
         }));
       });
+
+      // Accumulate this style's real INR cost onto the order for margin
+      // tracking. Atomic COALESCE so parallel style jobs each add their own
+      // share without a read-modify-write race; null column starts at 0.
+      // Non-fatal: a cost-tracking miss must never fail a delivered image.
+      if (typeof result.costInr === 'number' && result.costInr > 0) {
+        await prisma.$executeRaw`
+          UPDATE "orders"
+          SET "actual_cost_inr" = COALESCE("actual_cost_inr", 0) + ${result.costInr}
+          WHERE "id" = ${data.orderId}
+        `.catch((err) => {
+          console.error(JSON.stringify({
+            event: 'cost_accumulate_failed',
+            orderId: data.orderId,
+            addedInr: result.costInr,
+            error: err instanceof Error ? err.message : String(err),
+          }));
+        });
+      }
     } // end of normal image pipeline branch
 
     // Update order — add output URL
