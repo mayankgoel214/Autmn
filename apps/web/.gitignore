@@ -3,3 +3,4 @@
 /build
 next-env.d.ts
 *.tsbuildinfo
+.vercel

@@ -62,8 +62,22 @@ export function DesktopHero() {
       </div>
 
       {/* right: the draggable slider */}
-      <div className="flex justify-end">
-        <BeforeAfterSlider slug={slug} className="w-full max-w-[440px]" />
+      <div className="relative flex justify-end">
+        {/* glow behind the frame */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 top-1/2 -z-10 h-[34rem] w-[34rem] -translate-y-1/2 rounded-full opacity-70 blur-[110px]"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(201,154,63,0.22) 0%, rgba(201,154,63,0) 70%)',
+          }}
+        />
+        <div className="w-full max-w-[440px]">
+          <BeforeAfterSlider slug={slug} className="w-full" />
+          <p className="mt-4 text-center text-sm text-sand-dim">
+            Drag the handle. Same product, two worlds.
+          </p>
+        </div>
       </div>
     </section>
   );

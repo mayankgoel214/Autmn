@@ -6,22 +6,17 @@ import { WaButton } from '@/components/WaButton';
 import { Reveal } from '@/components/Reveal';
 import { SampleShowcase } from '@/components/SampleShowcase';
 import { DesktopHero } from '@/components/DesktopHero';
+import { FlipCard } from '@/components/FlipCard';
+import { Ambient } from '@/components/Ambient';
+import { CategoryMarquee } from '@/components/CategoryMarquee';
 
-const AFTERS = [
-  'earrings',
-  'indian-sweets',
-  'perfume-bottle',
-  'handbag',
-  'scented-candle',
-  'serum-bottle',
-  'white-sneakers',
-];
-
-const LOOKBOOK = [
-  { slug: 'earrings', label: 'Jewellery', span: 'col-span-7' },
-  { slug: 'perfume-bottle', label: 'Fragrance', span: 'col-span-5' },
-  { slug: 'indian-sweets', label: 'Sweets', span: 'col-span-5' },
-  { slug: 'handbag', label: 'Bags', span: 'col-span-7' },
+const GALLERY = [
+  { slug: 'earrings', label: 'Jewellery' },
+  { slug: 'indian-sweets', label: 'Sweets' },
+  { slug: 'perfume-bottle', label: 'Fragrance' },
+  { slug: 'handbag', label: 'Bags' },
+  { slug: 'scented-candle', label: 'Home' },
+  { slug: 'serum-bottle', label: 'Skincare' },
 ];
 
 const STEPS = [
@@ -38,7 +33,8 @@ const NAV = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-ink text-cream">
+    <main className="relative isolate min-h-screen text-cream">
+      <Ambient />
       {/* top bar */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-ink-line bg-ink/80 px-5 py-4 backdrop-blur sm:px-8 lg:px-12">
         <Link href="/" className="flex items-center gap-2.5">
@@ -100,51 +96,25 @@ export default function Home() {
         <DesktopHero />
       </div>
 
-      {/* ── DESKTOP LOOKBOOK ────────────────────────────────────────── */}
-      <section id="work" className="mx-auto hidden max-w-7xl px-12 py-20 lg:block">
+      {/* ── CATEGORY MARQUEE (motion band) ──────────────────────────── */}
+      <CategoryMarquee />
+
+      {/* ── TRANSFORM GALLERY (shared, interactive cue cards) ───────── */}
+      <section id="work" className="section py-16 lg:max-w-7xl lg:py-28">
         <Reveal>
-          <h2 className="font-heading text-5xl font-medium tracking-tight">
-            Every category. One photo each.
+          <h2 className="font-heading text-3xl font-medium tracking-tight sm:text-4xl lg:text-[56px] lg:leading-[1.02]">
+            Click a card. <span className="italic text-gold">Watch it transform.</span>
           </h2>
-          <p className="mt-4 max-w-xl text-lg text-sand">
-            Real products, shot on a phone, turned into ads by Autmn. Drag any of
-            them in the hero above to see the before.
+          <p className="mt-4 max-w-xl text-sand lg:text-lg">
+            Real products, shot on a phone. Tap any card to flip from the raw
+            snapshot to the finished Autmn ad.
           </p>
         </Reveal>
-        <div className="mt-12 grid grid-cols-12 gap-5">
-          {LOOKBOOK.map((l, i) => (
-            <Reveal key={l.slug} delay={i * 90} className={l.span}>
-              <div className="group relative overflow-hidden rounded-3xl border border-ink-line">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/gallery/${l.slug}/after.jpg`}
-                  alt={`Autmn ad — ${l.label}`}
-                  className="h-[420px] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-                />
-                <span className="absolute bottom-5 left-5 font-heading text-2xl text-cream drop-shadow">
-                  {l.label}
-                </span>
-                <span className="absolute right-4 top-4">
-                  <Bloom size={22} fill="rgba(247,242,233,0.85)" />
-                </span>
-              </div>
+        <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:mt-16 lg:gap-7">
+          {GALLERY.map((g, i) => (
+            <Reveal key={g.slug} delay={i * 70}>
+              <FlipCard slug={g.slug} label={g.label} />
             </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ── MARQUEE (shared) ────────────────────────────────────────── */}
-      <section className="overflow-hidden py-10 lg:hidden">
-        <div className="flex w-max animate-marquee gap-4 pl-4">
-          {[...AFTERS, ...AFTERS].map((slug, idx) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={`${slug}-${idx}`}
-              src={`/gallery/${slug}/after.jpg`}
-              alt=""
-              loading="lazy"
-              className="h-[200px] w-auto rounded-xl border border-ink-line object-cover"
-            />
           ))}
         </div>
       </section>
