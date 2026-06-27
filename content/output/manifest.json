@@ -1,0 +1,128 @@
+[
+  {
+    "product": "earrings",
+    "category": "jewellery",
+    "style": "style_clean_white",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/earrings/style_clean_white.jpg",
+    "pair": "content/output/earrings/style_clean_white__pair.jpg"
+  },
+  {
+    "product": "earrings",
+    "category": "jewellery",
+    "style": "style_lifestyle",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/earrings/style_lifestyle.jpg",
+    "pair": "content/output/earrings/style_lifestyle__pair.jpg"
+  },
+  {
+    "product": "handbag",
+    "category": "bag",
+    "style": "style_clean_white",
+    "tier": 1,
+    "costInr": 27,
+    "after": "content/output/handbag/style_clean_white.jpg",
+    "pair": "content/output/handbag/style_clean_white__pair.jpg"
+  },
+  {
+    "product": "handbag",
+    "category": "bag",
+    "style": "style_lifestyle",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/handbag/style_lifestyle.jpg",
+    "pair": "content/output/handbag/style_lifestyle__pair.jpg"
+  },
+  {
+    "product": "indian-sweets",
+    "category": "food",
+    "style": "style_clean_white",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/indian-sweets/style_clean_white.jpg",
+    "pair": "content/output/indian-sweets/style_clean_white__pair.jpg"
+  },
+  {
+    "product": "indian-sweets",
+    "category": "food",
+    "style": "style_lifestyle",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/indian-sweets/style_lifestyle.jpg",
+    "pair": "content/output/indian-sweets/style_lifestyle__pair.jpg"
+  },
+  {
+    "product": "perfume-bottle",
+    "category": "skincare",
+    "style": "style_clean_white",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/perfume-bottle/style_clean_white.jpg",
+    "pair": "content/output/perfume-bottle/style_clean_white__pair.jpg"
+  },
+  {
+    "product": "perfume-bottle",
+    "category": "skincare",
+    "style": "style_lifestyle",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/perfume-bottle/style_lifestyle.jpg",
+    "pair": "content/output/perfume-bottle/style_lifestyle__pair.jpg"
+  },
+  {
+    "product": "scented-candle",
+    "category": "candle",
+    "style": "style_clean_white",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/scented-candle/style_clean_white.jpg",
+    "pair": "content/output/scented-candle/style_clean_white__pair.jpg"
+  },
+  {
+    "product": "scented-candle",
+    "category": "candle",
+    "style": "style_lifestyle",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/scented-candle/style_lifestyle.jpg",
+    "pair": "content/output/scented-candle/style_lifestyle__pair.jpg"
+  },
+  {
+    "product": "serum-bottle",
+    "category": "skincare",
+    "style": "style_clean_white",
+    "tier": 1,
+    "costInr": 27,
+    "after": "content/output/serum-bottle/style_clean_white.jpg",
+    "pair": "content/output/serum-bottle/style_clean_white__pair.jpg"
+  },
+  {
+    "product": "serum-bottle",
+    "category": "skincare",
+    "style": "style_lifestyle",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/serum-bottle/style_lifestyle.jpg",
+    "pair": "content/output/serum-bottle/style_lifestyle__pair.jpg"
+  },
+  {
+    "product": "white-sneakers",
+    "category": "garment",
+    "style": "style_clean_white",
+    "tier": 1,
+    "costInr": 13.5,
+    "after": "content/output/white-sneakers/style_clean_white.jpg",
+    "pair": "content/output/white-sneakers/style_clean_white__pair.jpg"
+  },
+  {
+    "product": "white-sneakers",
+    "category": "garment",
+    "style": "style_lifestyle",
+    "tier": 1,
+    "costInr": 27,
+    "after": "content/output/white-sneakers/style_lifestyle.jpg",
+    "pair": "content/output/white-sneakers/style_lifestyle__pair.jpg"
+  }
+]
