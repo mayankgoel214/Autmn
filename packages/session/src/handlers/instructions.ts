@@ -87,42 +87,9 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
       ? styleSelections.slice(0, OUTPUT_STYLES_PER_ORDER)
       : selectStylesForOrder(user.businessType, OUTPUT_STYLES_PER_ORDER);
 
-  // Pre-Phase-8 #2: freemium flag is computed BEFORE the orderCount increment.
-  const isFreeOrder = user.orderCount === 0;
-
-  // First-time free order: every user gets exactly ONE free picture. Cap the
-  // free order to a single ad regardless of how many styles arrived (the
-  // single-pick picker should already pass 1, but enforce it here too).
-  // Extra styles are a paid feature unlocked from the second order onward.
-  if (isFreeOrder) {
-    normalizedStyles = normalizedStyles.slice(0, 1);
-  }
-
-  // Hard assertion — Smart Pack auto-select is defined as 3 styles, custom
-  // pickers cap at OUTPUT_STYLES_PER_ORDER. Anything outside [1, 3] is a bug.
-  if (normalizedStyles.length < 1 || normalizedStyles.length > OUTPUT_STYLES_PER_ORDER) {
-    throw new Error(
-      `createOrderAndSendPayment: expected 1..${OUTPUT_STYLES_PER_ORDER} styles, got ${normalizedStyles.length}`,
-    );
-  }
-
-  const primaryStyleId = normalizedStyles[0] ?? 'style_clean_white';
-  // Phase 12 — dynamic pricing: ₹49 × number of output ads. 1 style = ₹49,
-  // 2 styles = ₹98, 3 styles (incl. Smart Pack auto-fill) = ₹147. First
-  // order is always ₹0 regardless of how many styles were picked.
-  const amount = isFreeOrder ? 0 : PRICE_PER_OUTPUT_AD_PAISE * normalizedStyles.length;
-
-  // Phase 11 — compute the position-based instruction mapping. Only stored
-  // when the caller passed `instructionsByPosition` (the ordered per-style
-  // list). For the legacy single-blob path, this stays null and the AI
-  // pipeline's LLM parser does the splitting at processing time.
-  const positionMapping = instructionsByPosition && instructionsByPosition.length > 0
-    ? mapInstructionsByPosition(instructionsByPosition, normalizedStyles)
-    : null;
-
-  // Phase 15b' — pre-generate a human-readable short id. We check uniqueness
-  // against the DB before creating the row; the @unique constraint covers
-  // the race window between check + create.
+  // Phase 15b' — pre-generate a human-readable short id (its own uniqueness
+  // check + the @unique constraint cover the race). Done before the tx so the
+  // transaction stays short.
   const shortId = await generateUniqueShortId(async (candidate) => {
     const existing = await prisma.order.findUnique({
       where: { shortId: candidate },
@@ -131,49 +98,75 @@ export async function createOrderAndSendPayment(params: CreateOrderParams): Prom
     return existing === null;
   });
 
-  // Create order. The new amountPaise / numStylesPicked / isFirstFree
-  // columns (Phase 8 schema) are populated alongside the legacy `amount` +
-  // `outputStyleCount` columns until Phase 16 cleanup retires the duplicates.
-  const order = await prisma.order.create({
-    data: {
-      phoneNumber,
-      imageCount,
-      style: primaryStyleId,              // backward compat — first style
-      stylesOrdered: normalizedStyles,
-      outputStyleCount: normalizedStyles.length,
-      voiceInstructions,
-      inputImageUrls: imageStorageUrls,
-      status: 'payment_pending',
-      amount,
-      amountPaise: amount,
-      shortId,
-      numStylesPicked: normalizedStyles.length,
-      isFirstFree: isFreeOrder,
-      instructionMappingJson: positionMapping
-        ? (positionMapping as unknown as object)
-        : undefined,
-      productCategory: user.businessType ?? 'general',
-      userId: user.id,
-    },
+  // C3 — atomically claim the single free order AND create the order in ONE
+  // transaction:
+  //  - The conditional update (orderCount 0 → 1) means two concurrent webhook
+  //    deliveries for the same user can't BOTH read 0 and both get a free
+  //    order. Exactly one wins the claim; the rest are paid.
+  //  - Wrapping the create in the same tx means a failed create rolls back the
+  //    claim, so a transient error never burns the user's free first order.
+  const { order, isFreeOrder } = await prisma.$transaction(async (tx) => {
+    const freeClaim = await tx.user.updateMany({
+      where: { id: user.id, orderCount: 0 },
+      data: { orderCount: 1 },
+    });
+    const isFree = freeClaim.count === 1;
+
+    // First-time free order: exactly ONE ad regardless of how many styles
+    // arrived. Extra styles are a paid feature from the second order onward.
+    const styles = isFree ? normalizedStyles.slice(0, 1) : normalizedStyles;
+    if (styles.length < 1 || styles.length > OUTPUT_STYLES_PER_ORDER) {
+      throw new Error(
+        `createOrderAndSendPayment: expected 1..${OUTPUT_STYLES_PER_ORDER} styles, got ${styles.length}`,
+      );
+    }
+
+    // Phase 12 — dynamic pricing: ₹49 × ads. First order is always ₹0.
+    const amount = isFree ? 0 : PRICE_PER_OUTPUT_AD_PAISE * styles.length;
+    const primaryId = styles[0] ?? 'style_clean_white';
+    const positionMapping = instructionsByPosition && instructionsByPosition.length > 0
+      ? mapInstructionsByPosition(instructionsByPosition, styles)
+      : null;
+
+    const created = await tx.order.create({
+      data: {
+        phoneNumber,
+        imageCount,
+        style: primaryId,                  // backward compat — first style
+        stylesOrdered: styles,
+        outputStyleCount: styles.length,
+        voiceInstructions,
+        inputImageUrls: imageStorageUrls,
+        status: 'payment_pending',
+        amount,
+        amountPaise: amount,
+        shortId,
+        numStylesPicked: styles.length,
+        isFirstFree: isFree,
+        instructionMappingJson: positionMapping
+          ? (positionMapping as unknown as object)
+          : undefined,
+        productCategory: user.businessType ?? 'general',
+        userId: user.id,
+      },
+    });
+
+    // Paid orders still advance the lifetime counter (a free order already did
+    // the 0 → 1 claim above).
+    if (!isFree) {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { orderCount: { increment: 1 } },
+      });
+    }
+
+    return { order: created, isFreeOrder: isFree };
   });
 
-  // Pre-Phase-8 #2: increment orderCount at order-creation time (AFTER the
-  // order row is successfully written, so a creation failure doesn't burn the
-  // user's free-order eligibility). Previously orderCount only incremented in
-  // delivery.ts handleSaveAndFinish — a user who never tapped Save & finish
-  // kept orderCount=0 and got unlimited free orders. Failing this update
-  // silently is non-fatal: worst case, the user's NEXT order is also free —
-  // matches the previous (buggy) behaviour, not worse.
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { orderCount: { increment: 1 } },
-  }).catch((err) => {
-    logger.warn('Failed to increment user.orderCount after order create', {
-      phoneNumber,
-      orderId: order.id,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  });
+  // Re-derive downstream values from the persisted order (the tx may have
+  // capped styles for a free order).
+  normalizedStyles = (order.stylesOrdered as string[]) ?? normalizedStyles;
+  const primaryStyleId = order.style ?? 'style_clean_white';
 
   if (isFreeOrder) {
     // Free order — skip payment, set to processing BEFORE enqueuing

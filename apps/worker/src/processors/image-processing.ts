@@ -8,7 +8,7 @@
 import type { Job } from 'bullmq';
 import { prisma } from '@autmn/db';
 import type { ImageJob } from '@autmn/db';
-import { processImageNeverFail, downloadBuffer, classifyFailure, type NeverFailResult } from '@autmn/ai';
+import { processImageNeverFail, downloadBuffer, classifyFailure, NeverFailRefundRequiredError, type NeverFailResult } from '@autmn/ai';
 import { uploadFile, Buckets } from '@autmn/storage';
 import { WhatsAppClient } from '@autmn/whatsapp';
 // Phase 13 — the worker is now silent between PROCESSING-start (handled by
@@ -239,9 +239,12 @@ export async function processImageJob(job: Job): Promise<void> {
       };
       const pipelineEnum = (PIPELINE_ENUM_MAP[result.pipeline] ?? 'fallback') as any;
 
-      // Update job record
-      await prisma.imageJob.update({
-        where: { id: data.imageJobId },
+      // Atomically CLAIM the completion. updateMany with a "not already
+      // completed" guard means a BullMQ re-delivery of the SAME job (e.g. after
+      // a lock timeout) can't run the completion side effects — most importantly
+      // the cost accumulation below — twice. Only the first transition wins.
+      const completionClaim = await prisma.imageJob.updateMany({
+        where: { id: data.imageJobId, status: { not: 'completed' } },
         data: {
           status: 'completed',
           outputImageUrl: outputUrl,
@@ -258,13 +261,15 @@ export async function processImageJob(job: Job): Promise<void> {
           error: err instanceof Error ? err.message : String(err),
           context: 'imageJob_mark_completed',
         }));
+        return { count: 0 };
       });
 
       // Accumulate this style's real INR cost onto the order for margin
-      // tracking. Atomic COALESCE so parallel style jobs each add their own
-      // share without a read-modify-write race; null column starts at 0.
-      // Non-fatal: a cost-tracking miss must never fail a delivered image.
-      if (typeof result.costInr === 'number' && result.costInr > 0) {
+      // tracking — ONLY when we won the completion claim, so a re-delivered job
+      // never double-bills. Atomic COALESCE so parallel style jobs each add
+      // their own share without a read-modify-write race; null column starts at
+      // 0. Non-fatal: a cost-tracking miss must never fail a delivered image.
+      if (completionClaim.count > 0 && typeof result.costInr === 'number' && result.costInr > 0) {
         await prisma.$executeRaw`
           UPDATE "orders"
           SET "actual_cost_inr" = COALESCE("actual_cost_inr", 0) + ${result.costInr}
@@ -504,12 +509,18 @@ export async function processImageJob(job: Job): Promise<void> {
     console.error(JSON.stringify({ event: 'image_processing_failed', job: job.id, orderId: data.orderId, error: errorMsg }));
     log('Image processing failed', { error: errorMsg });
 
-    const needsRefund = errorMsg.includes('[needs_refund: true]');
+    // Primary signal: the typed error from the pipeline. Fallback: the legacy
+    // string marker (kept in the error message), so a future wrapper can't
+    // silently break refund routing.
+    const needsRefund =
+      err instanceof NeverFailRefundRequiredError || errorMsg.includes('[needs_refund: true]');
     let terminalRefund = false; // permanent, or transient past the 45-min window
 
     if (needsRefund) {
       const classMatch = errorMsg.match(/\[class:\s*(transient|permanent)\]/);
-      const failureClass = classMatch ? classMatch[1] : classifyFailure(errorMsg);
+      const failureClass = err instanceof NeverFailRefundRequiredError
+        ? err.failureClass
+        : (classMatch ? classMatch[1] : classifyFailure(errorMsg));
 
       // 45-min wall clock — recomputed from DB every run, INDEPENDENT of attempt
       // count. This is the ultimate stop: once elapsed, transient → refund.

@@ -38,9 +38,8 @@ loadEnv(resolve(import.meta.dirname, '../.env'));
 process.env.PAYMENT_BYPASS = 'true';
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
-const { createOrderAndSendPayment } = await import(
-  '../packages/session/dist/handlers/instructions.js'
-);
+const { createOrderAndSendPayment } =
+  await import('../packages/session/dist/handlers/instructions.js');
 const { getImageQueue } = await import('../packages/queue/dist/index.js');
 
 const prisma = new PrismaClient({ log: ['error'] });
@@ -90,21 +89,36 @@ async function cleanup(): Promise<void> {
 async function seedUserAndSession(orderCount: number) {
   const user = await prisma.user.upsert({
     where: { phoneNumber: PHONE },
-    update: { orderCount, brandName: 'Tester', name: 'Tester', businessType: 'cat_jewellery', language: 'en' },
-    create: { phoneNumber: PHONE, orderCount, brandName: 'Tester', name: 'Tester', businessType: 'cat_jewellery', language: 'en' },
+    update: {
+      orderCount,
+      brandName: 'Tester',
+      name: 'Tester',
+      businessType: 'cat_jewellery',
+      language: 'en',
+    },
+    create: {
+      phoneNumber: PHONE,
+      orderCount,
+      brandName: 'Tester',
+      name: 'Tester',
+      businessType: 'cat_jewellery',
+      language: 'en',
+    },
   });
   const session = await prisma.session.upsert({
     where: { phoneNumber: PHONE },
     update: { state: 'AWAITING_PHOTO', userId: user.id, stateEnteredAt: new Date() },
-    create: { phoneNumber: PHONE, state: 'AWAITING_PHOTO', userId: user.id, stateEnteredAt: new Date() },
+    create: {
+      phoneNumber: PHONE,
+      state: 'AWAITING_PHOTO',
+      userId: user.id,
+      stateEnteredAt: new Date(),
+    },
   });
   return { user, session };
 }
 
-async function runOnce(opts: {
-  orderCount: number;
-  styleSelections: string[];
-}): Promise<any> {
+async function runOnce(opts: { orderCount: number; styleSelections: string[] }): Promise<any> {
   await cleanup();
   const { user, session } = await seedUserAndSession(opts.orderCount);
   await createOrderAndSendPayment({
@@ -133,27 +147,39 @@ async function main(): Promise<void> {
     assert(order?.numStylesPicked === 1, `numStylesPicked=1 (got ${order?.numStylesPicked})`);
     assert(order?.isFirstFree === true, `isFirstFree=true (got ${order?.isFirstFree})`);
 
-    // AY — first order, 0 picks → Smart Pack 3 → still free
-    console.log('\n== Path AY: first order, 0 picks → Smart Pack 3 but free ==');
+    // AY — first order, 0 picks → free, hard-capped to 1 image.
+    // Business rule (instructions.ts): the free first order is "one free
+    // picture" — capped to a single ad regardless of picks / Smart Pack. Extra
+    // styles are a paid feature from the second order on. (Was: expected 3.)
+    console.log('\n== Path AY: first order, 0 picks → free, capped to 1 ==');
     order = await runOnce({ orderCount: 0, styleSelections: [] });
     assert(order?.amount === 0, `first-free + 0 picks still amount=0 (got ${order?.amount})`);
     assert(order?.amountPaise === 0, `amountPaise=0 (got ${order?.amountPaise})`);
-    assert(order?.numStylesPicked === 3, `numStylesPicked=3 from Smart Pack (got ${order?.numStylesPicked})`);
+    assert(order?.numStylesPicked === 1, `free order capped to 1 (got ${order?.numStylesPicked})`);
     assert(order?.isFirstFree === true, `isFirstFree=true (got ${order?.isFirstFree})`);
 
     // AZ — second order, 1 pick → ₹49
     console.log('\n== Path AZ: paid order, 1 pick → ₹49 ==');
     order = await runOnce({ orderCount: 1, styleSelections: ['style_clean_white'] });
     assert(order?.amount === PRICE_PER_OUTPUT_AD_PAISE, `amount=4900 (got ${order?.amount})`);
-    assert(order?.amountPaise === PRICE_PER_OUTPUT_AD_PAISE, `amountPaise=4900 (got ${order?.amountPaise})`);
+    assert(
+      order?.amountPaise === PRICE_PER_OUTPUT_AD_PAISE,
+      `amountPaise=4900 (got ${order?.amountPaise})`,
+    );
     assert(order?.numStylesPicked === 1, `numStylesPicked=1 (got ${order?.numStylesPicked})`);
     assert(order?.isFirstFree === false, `isFirstFree=false (got ${order?.isFirstFree})`);
 
     // BA — second order, 2 picks → ₹98
     console.log('\n== Path BA: paid order, 2 picks → ₹98 ==');
-    order = await runOnce({ orderCount: 1, styleSelections: ['style_clean_white', 'style_studio'] });
+    order = await runOnce({
+      orderCount: 1,
+      styleSelections: ['style_clean_white', 'style_studio'],
+    });
     assert(order?.amount === PRICE_PER_OUTPUT_AD_PAISE * 2, `amount=9800 (got ${order?.amount})`);
-    assert(order?.amountPaise === PRICE_PER_OUTPUT_AD_PAISE * 2, `amountPaise=9800 (got ${order?.amountPaise})`);
+    assert(
+      order?.amountPaise === PRICE_PER_OUTPUT_AD_PAISE * 2,
+      `amountPaise=9800 (got ${order?.amountPaise})`,
+    );
     assert(order?.numStylesPicked === 2, `numStylesPicked=2 (got ${order?.numStylesPicked})`);
 
     // BB — second order, 3 picks → ₹147
@@ -163,14 +189,23 @@ async function main(): Promise<void> {
       styleSelections: ['style_clean_white', 'style_studio', 'style_lifestyle'],
     });
     assert(order?.amount === PRICE_PER_OUTPUT_AD_PAISE * 3, `amount=14700 (got ${order?.amount})`);
-    assert(order?.amountPaise === PRICE_PER_OUTPUT_AD_PAISE * 3, `amountPaise=14700 (got ${order?.amountPaise})`);
+    assert(
+      order?.amountPaise === PRICE_PER_OUTPUT_AD_PAISE * 3,
+      `amountPaise=14700 (got ${order?.amountPaise})`,
+    );
     assert(order?.numStylesPicked === 3, `numStylesPicked=3 (got ${order?.numStylesPicked})`);
 
     // BC — second order, 0 picks → Smart Pack 3 → ₹147
     console.log('\n== Path BC: paid order, 0 picks (Smart Pack) → ₹147 ==');
     order = await runOnce({ orderCount: 1, styleSelections: [] });
-    assert(order?.amount === PRICE_PER_OUTPUT_AD_PAISE * 3, `Smart Pack amount=14700 (got ${order?.amount})`);
-    assert(order?.numStylesPicked === 3, `Smart Pack numStylesPicked=3 (got ${order?.numStylesPicked})`);
+    assert(
+      order?.amount === PRICE_PER_OUTPUT_AD_PAISE * 3,
+      `Smart Pack amount=14700 (got ${order?.amount})`,
+    );
+    assert(
+      order?.numStylesPicked === 3,
+      `Smart Pack numStylesPicked=3 (got ${order?.numStylesPicked})`,
+    );
   } finally {
     await cleanup();
     await prisma.$disconnect();

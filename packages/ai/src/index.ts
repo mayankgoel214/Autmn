@@ -16,6 +16,7 @@
 
 export {
   processImageNeverFail,
+  NeverFailRefundRequiredError,
   type NeverFailResult,
   type NeverFailParams,
 } from './pipeline/never-fail-pipeline.js';

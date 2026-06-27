@@ -42,9 +42,8 @@ process.env.PAYMENT_BYPASS = 'true';
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
 // instructions.ts isn't re-exported through session/index.ts — import directly.
-const { createOrderAndSendPayment } = await import(
-  '../packages/session/dist/handlers/instructions.js'
-);
+const { createOrderAndSendPayment } =
+  await import('../packages/session/dist/handlers/instructions.js');
 const { getImageQueue } = await import('../packages/queue/dist/index.js');
 
 const prisma = new PrismaClient({ log: ['error'] });
@@ -64,8 +63,7 @@ function makeMockWa() {
     sendList: async (_p: string, body: string) => sent.push({ type: 'list', body }),
     sendImage: async (_p: string, _u: string, caption?: string) =>
       sent.push({ type: 'image', body: caption ?? '' }),
-    sendPaymentLink: async (_p: string, body: string) =>
-      sent.push({ type: 'paymentLink', body }),
+    sendPaymentLink: async (_p: string, body: string) => sent.push({ type: 'paymentLink', body }),
     markAsRead: async (_id: string) => {},
   };
   return { wa: wa as any, sent };
@@ -224,7 +222,9 @@ async function pathSecondOrderPaid(): Promise<void> {
 async function pathZeroStylesSmartPack(): Promise<void> {
   console.log('\n== Path AQ: 0 styles picked -> Smart Pack (3 styles) ==');
   await cleanup();
-  const { user, session } = await seedUserAndSession({ orderCount: 0 });
+  // Paid order (orderCount=1): Smart Pack auto-fill to 3 only applies to PAID
+  // orders — the free first order is hard-capped to 1 image ("first image free").
+  const { user, session } = await seedUserAndSession({ orderCount: 1 });
   const { wa } = makeMockWa();
 
   await createOrderAndSendPayment({
@@ -243,7 +243,10 @@ async function pathZeroStylesSmartPack(): Promise<void> {
   assert(orders.length === 1, `1 order created (got ${orders.length})`);
   const stylesOrdered = (orders[0]?.stylesOrdered ?? []) as string[];
   assert(stylesOrdered.length === 3, `stylesOrdered.length=3 (got ${stylesOrdered.length})`);
-  assert(orders[0]?.outputStyleCount === 3, `outputStyleCount=3 (got ${orders[0]?.outputStyleCount})`);
+  assert(
+    orders[0]?.outputStyleCount === 3,
+    `outputStyleCount=3 (got ${orders[0]?.outputStyleCount})`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -255,7 +258,9 @@ async function pathZeroStylesSmartPack(): Promise<void> {
 async function pathStyleClamp(): Promise<void> {
   console.log('\n== Path AR: 5 styles picked -> sliced to 3 ==');
   await cleanup();
-  const { user, session } = await seedUserAndSession({ orderCount: 0 });
+  // Paid order (orderCount=1): the 3-style cap applies to paid orders; a free
+  // first order is hard-capped to 1 image regardless of how many were picked.
+  const { user, session } = await seedUserAndSession({ orderCount: 1 });
   const { wa } = makeMockWa();
 
   await createOrderAndSendPayment({

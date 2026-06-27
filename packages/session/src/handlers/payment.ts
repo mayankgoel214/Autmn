@@ -189,6 +189,17 @@ export async function enqueueImageJobs(
   order: Order,
 ): Promise<void> {
   const imageQueue = getImageQueue();
+
+  // Idempotency — if jobs already exist for this order, a prior call (webhook +
+  // poller, or a retried caller) already enqueued them. Bail rather than
+  // double-spend (pay for N styles, generate 2N). onPaymentConfirmed's atomic
+  // status claim covers the paid path; this guards the free path and re-entry.
+  const existingJobs = await prisma.imageJob.count({ where: { orderId } });
+  if (existingJobs > 0) {
+    console.warn(JSON.stringify({ event: 'enqueue_image_jobs_skipped_existing', orderId, existingJobs }));
+    return;
+  }
+
   const inputImageUrls = order.inputImageUrls as string[];
   const voiceInstructions = order.voiceInstructions as string | null;
 
@@ -218,21 +229,34 @@ export async function enqueueImageJobs(
 
   if (voiceInstructions && styleJobs.length > 1) {
     const parseStart = Date.now();
-    const parsed = await parsePerStyleInstructions({
-      rawInstructions: voiceInstructions,
-      styles: styleJobs.map(j => j.styleId),
-    });
-    perStyleInstructions = parsed.perStyle;
-    globalInstruction = parsed.globalInstruction;
+    try {
+      const parsed = await parsePerStyleInstructions({
+        rawInstructions: voiceInstructions,
+        styles: styleJobs.map(j => j.styleId),
+      });
+      perStyleInstructions = parsed.perStyle;
+      globalInstruction = parsed.globalInstruction;
 
-    console.info(JSON.stringify({
-      event: 'per_style_parse_done',
-      orderId,
-      confidence: parsed.confidence,
-      durationMs: Date.now() - parseStart,
-      perStyle: parsed.perStyle,
-      globalInstruction: parsed.globalInstruction,
-    }));
+      console.info(JSON.stringify({
+        event: 'per_style_parse_done',
+        orderId,
+        confidence: parsed.confidence,
+        durationMs: Date.now() - parseStart,
+        perStyle: parsed.perStyle,
+        globalInstruction: parsed.globalInstruction,
+      }));
+    } catch (err) {
+      // H8 — the parser failing (Gemini outage / bad JSON) must NOT drop the
+      // customer's paid instruction. Fall back to applying the raw instruction
+      // to every style (the documented behaviour the code previously lacked).
+      globalInstruction = voiceInstructions;
+      perStyleInstructions = {};
+      console.error(JSON.stringify({
+        event: 'per_style_parse_failed_fallback_global',
+        orderId,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
   }
 
   // Resolve the effective instruction for one style:
@@ -285,6 +309,10 @@ export async function enqueueImageJobs(
       productCategory: order.productCategory ?? undefined,
       brandName,
       pipeline: 'primary',
+    }, {
+      // Deterministic per order+style so a duplicate enqueue is dropped at the
+      // queue layer (defense alongside the existing-jobs guard above).
+      jobId: `process_image_${orderId}_${styleIndex}`,
     });
   }
 
@@ -348,8 +376,9 @@ export async function sendPaymentLink(
 
   // Create new link (existing link expired or doesn't exist)
 
-  // DEV MODE: skip payment and auto-confirm
-  if (process.env.PAYMENT_BYPASS === 'true') {
+  // DEV MODE: skip payment and auto-confirm. HARD-gated to non-production so a
+  // leaked/mis-set PAYMENT_BYPASS env can never make real orders free in prod.
+  if (process.env.PAYMENT_BYPASS === 'true' && process.env.NODE_ENV !== 'production') {
     logger.info('DEV MODE: Skipping payment, auto-confirming order', { phoneNumber, orderId: order.id });
     await onPaymentConfirmed(order.id, 'dev_payment_' + Date.now(), wa);
     return;

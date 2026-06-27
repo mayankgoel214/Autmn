@@ -21,6 +21,25 @@ import { processStyleProduction } from './production.js';
 import { generateCreativeBrief } from './creative-brief.js';
 import { lightAnalyze, type LightAnalysis } from './light-analyzer.js';
 import type { ProcessImageParams, BrandContext } from './_common/types.js';
+import type { FailureClass } from './failure-class.js';
+
+/**
+ * Thrown when every AI tier is exhausted for a style and the order needs a
+ * refund. The typed `failureClass` is the PRIMARY signal the worker reads
+ * (instanceof). The legacy `[needs_refund: true][class: …]` marker is kept in
+ * the message as a string fallback so any future error-wrapping can't silently
+ * break refund routing.
+ */
+export class NeverFailRefundRequiredError extends Error {
+  readonly failureClass: FailureClass;
+  constructor(failureClass: FailureClass, style: string, lastError?: string | null) {
+    super(
+      `[needs_refund: true][class: ${failureClass}] All AI tiers exhausted for style "${style}". Last error: ${lastError ?? 'unknown'}`,
+    );
+    this.name = 'NeverFailRefundRequiredError';
+    this.failureClass = failureClass;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Phase 21 — extract the six edge-case bool fields from a LightAnalysis
@@ -201,13 +220,11 @@ export async function processImageNeverFail(
 
   // ---- Map to NeverFailResult ------------------------------------------------
   if (styleResult.tier === 'refund') {
-    // Carry the transient/permanent classification up to the worker via the
-    // marker string — the thrown Error message is the only channel the worker
-    // sees. Default 'transient' if the chain didn't stamp one.
+    // Carry the transient/permanent classification up to the worker via a typed
+    // error (primary) whose message also embeds the legacy marker (fallback).
+    // Default 'transient' if the chain didn't stamp one.
     const failureClass = styleResult.errorClass ?? 'transient';
-    throw new Error(
-      `[needs_refund: true][class: ${failureClass}] All AI tiers exhausted for style "${style}". Last error: ${styleResult.error ?? 'unknown'}`,
-    );
+    throw new NeverFailRefundRequiredError(failureClass, style, styleResult.error);
   }
 
   // tier is 1 | 2 here (refund handled above)
