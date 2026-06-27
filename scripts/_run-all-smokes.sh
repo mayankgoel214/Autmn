@@ -5,7 +5,17 @@ set -u
 cd "$(dirname "$0")/.."
 
 # Sort so phase numbers come out in order (10 after 9, etc.).
-mapfile -t FILES < <(ls scripts/smoke-phase-*.ts scripts/smoke-pre-phase-*.ts 2>/dev/null | sort -V)
+# Portable read loop instead of `mapfile` (bash 4+) so this runs on macOS's
+# stock bash 3.2.
+FILES=()
+while IFS= read -r line; do
+  [ -n "$line" ] && FILES+=("$line")
+done < <(ls scripts/smoke-phase-*.ts scripts/smoke-pre-phase-*.ts 2>/dev/null | sort -V)
+
+if [ ${#FILES[@]} -eq 0 ]; then
+  echo "No smoke scripts found."
+  exit 1
+fi
 
 green=0
 red=0
