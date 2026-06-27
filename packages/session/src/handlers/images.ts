@@ -240,16 +240,13 @@ export async function handleAwaitingPhoto(
       return;
     }
 
-    // At max: show buttons (same as debounce) so user can add instructions
+    // At max: show buttons (same as debounce) so user can add instructions.
+    // showPhotoButtons now performs its OWN atomic null→'awaiting_action' claim,
+    // so we must NOT pre-claim here — pre-claiming would flip the flag first and
+    // make the internal claim see a non-null value, silently suppressing the
+    // legitimate send.
     if (newCount >= MAX_IMAGES_PER_ORDER) {
-      // Use atomic guard to ensure only one handler shows buttons
-      const claimed = await prisma.session.updateMany({
-        where: { phoneNumber, earlyPhotoMediaId: null },
-        data: { earlyPhotoMediaId: 'awaiting_action' },
-      });
-      if (claimed.count > 0) {
-        await showPhotoButtons(phoneNumber, Math.min(newCount, MAX_IMAGES_PER_ORDER), lang, wa);
-      }
+      await showPhotoButtons(phoneNumber, Math.min(newCount, MAX_IMAGES_PER_ORDER), lang, wa);
       return;
     }
 
@@ -501,6 +498,22 @@ async function showPhotoButtons(
   lang: Language,
   wa: WhatsAppClient,
 ): Promise<void> {
+  // Atomic claim-before-send: only the FIRST caller to flip earlyPhotoMediaId
+  // from null \u2192 'awaiting_action' sends the confirmation. Any concurrent path
+  // (the "done" tap, the 8s debounce timer, or the max-images branch) that
+  // loses the race gets count === 0 and returns WITHOUT sending. This is the
+  // single source of truth that makes the "photos received" confirmation
+  // exactly-once per batch, closing the check-then-act gap where the old code
+  // sent first and set the flag afterwards.
+  const claimed = await prisma.session.updateMany({
+    where: { phoneNumber, earlyPhotoMediaId: null },
+    data: { earlyPhotoMediaId: 'awaiting_action' },
+  });
+  if (claimed.count === 0) {
+    console.info(JSON.stringify({ event: 'photo_buttons_already_shown', phoneNumber }));
+    return;
+  }
+
   const countMsg = isHindi(lang)
     ? `${imageCount} photo${imageCount > 1 ? 's' : ''} mil gayi \u2705`
     : `${imageCount} photo${imageCount > 1 ? 's' : ''} received \u2705`;
@@ -514,11 +527,7 @@ async function showPhotoButtons(
     await wa.sendText(phoneNumber, `${countMsg}\n\n${msgDoneOrInstructions(lang)}`);
   }
 
-  // Update earlyPhotoMediaId to track that buttons were shown
-  await prisma.session.update({
-    where: { phoneNumber },
-    data: { earlyPhotoMediaId: 'awaiting_action' },
-  });
+  // earlyPhotoMediaId already set to 'awaiting_action' by the claim above.
 
   // Schedule 2-minute nudge (gentle reminder, NOT auto-advance)
   await schedulePhotoNudge(phoneNumber, imageCount);

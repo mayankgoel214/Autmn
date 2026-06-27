@@ -42,6 +42,7 @@ import {
   type PerStyleInstructionResult,
 } from '../instructions/parse-per-style.js';
 import { extractNegatives } from '../instructions/extract-negatives.js';
+import { classifyFailure, type FailureClass } from './failure-class.js';
 import type {
   ProcessImageParams,
   StyleArtDirection,
@@ -129,6 +130,11 @@ export interface StyleResult {
   /** Prompt sent to the winning tier — useful for debugging. */
   prompt: string;
   error: string | null;
+  /**
+   * For tier === 'refund' only: whether the final failure was transient
+   * (retryable) or permanent. Drives the worker's refund-vs-retry gate.
+   */
+  errorClass?: FailureClass;
   /** Defect check fail reason (when Pro output was rejected before fallback). */
   tier1DefectReason?: string | null;
   // ---------------------------------------------------------------------
@@ -459,12 +465,17 @@ async function processStyleWithChain(
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     accumulatedCost += COST_INR.openaiGptImage2;
+    // Classify the FINAL (Tier 2) error. tier1DefectReason is folded in so a
+    // permanent Tier-1 signal (e.g. safety block) still surfaces as permanent
+    // even if Tier 2 failed transiently.
+    const errorClass = classifyFailure(`${errMsg}\n${tier1DefectReason ?? ''}`);
 
     console.error(JSON.stringify({
       event: 'production_tier2_failed',
       orderId,
       style,
       reason: errMsg.slice(0, 200),
+      errorClass,
     }));
 
     // Both tiers failed — refund
@@ -477,6 +488,7 @@ async function processStyleWithChain(
       durationMs: Date.now() - styleStart,
       prompt,
       error: errMsg.slice(0, 300),
+      errorClass,
       tier1DefectReason,
     };
 

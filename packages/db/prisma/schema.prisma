@@ -171,6 +171,9 @@ model Order {
   processingStartedAt     DateTime?   @map("processing_started_at")
   processingCompletedAt   DateTime?   @map("processing_completed_at")
   errorMessage            String?     @map("error_message")
+  // Set the first time ANY image in this order enters a transient retry, so
+  // the "taking longer than usual" notice is sent exactly once per order.
+  retryNoticeSentAt       DateTime?   @map("retry_notice_sent_at")
 
   // ---------------------------------------------------------------------
   // Phase 8 — post-onboarding rebuild. Coexists with the legacy `amount`

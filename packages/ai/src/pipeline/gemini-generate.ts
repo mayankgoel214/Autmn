@@ -1,6 +1,7 @@
 import { GoogleGenAI, Modality } from '@google/genai';
 import { getProviderKey } from '@autmn/keypool';
 import { geminiImageBreaker } from './circuit-breaker.js';
+import { forceFailureIfRequested } from './_force-failure.js'; // TEMP TEST SCAFFOLDING — REMOVE
 
 // ---------------------------------------------------------------------------
 // Types
@@ -85,6 +86,8 @@ export async function geminiGenerateImage(
   const resolvedModel = modelOverride ?? getGeminiModel();
 
   const startMs = Date.now();
+
+  forceFailureIfRequested('gemini.tier1'); // TEMP TEST SCAFFOLDING — REMOVE
 
   // Circuit breaker check
   if (geminiImageBreaker.isOpen()) {

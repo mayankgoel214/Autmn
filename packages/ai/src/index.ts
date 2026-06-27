@@ -35,6 +35,8 @@ export {
   type StyleDirection,
 } from './pipeline/creative-brief.js';
 
+export { classifyFailure, type FailureClass } from './pipeline/failure-class.js';
+
 // Shared pipeline types
 export type { ProcessImageParams, ProcessImageResult } from './pipeline/_common/types.js';
 

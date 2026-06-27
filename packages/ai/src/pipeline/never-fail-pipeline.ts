@@ -198,8 +198,12 @@ export async function processImageNeverFail(
 
   // ---- Map to NeverFailResult ------------------------------------------------
   if (styleResult.tier === 'refund') {
+    // Carry the transient/permanent classification up to the worker via the
+    // marker string — the thrown Error message is the only channel the worker
+    // sees. Default 'transient' if the chain didn't stamp one.
+    const failureClass = styleResult.errorClass ?? 'transient';
     throw new Error(
-      `[needs_refund: true] All AI tiers exhausted for style "${style}". Last error: ${styleResult.error ?? 'unknown'}`,
+      `[needs_refund: true][class: ${failureClass}] All AI tiers exhausted for style "${style}". Last error: ${styleResult.error ?? 'unknown'}`,
     );
   }
 

@@ -8,17 +8,22 @@
 import type { Job } from 'bullmq';
 import { prisma } from '@autmn/db';
 import type { ImageJob } from '@autmn/db';
-import { processImageNeverFail, downloadBuffer, type NeverFailResult } from '@autmn/ai';
+import { processImageNeverFail, downloadBuffer, classifyFailure, type NeverFailResult } from '@autmn/ai';
 import { uploadFile, Buckets } from '@autmn/storage';
 import { WhatsAppClient } from '@autmn/whatsapp';
 // Phase 13 — the worker is now silent between PROCESSING-start (handled by
 // the session layer) and the actual image delivery. msgProgressReadyToSend
 // stays — it is a CDN-load buffer right before the images, not a status
 // update during processing.
-import { sendProcessedImages, msgProgressReadyToSend, msgPhotoProcessingFailed, fetchBrandContextForUser } from '@autmn/session';
+import { sendProcessedImages, msgProgressReadyToSend, msgPhotoProcessingFailed, msgProcessingDelay, fetchBrandContextForUser } from '@autmn/session';
 import type { Language } from '@autmn/session';
-import { ImageProcessingJobDataSchema } from '@autmn/queue';
+import { ImageProcessingJobDataSchema, getImageQueue } from '@autmn/queue';
 import { getConfig } from '../config.js';
+
+// Transient failures keep retrying until this long after the order started
+// processing; only then does a still-failing transient error become a refund.
+const TRANSIENT_RETRY_WINDOW_MS = 45 * 60 * 1000; // 45 minutes
+const RETRY_MAX_DELAY_MS = 5 * 60 * 1000;         // cap backoff at 5 min
 
 // Phase 13 — the in-flight progress-update helper was removed. The worker no
 // longer emits status messages during PROCESSING; the user sees the single
@@ -469,32 +474,99 @@ export async function processImageJob(job: Job): Promise<void> {
     console.error(JSON.stringify({ event: 'image_processing_failed', job: job.id, orderId: data.orderId, error: errorMsg }));
     log('Image processing failed', { error: errorMsg });
 
-    // Detect the needs_refund signal from never-fail-pipeline — all 3 AI tiers exhausted.
-    // Mark the order failed immediately and log the event so the founder can action it.
-    // The actual Razorpay refund + WhatsApp apology is a follow-up (WS1 scope boundary).
     const needsRefund = errorMsg.includes('[needs_refund: true]');
+    let terminalRefund = false; // permanent, or transient past the 45-min window
+
     if (needsRefund) {
-      console.error(JSON.stringify({
-        event: 'order_needs_refund',
-        orderId: data.orderId,
-        phoneNumber: data.phoneNumber,
-        reason: 'All 3 AI tiers (Pro → Flash → OpenAI) exhausted',
-        action_required: 'Manual Razorpay refund + WhatsApp apology — see incident runbook',
-      }));
-      // Mark order as failed immediately — do not rely on BullMQ retry to surface it
-      await prisma.order.update({
+      const classMatch = errorMsg.match(/\[class:\s*(transient|permanent)\]/);
+      const failureClass = classMatch ? classMatch[1] : classifyFailure(errorMsg);
+
+      // 45-min wall clock — recomputed from DB every run, INDEPENDENT of attempt
+      // count. This is the ultimate stop: once elapsed, transient → refund.
+      const orderTiming = await prisma.order.findUnique({
         where: { id: data.orderId },
-        data: { status: 'failed', processingCompletedAt: new Date() },
-      }).catch((dbErr) => {
-        console.error(JSON.stringify({
-          event: 'db_update_failed',
-          error: dbErr instanceof Error ? dbErr.message : String(dbErr),
-          context: 'order_mark_failed_needs_refund',
+        select: { processingStartedAt: true, createdAt: true },
+      }).catch(() => null);
+      const windowStart = orderTiming?.processingStartedAt ?? orderTiming?.createdAt ?? new Date(0);
+      const elapsedMs = Date.now() - new Date(windowStart).getTime();
+      const withinWindow = elapsedMs < TRANSIENT_RETRY_WINDOW_MS;
+
+      if (failureClass === 'transient' && withinWindow) {
+        // ── Keep THIS image alive — re-queue with growing backoff. ───────────
+        // Atomically INCREMENT attempts and use the returned value, so each
+        // retry gets a larger delay and a unique jobId. Independent of the
+        // start-of-run increment above (which also bumps it); double-counting
+        // only makes backoff grow slightly faster (capped) and is harmless. The
+        // 45-min window — not this counter — ends retrying.
+        const bumped = await prisma.imageJob.update({
+          where: { id: data.imageJobId },
+          data: {
+            status: 'queued',
+            attempts: { increment: 1 },
+            errorMessage: `transient retry: ${errorMsg.slice(0, 180)}`,
+          },
+          select: { attempts: true },
+        }).catch(() => null);
+        const attemptN = Math.max(1, bumped?.attempts ?? 1);
+        const delay = Math.min(RETRY_MAX_DELAY_MS, 30_000 * 2 ** (attemptN - 1))
+          + Math.round(Math.random() * 15_000);
+
+        await getImageQueue().add('process_image', data, {
+          delay,
+          jobId: `process_image_retry_${data.imageJobId}_${attemptN}`, // unique per attempt
+        });
+
+        // One-time "taking longer than usual" notice — exactly once per ORDER.
+        // Atomic null→timestamp latch: whichever image first retries wins; no
+        // further sends for any image or any later retry.
+        const noticeClaim = await prisma.order.updateMany({
+          where: { id: data.orderId, retryNoticeSentAt: null },
+          data: { retryNoticeSentAt: new Date() },
+        }).catch(() => ({ count: 0 }));
+        if (noticeClaim.count > 0) {
+          try {
+            const wa = new WhatsAppClient({
+              accessToken: config.WHATSAPP_ACCESS_TOKEN,
+              phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
+            });
+            await wa.sendText(data.phoneNumber, msgProcessingDelay(lang));
+          } catch (e) {
+            console.warn(JSON.stringify({ event: 'retry_notice_send_failed', error: String(e) }));
+          }
+        }
+
+        console.warn(JSON.stringify({
+          event: 'transient_retry_scheduled',
+          orderId: data.orderId,
+          imageJobId: data.imageJobId,
+          attempt: attemptN,
+          delayMs: delay,
+          elapsedMs,
+          windowMs: TRANSIENT_RETRY_WINDOW_MS,
         }));
-      });
+        return; // order stays 'processing'; no refund, no BullMQ retry consumed
+      }
+
+      // Permanent, or transient past the window → THIS image is terminally
+      // failed. Do NOT mark the whole order failed here — a sibling may still be
+      // retrying or may have already succeeded. Order-level resolution happens
+      // below, once ALL siblings are terminal.
+      terminalRefund = true;
+      console.error(JSON.stringify({
+        event: 'image_needs_refund',
+        orderId: data.orderId,
+        imageJobId: data.imageJobId,
+        phoneNumber: data.phoneNumber,
+        failureClass,
+        elapsedMs,
+        windowExceeded: !withinWindow,
+        reason: failureClass === 'permanent'
+          ? 'Permanent failure — retrying will not help'
+          : 'Transient failures persisted past the 45-minute retry window',
+      }));
     }
 
-    // Update job as failed
+    // Mark THIS image job failed.
     await prisma.imageJob.update({
       where: { id: data.imageJobId },
       data: {
@@ -510,73 +582,95 @@ export async function processImageJob(job: Job): Promise<void> {
       }));
     });
 
-    // If all retries exhausted, notify user
+    // ── Order-level resolution (partial-success aware) ──────────────────────
     const jobRecord = await prisma.imageJob.findUnique({
       where: { id: data.imageJobId },
     });
-
-    // Check if BullMQ will NOT retry this job (final attempt)
     const bullmqMaxAttempts = job.opts?.attempts ?? 3;
     const isFinalBullMQAttempt = job.attemptsMade >= bullmqMaxAttempts;
     const isMaxImageJobAttempts = jobRecord ? jobRecord.attempts >= jobRecord.maxAttempts : false;
 
-    if (isFinalBullMQAttempt || isMaxImageJobAttempts) {
+    if (isFinalBullMQAttempt || isMaxImageJobAttempts || terminalRefund) {
       const user = await prisma.user.findUnique({
         where: { phoneNumber: data.phoneNumber },
       });
-      const lang = (user?.language as 'hi' | 'en') || 'hi';
-
       const wa = new WhatsAppClient({
         accessToken: config.WHATSAPP_ACCESS_TOKEN,
         phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
       });
 
-      // Check if ALL jobs in this order are now done (completed or failed)
       const allJobs = await prisma.imageJob.findMany({
         where: { orderId: data.orderId },
       });
-      const allDone = allJobs.every(
+      // Resolve ONLY when every sibling is terminal. A still-'queued'/'processing'
+      // job (e.g. a sibling validly retrying within its window) defers resolution,
+      // so one image's failure never orphans or pre-empts a sibling.
+      const allDone = allJobs.length > 0 && allJobs.every(
         (j: ImageJob) => j.status === 'completed' || j.status === 'failed',
       );
 
       if (allDone) {
-        const completedUrls = allJobs
+        const sortedCompleted = allJobs
           .filter((j: ImageJob) => j.status === 'completed' && j.outputImageUrl)
-          .map((j: ImageJob) => j.outputImageUrl!);
+          .sort((a: ImageJob, b: ImageJob) => (a.styleIndex ?? 0) - (b.styleIndex ?? 0));
+        const completedUrls = sortedCompleted.map((j: ImageJob) => j.outputImageUrl!);
+        const styleLabels = sortedCompleted.map((j: ImageJob) => j.style ?? '').filter(Boolean);
 
-        if (completedUrls.length > 0) {
-          // Some images succeeded — deliver those and note the failures
-          await sendProcessedImages(data.phoneNumber, completedUrls, lang, user?.name ?? undefined, wa);
-        } else {
-          // All images failed
-          await wa.sendText(
-            data.phoneNumber,
-            msgPhotoProcessingFailed(lang),
-          );
-        }
-
-        // Transition session out of PROCESSING regardless of outcome
-        if (user) {
-          await prisma.session.updateMany({
-            where: { userId: user.id, state: 'PROCESSING' },
-            data: { state: 'DELIVERED', stateEnteredAt: new Date() },
-          });
-          log('Session transitioned to DELIVERED (after failure recovery)');
-        }
-
-        await prisma.order.update({
-          where: { id: data.orderId },
-          data: { status: completedUrls.length > 0 ? 'completed' : 'failed', processingCompletedAt: new Date() },
-        }).catch((dbErr) => {
-          console.error(JSON.stringify({
-            event: 'db_update_failed',
-            error: dbErr instanceof Error ? dbErr.message : String(dbErr),
-            context: 'order_mark_failed',
-          }));
+        // Atomic one-time claim from a non-terminal status. Prevents double
+        // delivery (vs the success path) AND double failure-message (vs a
+        // sibling finalizer): the target status is NOT in the FROM set, so only
+        // the first resolver wins.
+        const claim = await prisma.order.updateMany({
+          where: { id: data.orderId, status: { in: ['processing', 'payment_confirmed'] } },
+          data: {
+            status: completedUrls.length > 0 ? 'completed' : 'failed',
+            outputImageUrls: completedUrls.length > 0 ? completedUrls : undefined,
+            processingCompletedAt: new Date(),
+          },
         });
+
+        if (claim.count > 0) {
+          if (completedUrls.length > 0) {
+            // PARTIAL or full success — deliver whatever succeeded; no refund.
+            try {
+              await wa.sendText(data.phoneNumber, msgProgressReadyToSend(lang));
+              await new Promise((r) => setTimeout(r, 2000));
+            } catch { /* non-fatal */ }
+            await sendProcessedImages(
+              data.phoneNumber,
+              completedUrls,
+              lang,
+              user?.name ?? undefined,
+              wa,
+              [],
+              [],
+              styleLabels.length > 0 ? styleLabels : undefined,
+            );
+          } else {
+            // ZERO succeeded — full-order refund.
+            console.error(JSON.stringify({
+              event: 'order_needs_refund',
+              orderId: data.orderId,
+              phoneNumber: data.phoneNumber,
+              reason: 'All images failed — no partial success to deliver',
+              action_required: 'Manual Razorpay refund + WhatsApp apology — see incident runbook',
+            }));
+            await wa.sendText(data.phoneNumber, msgPhotoProcessingFailed(lang));
+          }
+          if (user) {
+            await prisma.session.updateMany({
+              where: { userId: user.id, state: 'PROCESSING' },
+              data: { state: 'DELIVERED', stateEnteredAt: new Date() },
+            });
+            log('Session transitioned to DELIVERED (after order resolution)');
+          }
+        }
       }
     }
 
-    throw err; // Let BullMQ handle retries
+    if (terminalRefund) {
+      return; // image terminally failed — nothing for BullMQ to retry
+    }
+    throw err; // non-refund error (download/storage/etc.) — let BullMQ retry
   }
 }
