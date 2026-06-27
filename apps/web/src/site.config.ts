@@ -30,24 +30,24 @@ export const site = {
   // ── Contact ─────────────────────────────────────────────────────────────────
   email: {
     support: 'support@autmn.ai',
-    founder: 'PLACEHOLDER_FOUNDER_EMAIL', // TODO: e.g. mayank@autmn.ai
+    founder: 'mayank@autmn.ai',
   },
 
   // ── Legal entity (required by Razorpay KYC + DPDP) ──────────────────────────
   legal: {
-    entityName: 'PLACEHOLDER_LEGAL_ENTITY_NAME', // TODO: registered business / proprietor name
-    entityType: 'PLACEHOLDER_ENTITY_TYPE', // TODO: 'Sole Proprietorship' | 'Private Limited' etc.
-    address: 'PLACEHOLDER_BUSINESS_ADDRESS', // TODO: full reachable address
-    city: 'PLACEHOLDER_CITY', // TODO
-    state: 'PLACEHOLDER_STATE', // TODO
-    pincode: 'PLACEHOLDER_PINCODE', // TODO
+    entityName: 'Anshika Jain',
+    entityType: 'Sole Proprietorship',
+    address: '9B, Lord Sinha Road, Monica Building',
+    city: 'Kolkata',
+    state: 'West Bengal',
+    pincode: '700071',
     country: 'India',
-    governingLawCity: 'PLACEHOLDER_CITY', // TODO: jurisdiction city for ToS
-    gstin: '', // optional — leave '' if not GST-registered yet
+    governingLawCity: 'Kolkata',
+    gstin: '', // not GST-registered
   },
 
   // ── Effective dates (shown on legal pages) ──────────────────────────────────
-  legalLastUpdated: '2026-05-26',
+  legalLastUpdated: '2026-06-27',
 } as const;
 
 /** wa.me click-to-chat link with the greeting pre-filled. */
