@@ -19,7 +19,7 @@ export const site = {
   // ── WhatsApp ──────────────────────────────────────────────────────────────
   // The business WhatsApp number in INTERNATIONAL format, digits only, no +.
   // e.g. '919876543210'. Used for the wa.me click-to-chat CTA everywhere.
-  whatsappNumber: 'PLACEHOLDER_WHATSAPP_NUMBER', // TODO: real business number, digits only
+  whatsappNumber: '917439506526', // official Autmn WhatsApp (+91 74395 06526)
   whatsappGreeting: 'hi', // pre-filled message in the chat link
 
   // ── Pricing (must match the live pipeline) ──────────────────────────────────
