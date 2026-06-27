@@ -19,10 +19,11 @@ export async function adminKeypoolRoutes(app: FastifyInstance): Promise<void> {
       const secret = req.headers['x-admin-secret'];
       const expected = config.ADMIN_SECRET ?? '';
       if (
+        typeof secret !== 'string' ||
         !secret ||
         !expected ||
-        Buffer.byteLength(secret as string) !== Buffer.byteLength(expected) ||
-        !timingSafeEqual(Buffer.from(secret as string), Buffer.from(expected))
+        Buffer.byteLength(secret) !== Buffer.byteLength(expected) ||
+        !timingSafeEqual(Buffer.from(secret), Buffer.from(expected))
       ) {
         return reply.code(403).send({ error: 'Forbidden', code: 'ADMIN_AUTH_REQUIRED' });
       }

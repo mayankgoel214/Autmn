@@ -93,11 +93,11 @@ export function buildPaymentLinkPayload(
     // behaviour doesn't silently flip if Razorpay changes their default.
     payment_capture: true,
     // Surfaces in the Razorpay dashboard's Notes column so the founder can
-    // grep payments by our internal order id or by the customer's phone
-    // without leaving the dashboard.
+    // grep payments by our internal order id. The phone is intentionally NOT
+    // duplicated here (it already rides on customer.contact); keeping PII out of
+    // notes metadata is DPDP data-minimization.
     notes: {
       order_id: orderId,
-      phone: customerPhone,
     },
     // upi_link fires the UPI Intent Flow from the short_url itself
     // (deep-links into the user's default UPI app on mobile).

@@ -20,6 +20,12 @@
 import type { Job } from 'bullmq';
 import { StorageCleanupJobDataSchema, type StorageCleanupJobData } from '@autmn/queue';
 import { cleanupBucketByAge, type CleanupBucketResult } from '@autmn/storage';
+import { prisma } from '@autmn/db';
+
+// WebhookEvent rows store the full inbound Meta/Razorpay payload (sender phone,
+// message text, Flow form data) — PII at rest. Keep a 30-day debugging window,
+// then prune. DPDP data-minimization; runs in the same nightly sweep.
+const WEBHOOK_EVENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function processStorageCleanup(
   job: Job<StorageCleanupJobData>,
@@ -70,10 +76,29 @@ export async function processStorageCleanup(
   const totalDeleted = results.reduce((sum, r) => sum + r.deleted, 0);
   const totalErrors = results.reduce((sum, r) => sum + r.errors, 0);
 
+  // Prune PII-bearing webhook payloads past the retention window. Non-fatal:
+  // a failed prune must not fail the storage sweep — the next run retries.
+  let webhookEventsDeleted = 0;
+  try {
+    const cutoff = new Date(Date.now() - WEBHOOK_EVENT_RETENTION_MS);
+    const { count } = await prisma.webhookEvent.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
+    webhookEventsDeleted = count;
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: 'webhook_event_prune_failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+
   log('=== STORAGE TTL CLEANUP DONE ===', {
     totalScanned,
     totalDeleted,
     totalErrors,
+    webhookEventsDeleted,
     perBucket: results,
   });
 }

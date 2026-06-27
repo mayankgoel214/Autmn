@@ -15,7 +15,7 @@ const envSchema = z.object({
   // WhatsApp Cloud API — required in production, placeholder allowed in dev
   WHATSAPP_ACCESS_TOKEN: optionalInDev(z.string().min(1)),
   WHATSAPP_PHONE_NUMBER_ID: optionalInDev(z.string().min(1)),
-  WHATSAPP_VERIFY_TOKEN: z.string().min(1).default('dev-verify-token'),
+  WHATSAPP_VERIFY_TOKEN: optionalInDev(z.string().min(1)),
   WHATSAPP_APP_SECRET: optionalInDev(z.string().min(1)),
 
   // Razorpay — required in production, placeholder allowed in dev
@@ -55,6 +55,7 @@ const PROD_REQUIRED_SECRETS = [
   'WHATSAPP_ACCESS_TOKEN',
   'WHATSAPP_PHONE_NUMBER_ID',
   'WHATSAPP_APP_SECRET',
+  'WHATSAPP_VERIFY_TOKEN',
   'RAZORPAY_KEY_ID',
   'RAZORPAY_KEY_SECRET',
   'RAZORPAY_WEBHOOK_SECRET',

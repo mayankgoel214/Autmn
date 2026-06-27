@@ -8,7 +8,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getConfig } from '../config.js';
 import { prisma } from '@autmn/db';
 import { getRedisConnection } from '@autmn/queue';
-import { getStorageClient } from '@autmn/storage';
+import { getStorageClient, Buckets } from '@autmn/storage';
 import { WhatsAppClient } from '@autmn/whatsapp';
 import { issueRefund } from '@autmn/payment';
 import {
@@ -25,10 +25,16 @@ import type { RefundDecisionPageStatus } from '@autmn/email';
  * URL format: {SUPABASE_URL}/storage/v1/object/public/{bucket}/{path}
  * Returns null if the URL doesn't match the expected pattern.
  */
+const KNOWN_BUCKETS = new Set<string>(Object.values(Buckets));
+
 function parseStorageUrl(url: string): { bucket: string; path: string } | null {
   try {
     const match = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
     if (!match || !match[1] || !match[2]) return null;
+    // Only ever delete from buckets we own. A tampered Order.outputImageUrls
+    // row (it's an unconstrained Json column) must not be able to steer the
+    // admin reset into removing files from an arbitrary bucket.
+    if (!KNOWN_BUCKETS.has(match[1])) return null;
     return { bucket: match[1], path: match[2] };
   } catch {
     return null;
@@ -196,6 +202,76 @@ async function handleDeny(
 }
 
 /**
+ * Shared token → order resolution for the refund-decision routes. Returns
+ * either a ready decision context (valid token, pending refund) or a finished
+ * HTML page (invalid/expired token, missing order, already decided). Both the
+ * GET confirmation page and the POST action go through this so they stay
+ * consistent and the side effect lives only in the POST.
+ */
+type DecisionContext =
+  | { kind: 'page'; statusCode: number; html: string }
+  | {
+      kind: 'ready';
+      order: NonNullable<OrderWithUserLang>;
+      action: 'approve' | 'deny';
+      lang: Language;
+      refundAmountPaise: number;
+    };
+
+async function loadDecisionContext(
+  app: FastifyInstance,
+  token: string | undefined,
+): Promise<DecisionContext> {
+  if (!token) {
+    return { kind: 'page', statusCode: 400, html: renderRefundDecisionPage({ status: 'token_invalid' }) };
+  }
+
+  let decoded: { orderId: string; action: 'approve' | 'deny' };
+  try {
+    decoded = await verifyRefundDecisionToken(token);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const status: RefundDecisionPageStatus = /expired/i.test(message) ? 'token_expired' : 'token_invalid';
+    app.log.warn({ err: message }, 'Refund-decision token rejected');
+    return { kind: 'page', statusCode: 401, html: renderRefundDecisionPage({ status, detail: message }) };
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: decoded.orderId },
+    include: { user: { select: { language: true } } },
+  });
+  if (!order) {
+    return { kind: 'page', statusCode: 404, html: renderRefundDecisionPage({ status: 'token_invalid', detail: 'Order not found' }) };
+  }
+
+  // Idempotency — a decision already in place renders as "already decided"
+  // rather than re-running side effects.
+  if (order.refundStatus && order.refundStatus !== 'pending') {
+    return {
+      kind: 'page',
+      statusCode: 200,
+      html: renderRefundDecisionPage({
+        status: 'already_decided',
+        shortId: order.shortId ?? undefined,
+        previousStatus: order.refundStatus as 'approved' | 'denied',
+        previousDecidedAt: order.refundDecidedAt?.toISOString(),
+      }),
+    };
+  }
+  if (order.refundStatus === null) {
+    return {
+      kind: 'page',
+      statusCode: 409,
+      html: renderRefundDecisionPage({ status: 'token_invalid', detail: 'Order has no pending refund request' }),
+    };
+  }
+
+  const lang = (order.user.language as Language) || 'hi';
+  const refundAmountPaise = order.amountPaise > 0 ? order.amountPaise : order.amount;
+  return { kind: 'ready', order, action: decoded.action, lang, refundAmountPaise };
+}
+
+/**
  * Best-effort WhatsApp send. Returns null on success, an error string on failure.
  * Constructed inline so we don't share a client across requests (small volume,
  * trivial cost).
@@ -228,10 +304,11 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       const secret = req.headers['x-admin-secret'];
       const expected = config.ADMIN_SECRET ?? '';
       if (
+        typeof secret !== 'string' ||
         !secret ||
         !expected ||
-        Buffer.byteLength(secret as string) !== Buffer.byteLength(expected) ||
-        !timingSafeEqual(Buffer.from(secret as string), Buffer.from(expected))
+        Buffer.byteLength(secret) !== Buffer.byteLength(expected) ||
+        !timingSafeEqual(Buffer.from(secret), Buffer.from(expected))
       ) {
         return reply.code(403).send({ error: 'Forbidden', code: 'ADMIN_AUTH_REQUIRED' });
       }
@@ -281,62 +358,38 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // docs/runbooks/payments-refunds.md for the operational story.
   // -----------------------------------------------------------------------
 
+  // GET only RENDERS — it never mutates. This is the fix for the prefetch hole:
+  // email clients, Safe-Links scanners and chat unfurlers all issue GET, so a
+  // GET that refunded money would auto-fire on the founder's inbox. Now GET
+  // shows a confirmation page whose button POSTs the same token; the refund
+  // runs only in the POST handler below.
   app.get('/admin/refunds/decide', async (req: FastifyRequest, reply: FastifyReply) => {
     const { token } = (req.query as { token?: string }) ?? {};
-    if (!token) {
-      return renderHtml(reply, 400, renderRefundDecisionPage({ status: 'token_invalid' }));
-    }
+    const ctx = await loadDecisionContext(app, token);
+    if (ctx.kind === 'page') return renderHtml(reply, ctx.statusCode, ctx.html);
 
-    let decoded: { orderId: string; action: 'approve' | 'deny' };
-    try {
-      decoded = await verifyRefundDecisionToken(token);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const status: RefundDecisionPageStatus = /expired/i.test(message)
-        ? 'token_expired'
-        : 'token_invalid';
-      app.log.warn({ err: message }, 'Refund-decision token rejected');
-      return renderHtml(reply, 401, renderRefundDecisionPage({ status, detail: message }));
-    }
+    const confirmUrl = `/admin/refunds/decide?token=${encodeURIComponent(token!)}`;
+    return renderHtml(reply, 200, renderRefundDecisionPage({
+      status: 'confirm',
+      action: ctx.action,
+      shortId: ctx.order.shortId ?? undefined,
+      amountRupees: Math.round(ctx.refundAmountPaise / 100),
+      confirmUrl,
+    }));
+  });
 
-    const order = await prisma.order.findUnique({
-      where: { id: decoded.orderId },
-      include: { user: { select: { language: true } } },
-    });
-    if (!order) {
-      return renderHtml(reply, 404, renderRefundDecisionPage({
-        status: 'token_invalid',
-        detail: 'Order not found',
-      }));
-    }
+  // POST performs the decision. Reached only when the founder presses the
+  // confirm button on the GET page. Browsers and scanners do not auto-POST, so
+  // the side effect cannot be triggered by merely opening the email link.
+  app.post('/admin/refunds/decide', async (req: FastifyRequest, reply: FastifyReply) => {
+    const { token } = (req.query as { token?: string }) ?? {};
+    const ctx = await loadDecisionContext(app, token);
+    if (ctx.kind === 'page') return renderHtml(reply, ctx.statusCode, ctx.html);
 
-    // Idempotency — if a decision is already in place, surface it as a
-    // successful "already decided" page rather than retrying side effects.
-    if (order.refundStatus && order.refundStatus !== 'pending') {
-      return renderHtml(reply, 200, renderRefundDecisionPage({
-        status: 'already_decided',
-        shortId: order.shortId ?? undefined,
-        previousStatus: order.refundStatus as 'approved' | 'denied',
-        previousDecidedAt: order.refundDecidedAt?.toISOString(),
-      }));
+    if (ctx.action === 'approve') {
+      return handleApprove(app, reply, ctx.order, ctx.lang, ctx.refundAmountPaise);
     }
-    if (order.refundStatus === null) {
-      // User never submitted a reason but founder is somehow clicking. Treat
-      // it as an attempt to short-circuit; refuse.
-      return renderHtml(reply, 409, renderRefundDecisionPage({
-        status: 'token_invalid',
-        detail: 'Order has no pending refund request',
-      }));
-    }
-
-    const lang = (order.user.language as Language) || 'hi';
-    const refundAmountPaise = order.amountPaise > 0 ? order.amountPaise : order.amount;
-
-    if (decoded.action === 'approve') {
-      return handleApprove(app, reply, order, lang, refundAmountPaise);
-    } else {
-      return handleDeny(app, reply, order, lang);
-    }
+    return handleDeny(app, reply, ctx.order, ctx.lang);
   });
 
   app.post('/admin/reset/:phone', async (req: FastifyRequest, reply: FastifyReply) => {

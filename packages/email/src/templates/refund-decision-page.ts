@@ -7,6 +7,7 @@
  */
 
 export type RefundDecisionPageStatus =
+  | 'confirm'
   | 'approved'
   | 'denied'
   | 'already_decided'
@@ -27,9 +28,14 @@ export interface RefundDecisionPageData {
   previousDecidedAt?: string;
   /** Previous decision when status is already_decided. */
   previousStatus?: 'approved' | 'denied';
+  /** Pending action being confirmed (for status 'confirm'). */
+  action?: 'approve' | 'deny';
+  /** POST target (token-carrying) the confirm button submits to. */
+  confirmUrl?: string;
 }
 
 const TITLE_MAP: Record<RefundDecisionPageStatus, string> = {
+  confirm: 'Confirm refund decision',
   approved: 'Refund approved ✅',
   denied: 'Refund denied',
   already_decided: 'Already decided',
@@ -40,6 +46,7 @@ const TITLE_MAP: Record<RefundDecisionPageStatus, string> = {
 };
 
 const COLOR_MAP: Record<RefundDecisionPageStatus, string> = {
+  confirm: '#1d4ed8',
   approved: '#16a34a',
   denied: '#dc2626',
   already_decided: '#6b7280',
@@ -73,6 +80,21 @@ export function renderRefundDecisionPage(data: RefundDecisionPageData): string {
 
 function buildBody(data: RefundDecisionPageData): string {
   switch (data.status) {
+    case 'confirm': {
+      const isApprove = (data.action ?? 'approve') === 'approve';
+      const verb = isApprove ? 'Approve' : 'Deny';
+      const intro = isApprove
+        ? `<p style="margin: 0 0 12px;">You are about to <strong>approve a refund of ₹${data.amountRupees ?? '?'}</strong> for order <code>#${escapeHtml(data.shortId ?? '?')}</code>.</p>`
+        : `<p style="margin: 0 0 12px;">You are about to <strong>deny the refund request</strong> for order <code>#${escapeHtml(data.shortId ?? '?')}</code>.</p>`;
+      const btnColor = isApprove ? '#16a34a' : '#dc2626';
+      // The decision only runs on this POST. Opening the link (GET) just shows
+      // this page, so email scanners / link prefetchers can't trigger a refund.
+      return `${intro}
+        <p style="margin: 0 0 20px; color: #555;">This is final and notifies the customer. Nothing happens until you press the button.</p>
+        <form method="POST" action="${escapeHtml(data.confirmUrl ?? '#')}">
+          <button type="submit" style="display:inline-block; background:${btnColor}; color:#fff; border:none; border-radius:8px; padding:12px 20px; font-size:16px; cursor:pointer;">${verb} refund</button>
+        </form>`;
+    }
     case 'approved':
       return `<p style="margin: 0 0 12px;">Refund of ₹${data.amountRupees ?? '?'} initiated against order <code>#${escapeHtml(data.shortId ?? '?')}</code>.</p>
         <p style="margin: 0; color: #555;">Razorpay will credit the customer's original payment method within 3-5 business days. The customer has been notified via WhatsApp.</p>`;

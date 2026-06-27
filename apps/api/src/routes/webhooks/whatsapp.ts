@@ -148,14 +148,20 @@ export async function whatsappWebhookRoutes(app: FastifyInstance): Promise<void>
         return reply.code(401).send({ error: 'Invalid signature', code: 'UNAUTHORIZED' });
       }
     } else {
-      // Development mode: skip verification when secret is the placeholder value.
+      // Non-production. Skip verification ONLY when the secret is the dev
+      // placeholder (pure local dev with no real secret). If a real secret is
+      // configured, enforce it exactly like production — invalid signatures are
+      // rejected, never "logged and continued". This closes the footgun where a
+      // misconfigured NODE_ENV (it defaults to 'development') would otherwise
+      // accept forged webhooks against a real secret.
       if (config.WHATSAPP_APP_SECRET === 'placeholder') {
         app.log.warn('WHATSAPP_APP_SECRET is placeholder — skipping signature verification in dev');
       } else if (!signature || !rawBody) {
         app.log.warn('Missing signature or raw body');
         return reply.code(401).send({ error: 'Missing signature', code: 'UNAUTHORIZED' });
       } else if (!verifyWebhookSignature(rawBody, signature, config.WHATSAPP_APP_SECRET)) {
-        app.log.warn('Invalid WhatsApp webhook signature (dev mode — continuing anyway)');
+        app.log.warn('Invalid WhatsApp webhook signature — rejecting request');
+        return reply.code(401).send({ error: 'Invalid signature', code: 'UNAUTHORIZED' });
       }
     }
 
@@ -240,11 +246,18 @@ export async function whatsappWebhookRoutes(app: FastifyInstance): Promise<void>
       // Build message context — access message fields via any cast since
       // the WhatsApp types use a union but we know the shape by type check
       const msg = message as any;
+      // Bound free-text inputs before they flow into AI prompts / DB. WhatsApp
+      // text caps near 4096 chars, but a hostile or buggy client could send
+      // more; capping here protects AI token spend and any regex downstream.
+      const MAX_INBOUND_TEXT = 2000;
+      const cap = (s: string | undefined): string | undefined =>
+        typeof s === 'string' ? s.slice(0, MAX_INBOUND_TEXT) : undefined;
+
       const messageContext: MessageContext = {
         messageId: message.id,
         messageType,
         timestamp: parseInt(message.timestamp, 10),
-        text: message.type === 'text' ? msg.text?.body : undefined,
+        text: message.type === 'text' ? cap(msg.text?.body) : undefined,
         mediaId:
           message.type === 'image'
             ? msg.image?.id
@@ -255,9 +268,9 @@ export async function whatsappWebhookRoutes(app: FastifyInstance): Promise<void>
                 : undefined,
         caption:
           message.type === 'image'
-            ? msg.image?.caption
+            ? cap(msg.image?.caption)
             : message.type === 'document'
-              ? msg.document?.caption
+              ? cap(msg.document?.caption)
               : undefined,
         isVoiceNote: message.type === 'audio' ? msg.audio?.voice === true : undefined,
         // Document metadata (Phase 3 brand-details). file_size is not always
