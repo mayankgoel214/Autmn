@@ -16,6 +16,7 @@ import {
   msgImageDelivered,
   msgStyleImageDelivered,
   msgDeliveryMenuBody,
+  msgSomeStylesFailed,
   msgDeliveryMenuFooter,
   msgDeliveryRateSectionTitle,
   msgDeliveryNextSectionTitle,
@@ -61,8 +62,9 @@ export async function sendProcessedImages(
   videoUrls?: string[],
   storyUrls?: string[],
   styleLabels?: string[],
+  failedStyleCount?: number,
 ): Promise<void> {
-  logger.info('Delivering processed images', { phoneNumber, count: outputImageUrls.length, videoCount: videoUrls?.length ?? 0, hasStyleLabels: !!styleLabels });
+  logger.info('Delivering processed images', { phoneNumber, count: outputImageUrls.length, videoCount: videoUrls?.length ?? 0, hasStyleLabels: !!styleLabels, failedStyleCount: failedStyleCount ?? 0 });
 
   for (let i = 0; i < outputImageUrls.length; i++) {
     const url = outputImageUrls[i]!;
@@ -109,17 +111,21 @@ export async function sendProcessedImages(
     }
   }
 
-  // Fetch total ad count from the order for the menu message
-  let totalAdCount = outputImageUrls.length;
-  if (currentOrderId) {
-    const orderForCount = await prisma.order.findUnique({
-      where: { id: currentOrderId },
-      select: { stylesOrdered: true, outputStyleCount: true },
-    }).catch(() => null);
-    const count = orderForCount?.outputStyleCount
-      ?? (orderForCount?.stylesOrdered as string[] | null)?.length
-      ?? outputImageUrls.length;
-    if (count > 0) totalAdCount = count;
+  // The menu count must reflect what was actually delivered in this batch, not
+  // what was ordered. Using the ordered count here was BUG 3: "ordered 2, 1
+  // failed" wrongly read "2 creatives". outputImageUrls is the set of succeeded
+  // images the worker just sent, so its length is the honest count in every
+  // path (initial, partial-success, and single-style edit/redo).
+  const totalAdCount = outputImageUrls.length;
+
+  // If some styles failed (worker passes the count), acknowledge it honestly
+  // before the menu. The menu's "Request refund" / "Send new product" rows are
+  // the recourse; we make no free-redo promise here.
+  if (failedStyleCount && failedStyleCount > 0) {
+    await wa.sendText(phoneNumber, msgSomeStylesFailed(failedStyleCount, language)).catch((err) => {
+      logger.error('Failed-style acknowledgment send failed', { phoneNumber, error: String(err) });
+    });
+    await sleep(1500);
   }
 
   // Extra buffer: WhatsApp accepts image sends immediately but delivers them
@@ -311,9 +317,14 @@ async function reshowDeliveryMenu(
   if (session.currentOrderId) {
     const order = await prisma.order.findUnique({
       where: { id: session.currentOrderId },
-      select: { outputStyleCount: true, stylesOrdered: true, numStylesPicked: true },
+      select: { outputImageUrls: true, outputStyleCount: true, stylesOrdered: true, numStylesPicked: true },
     }).catch(() => null);
+    // Prefer the count of images actually delivered; only fall back to the
+    // ordered counts when no outputs are recorded (keeps the count honest on
+    // partial-success orders — same fix as BUG 3 in sendProcessedImages).
+    const delivered = (order?.outputImageUrls as string[] | null)?.length ?? 0;
     adCount =
+      (delivered > 0 ? delivered : undefined) ||
       order?.numStylesPicked ||
       order?.outputStyleCount ||
       (order?.stylesOrdered as string[] | null)?.length ||

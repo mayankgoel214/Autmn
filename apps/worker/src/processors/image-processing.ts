@@ -449,6 +449,12 @@ export async function processImageJob(job: Job): Promise<void> {
           console.warn(JSON.stringify({ event: 'progress_ready_to_send_failed', error: String(err) }));
         }
 
+        // Styles attempted this round that ended terminally failed (BUG 3:
+        // the delivery copy must acknowledge them and count only what shipped).
+        const failedThisRound = currentRoundJobs.filter(
+          (j: ImageJob) => j.status === 'failed',
+        ).length;
+
         await sendProcessedImages(
           data.phoneNumber,
           finalOutputUrls,
@@ -458,6 +464,7 @@ export async function processImageJob(job: Job): Promise<void> {
           [],
           [],
           finalStyleLabels.length > 0 ? finalStyleLabels : undefined,
+          failedThisRound,
         );
 
         // Persist the styles used in this order as savedStyles on the user
@@ -655,6 +662,9 @@ export async function processImageJob(job: Job): Promise<void> {
               await wa.sendText(data.phoneNumber, msgProgressReadyToSend(lang));
               await new Promise((r) => setTimeout(r, 2000));
             } catch { /* non-fatal */ }
+            const failedCount = allJobs.filter(
+              (j: ImageJob) => j.status === 'failed',
+            ).length;
             await sendProcessedImages(
               data.phoneNumber,
               completedUrls,
@@ -664,6 +674,7 @@ export async function processImageJob(job: Job): Promise<void> {
               [],
               [],
               styleLabels.length > 0 ? styleLabels : undefined,
+              failedCount,
             );
           } else {
             // ZERO succeeded — full-order refund.

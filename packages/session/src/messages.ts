@@ -1916,6 +1916,29 @@ export function msgDeliveryMenuBody(adCount: number, lang: Lang): string {
   }
 }
 
+/**
+ * Honest acknowledgment when fewer styles came back than were ordered (one or
+ * more failed). Sent after the delivered images, before the menu. Points only
+ * to recourse that exists in the delivery menu (refund / new product); makes
+ * no promise about free redos.
+ */
+export function msgSomeStylesFailed(failedCount: number, lang: Lang): string {
+  switch (lang) {
+    case 'hi':
+      return `एक बात: ${failedCount} स्टाइल इस बार नहीं बन पाई। नीचे दिए विकल्पों में से चुन सकते हैं।`;
+    case 'hinglish':
+      return `Ek baat: ${failedCount} style is baar nahi ban payi. Neeche diye options me se chun sakte hain.`;
+    case 'en':
+    default: {
+      const phrase =
+        failedCount === 1
+          ? 'one of your styles'
+          : `${failedCount} of your styles`;
+      return `Quick note: ${phrase} couldn't be generated this time. See the options below.`;
+    }
+  }
+}
+
 export function msgDeliveryMenuFooter(lang: Lang): string {
   return lang === 'hi' ? 'चुनिए' : isHindi(lang) ? 'Chuniye' : 'Choose';
 }
