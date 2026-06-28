@@ -51,9 +51,8 @@ function loadEnv(envPath: string): void {
 loadEnv(resolve(import.meta.dirname, '../.env'));
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
-const { handleIncomingMessage, sendProcessedImages } = await import(
-  '../packages/session/dist/index.js'
-);
+const { handleIncomingMessage, sendProcessedImages } =
+  await import('../packages/session/dist/index.js');
 type MessageContext = import('../packages/session/dist/index.js').MessageContext;
 
 const prisma = new PrismaClient({ log: ['error'] });
@@ -73,8 +72,7 @@ function makeMockWa() {
     sendList: async (_p: string, body: string) => sent.push({ type: 'list', body }),
     sendImage: async (_p: string, _u: string, caption?: string) =>
       sent.push({ type: 'image', body: caption ?? '' }),
-    sendPaymentLink: async (_p: string, body: string) =>
-      sent.push({ type: 'paymentLink', body }),
+    sendPaymentLink: async (_p: string, body: string) => sent.push({ type: 'paymentLink', body }),
     markAsRead: async (_id: string) => {},
   };
   return { wa: wa as Parameters<typeof handleIncomingMessage>[2], sent };
@@ -82,25 +80,39 @@ function makeMockWa() {
 
 let counter = 0;
 function makeText(text: string): MessageContext {
-  return { messageId: `e2e-${PHONE}-${counter++}`, messageType: 'text', text, timestamp: Date.now() };
+  return {
+    messageId: `e2e-${PHONE}-${counter++}`,
+    messageType: 'text',
+    text,
+    timestamp: Date.now(),
+  };
 }
 function makeList(listReplyId: string): MessageContext {
-  return { messageId: `e2e-${PHONE}-${counter++}`, messageType: 'interactive', listReplyId, timestamp: Date.now() };
+  return {
+    messageId: `e2e-${PHONE}-${counter++}`,
+    messageType: 'interactive',
+    listReplyId,
+    timestamp: Date.now(),
+  };
 }
 
 let failures = 0;
 function assert(cond: unknown, msg: string): void {
-  if (!cond) { console.error(`  ✗ ${msg}`); failures++; }
-  else console.log(`  ✓ ${msg}`);
+  if (!cond) {
+    console.error(`  ✗ ${msg}`);
+    failures++;
+  } else console.log(`  ✓ ${msg}`);
 }
 
 async function cleanup(): Promise<void> {
   await prisma.imageJob.deleteMany({ where: { order: { phoneNumber: PHONE } } }).catch(() => {});
   await prisma.session.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
   await prisma.order.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
-  await prisma.processedMessage.deleteMany({
-    where: { messageId: { startsWith: `e2e-${PHONE}-` } },
-  }).catch(() => {});
+  await prisma.processedMessage
+    .deleteMany({
+      where: { messageId: { startsWith: `e2e-${PHONE}-` } },
+    })
+    .catch(() => {});
   await prisma.user.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
 }
 
@@ -108,13 +120,19 @@ async function seedDeliveredOrder(opts: { styles: string[] }): Promise<{ orderId
   const user = await prisma.user.upsert({
     where: { phoneNumber: PHONE },
     update: {
-      brandName: 'E2E Brand', name: 'E2E Tester', businessType: 'cat_jewellery',
-      language: 'en', orderCount: 1,
+      brandName: 'E2E Brand',
+      name: 'E2E Tester',
+      businessType: 'cat_jewellery',
+      language: 'en',
+      orderCount: 1,
     },
     create: {
       phoneNumber: PHONE,
-      brandName: 'E2E Brand', name: 'E2E Tester', businessType: 'cat_jewellery',
-      language: 'en', orderCount: 1,
+      brandName: 'E2E Brand',
+      name: 'E2E Tester',
+      businessType: 'cat_jewellery',
+      language: 'en',
+      orderCount: 1,
     },
   });
   const order = await prisma.order.create({
@@ -159,10 +177,7 @@ async function seedDeliveredOrder(opts: { styles: string[] }): Promise<{ orderId
 }
 
 async function buildAdminApp() {
-  const fastifyPath = resolve(
-    import.meta.dirname,
-    '../apps/api/node_modules/fastify/fastify.js',
-  );
+  const fastifyPath = resolve(import.meta.dirname, '../apps/api/node_modules/fastify/fastify.js');
   const Fastify = (await import(`file://${fastifyPath.replace(/\\/g, '/')}`)).default;
   const { adminRoutes } = await import('../apps/api/dist/routes/admin.js');
   const app = Fastify({ logger: false });
@@ -181,7 +196,11 @@ async function runHappyPath(): Promise<void> {
   const mock1 = makeMockWa();
   await sendProcessedImages(
     PHONE,
-    ['https://example.com/out1.jpg', 'https://example.com/out2.jpg', 'https://example.com/out3.jpg'],
+    [
+      'https://example.com/out1.jpg',
+      'https://example.com/out2.jpg',
+      'https://example.com/out3.jpg',
+    ],
     'en',
     'E2E Brand',
     mock1.wa,
@@ -215,7 +234,10 @@ async function runHappyPath(): Promise<void> {
   const mock3 = makeMockWa();
   await handleIncomingMessage(PHONE, makeList('send_new_product'), mock3.wa);
   session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
-  assert(session?.state === 'AWAITING_PHOTO', `Step 4: state AWAITING_PHOTO (got ${session?.state})`);
+  assert(
+    session?.state === 'AWAITING_PHOTO',
+    `Step 4: state AWAITING_PHOTO (got ${session?.state})`,
+  );
   assert(session?.currentOrderId === null, 'Step 4: currentOrderId cleared on send-new');
 
   // ---- Step 5: reseed for the refund branch ----
@@ -228,9 +250,14 @@ async function runHappyPath(): Promise<void> {
   const mock4 = makeMockWa();
   await handleIncomingMessage(PHONE, makeList('request_refund'), mock4.wa);
   session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
-  assert(session?.state === 'REFUND_REQUEST', `Step 6: state REFUND_REQUEST (got ${session?.state})`);
   assert(
-    mock4.sent.some((m) => m.type === 'text' && /went wrong|kya galat hua|क्या गलत हुआ/i.test(m.body)),
+    session?.state === 'REFUND_REQUEST',
+    `Step 6: state REFUND_REQUEST (got ${session?.state})`,
+  );
+  assert(
+    mock4.sent.some(
+      (m) => m.type === 'text' && /went wrong|kya galat hua|क्या गलत हुआ/i.test(m.body),
+    ),
     'Step 6: msgAskRefundReason prompt sent',
   );
 
@@ -240,7 +267,10 @@ async function runHappyPath(): Promise<void> {
   await handleIncomingMessage(PHONE, makeText(reason), mock5.wa);
   order = await prisma.order.findUnique({ where: { id: orderId2 } });
   assert(order?.refundReason === reason, 'Step 7: refundReason persisted');
-  assert(order?.refundStatus === 'pending', `Step 7: refundStatus=pending (got ${order?.refundStatus})`);
+  assert(
+    order?.refundStatus === 'pending',
+    `Step 7: refundStatus=pending (got ${order?.refundStatus})`,
+  );
   assert(order?.refundRequestedAt instanceof Date, 'Step 7: refundRequestedAt set');
   session = await prisma.session.findUnique({ where: { phoneNumber: PHONE } });
   assert(session?.state === 'DELIVERED', `Step 7: state back to DELIVERED (got ${session?.state})`);
@@ -257,15 +287,23 @@ async function runHappyPath(): Promise<void> {
   const app = await buildAdminApp();
   try {
     const denyToken = await signRefundDecisionToken(orderId2, 'deny');
+    // POST applies the decision. GET is the prefetch-safe confirm page only
+    // (email scanners issue GET), so the side effect lives in POST.
     const denyRes = await app.inject({
-      method: 'GET',
+      method: 'POST',
       url: `/admin/refunds/decide?token=${encodeURIComponent(denyToken)}`,
     });
     // 200 or 207 (denied page or whatsapp_error page if WA send fails under
     // smoke creds). Either way the order should be denied.
-    assert([200, 207].includes(denyRes.statusCode), `Step 8: 200 or 207 (got ${denyRes.statusCode})`);
+    assert(
+      [200, 207].includes(denyRes.statusCode),
+      `Step 8: 200 or 207 (got ${denyRes.statusCode})`,
+    );
     order = await prisma.order.findUnique({ where: { id: orderId2 } });
-    assert(order?.refundStatus === 'denied', `Step 8: refundStatus=denied (got ${order?.refundStatus})`);
+    assert(
+      order?.refundStatus === 'denied',
+      `Step 8: refundStatus=denied (got ${order?.refundStatus})`,
+    );
     assert(order?.refundDecidedAt instanceof Date, 'Step 8: refundDecidedAt set');
 
     // ---- Step 9: same link clicked again → already_decided idempotency ----
