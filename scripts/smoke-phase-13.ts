@@ -36,12 +36,9 @@ loadEnv(resolve(import.meta.dirname, '../.env'));
 process.env.PAYMENT_BYPASS = 'true';
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
-const { createOrderAndSendPayment } = await import(
-  '../packages/session/dist/handlers/instructions.js'
-);
-const { msgProcessingEstimate } = await import(
-  '../packages/session/dist/messages.js'
-);
+const { createOrderAndSendPayment } =
+  await import('../packages/session/dist/handlers/instructions.js');
+const { msgProcessingEstimate } = await import('../packages/session/dist/messages.js');
 const { getImageQueue } = await import('../packages/queue/dist/index.js');
 
 const prisma = new PrismaClient({ log: ['error'] });
@@ -61,8 +58,7 @@ function makeMockWa() {
     sendList: async (_p: string, body: string) => sent.push({ type: 'list', body }),
     sendImage: async (_p: string, _u: string, caption?: string) =>
       sent.push({ type: 'image', body: caption ?? '' }),
-    sendPaymentLink: async (_p: string, body: string) =>
-      sent.push({ type: 'paymentLink', body }),
+    sendPaymentLink: async (_p: string, body: string) => sent.push({ type: 'paymentLink', body }),
     markAsRead: async (_id: string) => {},
   };
   return { wa: wa as any, sent };
@@ -86,7 +82,9 @@ async function cleanup(): Promise<void> {
       if (j.data?.phoneNumber === PHONE) await j.remove().catch(() => {});
     }
     await q.close().catch(() => {});
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
   await prisma.imageJob.deleteMany({ where: { order: { phoneNumber: PHONE } } }).catch(() => {});
   await prisma.session.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
   await prisma.order.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
@@ -96,13 +94,31 @@ async function cleanup(): Promise<void> {
 async function seedUserAndSession(orderCount: number) {
   const user = await prisma.user.upsert({
     where: { phoneNumber: PHONE },
-    update: { orderCount, brandName: 'Tester', name: 'Tester', businessType: 'cat_jewellery', language: 'en' },
-    create: { phoneNumber: PHONE, orderCount, brandName: 'Tester', name: 'Tester', businessType: 'cat_jewellery', language: 'en' },
+    update: {
+      orderCount,
+      brandName: 'Tester',
+      name: 'Tester',
+      businessType: 'cat_jewellery',
+      language: 'en',
+    },
+    create: {
+      phoneNumber: PHONE,
+      orderCount,
+      brandName: 'Tester',
+      name: 'Tester',
+      businessType: 'cat_jewellery',
+      language: 'en',
+    },
   });
   const session = await prisma.session.upsert({
     where: { phoneNumber: PHONE },
     update: { state: 'AWAITING_PHOTO', userId: user.id, stateEnteredAt: new Date() },
-    create: { phoneNumber: PHONE, state: 'AWAITING_PHOTO', userId: user.id, stateEnteredAt: new Date() },
+    create: {
+      phoneNumber: PHONE,
+      state: 'AWAITING_PHOTO',
+      userId: user.id,
+      stateEnteredAt: new Date(),
+    },
   });
   return { user, session };
 }
@@ -115,7 +131,10 @@ async function pathHeuristic3x1(): Promise<void> {
   console.log('\n== Path BD: msgProcessingEstimate(3 styles, 1 photo) -> 5-6 minutes ==');
   // calculated_seconds = 60 + 3*40 + 1*10 = 190 -> ceil(190/60)=4, X=4+1=5, Y=6
   const text = msgProcessingEstimate(3, 1, 'en');
-  assert(/Approximately 5-6 minutes/.test(text), `English format includes "5-6 minutes" (got "${text}")`);
+  assert(
+    /Approximately 5-6 minutes/.test(text),
+    `English format includes "5-6 minutes" (got "${text}")`,
+  );
   assert(/🎨/.test(text), `English text includes 🎨`);
 }
 
@@ -128,7 +147,7 @@ async function pathHinglishFormat(): Promise<void> {
   // 1 style + 1 photo: 60 + 40 + 10 = 110 -> ceil(110/60)=2, X=3, Y=4
   const text = msgProcessingEstimate(1, 1, 'hinglish');
   assert(
-    /Aapke ads taiyaar ho rahe hain.* 3-4 minutes/.test(text),
+    /Aapke creatives taiyaar ho rahe hain.* 3-4 minutes/.test(text),
     `Hinglish format correct (got "${text}")`,
   );
 }
@@ -172,8 +191,13 @@ async function pathFreeOrderSendsEstimate(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function pathWorkerNoIntermediates(): Promise<void> {
-  console.log('\n== Path BG: worker dist no longer references msgGotPhotoCreating / msgProgressAlmostDone ==');
-  const distPath = resolve(import.meta.dirname, '../apps/worker/dist/processors/image-processing.js');
+  console.log(
+    '\n== Path BG: worker dist no longer references msgGotPhotoCreating / msgProgressAlmostDone ==',
+  );
+  const distPath = resolve(
+    import.meta.dirname,
+    '../apps/worker/dist/processors/image-processing.js',
+  );
   const src = readFileSync(distPath, 'utf-8');
   assert(!/msgGotPhotoCreating/.test(src), 'msgGotPhotoCreating absent from worker dist');
   assert(!/msgProgressAlmostDone/.test(src), 'msgProgressAlmostDone absent from worker dist');

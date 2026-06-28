@@ -62,14 +62,21 @@ function makeMockWa() {
     sendText: async (_p: string, body: string) => {
       sent.push({ type: 'text', body });
     },
-    sendButtons: async (_p: string, body: string, buttons: Array<{ id: string; title: string }>) => {
+    sendButtons: async (
+      _p: string,
+      body: string,
+      buttons: Array<{ id: string; title: string }>,
+    ) => {
       sent.push({ type: 'buttons', body, buttons });
     },
     sendList: async (
       _p: string,
       body: string,
       _footer: string,
-      sections: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }>,
+      sections: Array<{
+        title: string;
+        rows: Array<{ id: string; title: string; description?: string }>;
+      }>,
     ) => {
       sent.push({ type: 'list', body, rows: sections.flatMap((s) => s.rows) });
     },
@@ -123,9 +130,11 @@ function assert(cond: unknown, msg: string): void {
 async function cleanup(): Promise<void> {
   await prisma.session.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
   await prisma.order.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
-  await prisma.processedMessage.deleteMany({
-    where: { messageId: { startsWith: `smoke7-${PHONE}-` } },
-  }).catch(() => {});
+  await prisma.processedMessage
+    .deleteMany({
+      where: { messageId: { startsWith: `smoke7-${PHONE}-` } },
+    })
+    .catch(() => {});
   await prisma.user.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
 }
 
@@ -178,6 +187,11 @@ async function pathStylePickerSingleMessage(): Promise<void> {
   // multi-style picker, we'd normally need photos + Custom Pack. For a
   // smoke-only test, set the session state directly and call the
   // style handler's list-reply path.
+  // The 3-step multi-pick picker only runs for PAID orders. A first free order
+  // takes a single style and completes immediately (text + finish, no
+  // next-style list). Make this a returning/paid user (orderCount=1) so the
+  // multi-pick list behavior under test is actually exercised.
+  await prisma.user.update({ where: { phoneNumber: PHONE }, data: { orderCount: 1 } });
   await prisma.session.update({
     where: { phoneNumber: PHONE },
     data: {
@@ -231,6 +245,10 @@ async function pathUpfrontStyleCopy(): Promise<void> {
   await handleIncomingMessage(PHONE, makeButtonMessage('lang_en'), wa);
   await handleIncomingMessage(PHONE, makeTextMessage('Tester'), wa);
   await handleIncomingMessage(PHONE, makeListMessage('cat_jewellery'), wa);
+  // Paid/returning user (orderCount=1): the "Pick 1-3 styles" multi-pick copy
+  // only shows for paid orders; a first free order shows the single-free-creative
+  // copy instead. Make this paid so the upfront multi-pick copy is exercised.
+  await prisma.user.update({ where: { phoneNumber: PHONE }, data: { orderCount: 1 } });
   await prisma.session.update({
     where: { phoneNumber: PHONE },
     data: { state: 'SETUP_STYLE', styleSelections: [], stylePickStep: 0 },
@@ -281,7 +299,10 @@ async function pathIdempotentHi(): Promise<void> {
   sent.length = 0;
   await handleIncomingMessage(PHONE, makeTextMessage('hi'), wa);
   const secondButtons = sent.filter((m) => m.type === 'buttons');
-  assert(secondButtons.length === 0, `second "hi" within 30s sends 0 button menus (got ${secondButtons.length})`);
+  assert(
+    secondButtons.length === 0,
+    `second "hi" within 30s sends 0 button menus (got ${secondButtons.length})`,
+  );
 }
 
 // ---------------------------------------------------------------------------
