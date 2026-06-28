@@ -116,6 +116,11 @@ async function handleApprove(
       refundStatus: 'approved',
       refundDecidedAt: new Date(),
       refundDecisionNote: 'Approved via magic link',
+      // Seed a sentinel so that if the process crashes between this claim and
+      // recording the Razorpay outcome below, the row reads "approved but
+      // issuance unconfirmed" instead of a silent approved-with-no-refund. The
+      // success/failure update below overwrites it (cleared to null on success).
+      razorpayRefundError: 'issuance_pending',
     },
   });
   if (claim.count === 0) {

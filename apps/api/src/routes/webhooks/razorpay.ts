@@ -52,7 +52,7 @@ export async function razorpayWebhookRoutes(app: FastifyInstance): Promise<void>
 
     try {
       // Only payment_link.paid drives order state.
-      if (body.event !== 'payment_link.paid') {
+      if (body?.event !== 'payment_link.paid') {
         return;
       }
 

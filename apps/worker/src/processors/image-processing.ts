@@ -89,6 +89,7 @@ export async function processImageJob(job: Job): Promise<void> {
     // eslint-disable-next-line prefer-const
     let outputUrl!: string;
     let cutoutUrl: string | undefined;
+    let completionWon = false; // true only if THIS run won the atomic completion claim
 
     {
       // ── Normal image pipeline ─────────────────────────────────────────────
@@ -263,13 +264,14 @@ export async function processImageJob(job: Job): Promise<void> {
         }));
         return { count: 0 };
       });
+      completionWon = completionClaim.count > 0;
 
       // Accumulate this style's real INR cost onto the order for margin
       // tracking — ONLY when we won the completion claim, so a re-delivered job
       // never double-bills. Atomic COALESCE so parallel style jobs each add
       // their own share without a read-modify-write race; null column starts at
       // 0. Non-fatal: a cost-tracking miss must never fail a delivered image.
-      if (completionClaim.count > 0 && typeof result.costInr === 'number' && result.costInr > 0) {
+      if (completionWon && typeof result.costInr === 'number' && result.costInr > 0) {
         await prisma.$executeRaw`
           UPDATE "orders"
           SET "actual_cost_inr" = COALESCE("actual_cost_inr", 0) + ${result.costInr}
@@ -285,16 +287,19 @@ export async function processImageJob(job: Job): Promise<void> {
       }
     } // end of normal image pipeline branch
 
-    // Update order — add output URL
+    // Update order — add output URL. Gate on the won completion claim so a
+    // re-delivered job (claim lost) doesn't push a duplicate URL onto the order.
     const order = await prisma.order.findUnique({ where: { id: data.orderId } });
     if (order) {
-      await prisma.order.update({
-        where: { id: data.orderId },
-        data: {
-          outputImageUrls: { push: outputUrl },
-          cutoutUrls: cutoutUrl ? { push: cutoutUrl } : undefined,
-        },
-      });
+      if (completionWon) {
+        await prisma.order.update({
+          where: { id: data.orderId },
+          data: {
+            outputImageUrls: { push: outputUrl },
+            cutoutUrls: cutoutUrl ? { push: cutoutUrl } : undefined,
+          },
+        });
+      }
 
       // Check if all images in the current round are done.
       const allJobs = await prisma.imageJob.findMany({
@@ -538,7 +543,12 @@ export async function processImageJob(job: Job): Promise<void> {
       const attemptsSoFar = await prisma.imageJob
         .findUnique({ where: { id: data.imageJobId }, select: { attempts: true } })
         .catch(() => null);
-      const underRetryCap = (attemptsSoFar?.attempts ?? 0) + 1 <= MAX_PER_IMAGE_RETRIES;
+      // `attempts` is bumped TWICE per retry cycle — once at run-start (status
+      // -> processing) and once when a retry is scheduled below — so the
+      // effective number of retries is attempts/2. Divide so the cap means what
+      // it says (MAX_PER_IMAGE_RETRIES actual retries, not half that).
+      const retriesSoFar = Math.floor((attemptsSoFar?.attempts ?? 0) / 2);
+      const underRetryCap = retriesSoFar < MAX_PER_IMAGE_RETRIES;
 
       if (failureClass === 'transient' && withinWindow && underRetryCap) {
         // ── Keep THIS image alive — re-queue with growing backoff. ───────────

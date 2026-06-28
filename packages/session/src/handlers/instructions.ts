@@ -15,7 +15,6 @@ import { sendPaymentLink, enqueueImageJobs } from './payment.js';
 import { selectStylesForOrder } from '../auto-styles.js';
 import { mapInstructionsByPosition } from '../instructions-mapping.js';
 import { generateUniqueShortId } from '../short-id.js';
-import { logger } from '../logger.js';
 
 // ---------------------------------------------------------------------------
 // Download media from WhatsApp
