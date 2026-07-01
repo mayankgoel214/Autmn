@@ -40,6 +40,12 @@ const envSchema = z.object({
   // Admin — required in production, optional in dev
   ADMIN_SECRET: optionalInDev(z.string().min(1)),
 
+  // Refund magic-link signing secret + the founder email refund requests go to.
+  // Boot-validated so a missing/short value fails fast at startup instead of at
+  // refund-send time (which would read like an outage, not a config error).
+  REFUND_DECISION_SECRET: optionalInDev(z.string().min(32)),
+  ADMIN_EMAIL: optionalInDev(z.string().email()),
+
   // Sentry — always optional
   SENTRY_DSN: z.string().optional(),
 });
@@ -60,6 +66,8 @@ const PROD_REQUIRED_SECRETS = [
   'RAZORPAY_KEY_SECRET',
   'RAZORPAY_WEBHOOK_SECRET',
   'ADMIN_SECRET',
+  'REFUND_DECISION_SECRET',
+  'ADMIN_EMAIL',
 ] as const satisfies readonly (keyof Config)[];
 
 let _config: Config | null = null;

@@ -370,7 +370,11 @@ export async function processImageJob(job: Job): Promise<void> {
           }
           const currentSession = await prisma.session.findFirst({ where: { userId: user.id } });
           const isStyleChangeEdit = currentSession?.state === 'EDIT_PROCESSING';
-          if (isStyleChangeEdit) {
+          // Gate on completionWon: a genuine style-change edit job won its own
+          // completion claim (this run produced the new output). A BullMQ
+          // re-delivery of an already-completed job did NOT (completionWon=false)
+          // — skip so we don't duplicate-send the same image.
+          if (isStyleChangeEdit && completionWon) {
             log('Style-change edit delivery — order already marked complete, sending output and feedback buttons');
             const wa = new WhatsAppClient({
               accessToken: config.WHATSAPP_ACCESS_TOKEN,

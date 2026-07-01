@@ -152,10 +152,17 @@ async function handleApprove(
 
   // Record the Razorpay outcome on the already-claimed row. razorpayRefundError
   // gives the founder a clear "retry the API call" signal without rewriting the
-  // locked decision state.
+  // locked decision state. If THIS write fails after Razorpay already refunded,
+  // the row keeps the 'issuance_pending' sentinel — emit a greppable event so
+  // it's reconcilable (money moved but the record didn't land).
   await prisma.order.update({
     where: { id: order.id },
     data: { razorpayRefundId, razorpayRefundError: razorpayError },
+  }).catch((writeErr) => {
+    app.log.error(
+      { orderId: order.id, razorpayRefundId, err: String(writeErr), event: 'refund_recorded_write_failed' },
+      'Refund issued at Razorpay but recording the outcome on the order failed — reconcile manually',
+    );
   });
 
   if (razorpayError) {
@@ -261,7 +268,7 @@ async function loadDecisionContext(
     return { kind: 'page', statusCode: 400, html: renderRefundDecisionPage({ status: 'token_invalid' }) };
   }
 
-  let decoded: { orderId: string; action: 'approve' | 'deny' };
+  let decoded: { orderId: string; action: 'approve' | 'deny'; iat: number };
   try {
     decoded = await verifyRefundDecisionToken(token);
   } catch (err) {
@@ -277,6 +284,23 @@ async function loadDecisionContext(
   });
   if (!order) {
     return { kind: 'page', statusCode: 404, html: renderRefundDecisionPage({ status: 'token_invalid', detail: 'Order not found' }) };
+  }
+
+  // SEC — bind the token to the refund REQUEST it was issued for. Single-use is
+  // otherwise enforced only by refundStatus !== 'pending'; if a new refund
+  // request re-pends the order, a stale (possibly leaked) link from an earlier
+  // request would reactivate. Reject any token issued before the current
+  // request (60s skew buffer for the same-request signing timestamp).
+  if (
+    order.refundRequestedAt &&
+    decoded.iat * 1000 < new Date(order.refundRequestedAt).getTime() - 60_000
+  ) {
+    app.log.warn({ orderId: order.id }, 'Refund token predates the current request — rejected');
+    return {
+      kind: 'page',
+      statusCode: 401,
+      html: renderRefundDecisionPage({ status: 'token_invalid', detail: 'This link was issued for an earlier request.' }),
+    };
   }
 
   // Idempotency — a decision already in place renders as "already decided"
@@ -335,9 +359,13 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (req.url.startsWith('/admin/refunds/decide')) return;
 
     const config = getConfig();
-    if (config.NODE_ENV === 'production') {
+    const expected = config.ADMIN_SECRET ?? '';
+    // Enforce in production AND whenever a real admin secret is configured in
+    // any env — so a staging/preview box that forgets NODE_ENV=production isn't
+    // left with wide-open admin routes.
+    const enforce = config.NODE_ENV === 'production' || (!!expected && expected !== 'placeholder');
+    if (enforce) {
       const secret = req.headers['x-admin-secret'];
-      const expected = config.ADMIN_SECRET ?? '';
       if (
         typeof secret !== 'string' ||
         !secret ||
@@ -417,6 +445,22 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // confirm button on the GET page. Browsers and scanners do not auto-POST, so
   // the side effect cannot be triggered by merely opening the email link.
   app.post('/admin/refunds/decide', async (req: FastifyRequest, reply: FastifyReply) => {
+    // SEC — CSRF guard. The confirm button POSTs same-origin from our own page;
+    // a cross-site page firing this POST with a leaked token in the URL is
+    // rejected. Sec-Fetch-Site is the primary signal; the Origin check is the
+    // fallback. Requests with neither header (curl / non-browser) are allowed —
+    // they still need a valid signed token and can't be driven by a victim's
+    // browser.
+    const config = getConfig();
+    let appOrigin: string;
+    try { appOrigin = new URL(config.APP_URL).origin; } catch { appOrigin = config.APP_URL; }
+    const origin = req.headers['origin'];
+    const fetchSite = req.headers['sec-fetch-site'];
+    if (fetchSite === 'cross-site' || (typeof origin === 'string' && origin !== appOrigin)) {
+      app.log.warn({ origin, fetchSite }, 'Refund decide POST rejected — cross-origin');
+      return reply.code(403).send({ error: 'Forbidden', code: 'CROSS_ORIGIN' });
+    }
+
     const { token } = (req.query as { token?: string }) ?? {};
     const ctx = await loadDecisionContext(app, token);
     if (ctx.kind === 'page') return renderHtml(reply, ctx.statusCode, ctx.html);

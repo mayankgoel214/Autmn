@@ -18,7 +18,10 @@
 import { SignJWT, jwtVerify } from 'jose';
 
 const ALG = 'HS256';
-const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+// 7 days. Short enough to bound a leaked link's usefulness, long enough for a
+// founder to action a refund email over a weekend. Also bound to the request
+// timestamp at click time (see loadDecisionContext).
+const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 export type RefundDecisionAction = 'approve' | 'deny';
 
