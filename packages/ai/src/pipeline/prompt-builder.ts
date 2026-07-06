@@ -127,6 +127,12 @@ export interface BuildCreativePromptParams {
   negativeConstraints?: string[];
   /** Aspect ratio override; defaults to 1:1 (the only thing V1 ships). */
   aspectRatio?: string;
+  /**
+   * One-shot upgrade — exact brand/label text transcribed from the photo by
+   * the Light Analyzer ("Cadbury | Dairy Milk"). Injected verbatim so the
+   * model reproduces it character for character instead of re-spelling it.
+   */
+  labelText?: string | null;
 }
 
 /**
@@ -146,10 +152,14 @@ export function buildCreativePrompt(params: BuildCreativePromptParams): string {
     userInstructions,
     negativeConstraints,
     aspectRatio = '1:1',
+    labelText,
   } = params;
 
   const productLine = productDescription?.trim() || 'the product shown in the reference image';
   const brandLine = brandName?.trim() || 'unspecified';
+  const labelLine = labelText?.trim()
+    ? `\nText on the product/packaging reads EXACTLY: "${labelText.trim()}" — reproduce every character, word, and capitalization exactly as written. Do not re-spell, translate, restyle, or invent typography.`
+    : '';
   const styleLine = humaniseStyle(style);
   const styleDirection = artDirection
     ? `${artDirection.sceneDirection.trim().replace(/\.+$/, '')}. ${artDirection.moodAnchor.trim().replace(/\.+$/, '')}.`
@@ -177,7 +187,7 @@ export function buildCreativePrompt(params: BuildCreativePromptParams): string {
   sections.push(
     `PRIMARY OBJECTIVE
 =================
-Faithfully reproduce the product shown in the reference image. The product's exact shape, color, materials, logos, text, packaging, proportions, and details must be preserved without alteration.
+Faithfully reproduce the product shown in the reference image. The product's exact shape, color, materials, logos, text, packaging, proportions, and details must be preserved without alteration.${labelLine}
 
 Product: ${productLine}
 Brand: ${brandLine}`,
@@ -233,7 +243,8 @@ Rules that always apply:
 - The product must be the clear focal point.
 - Do not change the product's shape, packaging design, logo, or label.
 - Do not invent secondary products, brand marks, or text not on the original.
-- Lighting and composition must match the selected style.`,
+- Any text or logo on the product must match the reference exactly — no re-spelling, no invented typography.
+- Lighting and composition must match the selected style.${negatives.length > 0 ? `\n- Final reminder — the image must NOT contain: ${negatives.join('; ')}.` : ''}`,
   );
 
   return sections.join('\n\n');
@@ -255,10 +266,14 @@ export function buildAnythingYouWantCreativePrompt(params: BuildCreativePromptPa
     userInstructions,
     negativeConstraints,
     aspectRatio = '1:1',
+    labelText,
   } = params;
 
   const productLine = productDescription?.trim() || 'the product shown in the reference image';
   const brandLine = brandName?.trim() || 'unspecified';
+  const labelLine = labelText?.trim()
+    ? `\nText on the product/packaging reads EXACTLY: "${labelText.trim()}" — reproduce every character, word, and capitalization exactly as written. Do not re-spell, translate, restyle, or invent typography.`
+    : '';
   const categoryRule = getCategoryRule(productCategory);
   const edgeAddenda = buildEdgeCaseAddenda(edgeCaseFlags);
   const categoryBody = edgeAddenda ? `${categoryRule} ${edgeAddenda}` : categoryRule;
@@ -274,7 +289,7 @@ export function buildAnythingYouWantCreativePrompt(params: BuildCreativePromptPa
   sections.push(
     `PRIMARY OBJECTIVE
 =================
-Faithfully reproduce the product shown in the reference image. The product's exact shape, color, materials, logos, text, packaging, proportions, and details must be preserved without alteration.
+Faithfully reproduce the product shown in the reference image. The product's exact shape, color, materials, logos, text, packaging, proportions, and details must be preserved without alteration.${labelLine}
 
 Product: ${productLine}
 Brand: ${brandLine}`,
@@ -325,7 +340,8 @@ Identity anchoring: the first reference image is the source of truth for product
 Rules that always apply (override the user-described scene if they conflict):
 - The product must be the clear focal point.
 - Do not change the product's shape, packaging design, logo, or label.
-- Do not invent secondary products, brand marks, or text not on the original.`,
+- Do not invent secondary products, brand marks, or text not on the original.
+- Any text or logo on the product must match the reference exactly — no re-spelling, no invented typography.${negatives.length > 0 ? `\n- Final reminder — the image must NOT contain: ${negatives.join('; ')}.` : ''}`,
   );
 
   return sections.join('\n\n');
