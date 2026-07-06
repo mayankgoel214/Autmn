@@ -75,14 +75,11 @@ canonical test:
 - **Refund double-click:** two rapid POSTs on the decide link must issue at
   most one Razorpay refund (atomic status claim; `issuance_pending` sentinel
   detects a crash mid-issue).
-- **ONE-SHOT policy (locked 2026-07):** each image gets exactly ONE Gemini
-  generation, delivered as-is. There is no tier 2, no LLM verifier, no
-  retry — every pipeline failure is classified permanent and refunds
-  immediately with the "not working right now" message. The free local
-  defect check (blur/blank/garbage) is the only gate. Verify: a failed
-  style must never generate twice (check actual_cost_inr stays ~13.5/img).
+- **Transient failure path:** a flaky generation retries with backoff inside a
+  45-min window, capped at 8 real retries, then refund-routes. Permanent
+  errors (quota exhausted, safety block) refund immediately.
 - **Partial success:** 2 styles where 1 fails → the good image is delivered,
-  the count message says 1, the failed style is refunded/acknowledged.
+  the count message says 1, the failed style is acknowledged.
 
 ## 5. Known state / not part of this test
 

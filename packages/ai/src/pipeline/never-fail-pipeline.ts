@@ -171,7 +171,7 @@ export async function processImageNeverFail(
   //     (identical to pre-Phase-21 behavior — safe)
   const allBuffers = [primaryBuffer, ...(params.referenceImageBuffers ?? [])];
 
-  const [brief, analyzed] = await Promise.all([
+  const [brief, edgeCaseFlags] = await Promise.all([
     generateCreativeBrief({
       buffers: allBuffers,
       styles: [style],
@@ -189,22 +189,8 @@ export async function processImageNeverFail(
           style,
           analysisCategory: analysis.productCategory,
           flagsFired: fired,
-          hasLabelText: !!analysis.visibleText,
         }));
-        // One-shot upgrade — keep the transcribed label text and a concrete
-        // product anchor ("gold jhumka earrings (gold, maroon)"), not just the
-        // boolean flags. Both feed the prompt's fidelity sections.
-        const colorNote = analysis.dominantColors?.length
-          ? ` (${analysis.dominantColors.join(', ')})`
-          : '';
-        return {
-          flags: flags as Record<string, boolean | undefined>,
-          labelText: analysis.visibleText ?? null,
-          anchorDescription:
-            analysis.productName && analysis.productName !== 'product'
-              ? `${analysis.productName}${colorNote}`
-              : undefined,
-        };
+        return flags as Record<string, boolean | undefined>;
       })
       .catch((err) => {
         console.warn(JSON.stringify({
@@ -216,7 +202,6 @@ export async function processImageNeverFail(
         return undefined;
       }),
   ]);
-  const edgeCaseFlags = analyzed?.flags;
 
   // ---- Route to V1.1 production chain ---------------------------------------
   const styleResult = await processStyleProduction({
@@ -227,13 +212,10 @@ export async function processImageNeverFail(
     userInstructions: params.voiceInstructions,
     originalVoiceInstructions: params.originalVoiceInstructions,
     artDirection: brief?.directions[style],
-    // Prefer the brief's product type; fall back to the analyzer's concrete
-    // anchor so the prompt never says just "the product in the reference".
-    productDescription: brief?.profile.productType ?? analyzed?.anchorDescription,
+    productDescription: brief?.profile.productType,
     brandName: params.brandName,
     brandContext: params.brandContext,
     edgeCaseFlags,
-    labelText: analyzed?.labelText,
   });
 
   // ---- Map to NeverFailResult ------------------------------------------------

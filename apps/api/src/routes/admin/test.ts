@@ -17,6 +17,7 @@ import { Buckets } from '@autmn/storage';
 import { lightAnalyze, type LightAnalysis } from '@autmn/ai';
 import { processOrderProduction } from '@autmn/ai';
 import { buildCreativePrompt } from '@autmn/ai';
+import { openaiGenerateImage, type OpenAIModelId } from '@autmn/ai';
 import { preprocessImage } from '@autmn/ai';
 
 // ---------------------------------------------------------------------------
@@ -699,7 +700,6 @@ export async function adminTestRoutes(app: FastifyInstance): Promise<void> {
         productName: 'product',
         productCategory: 'other',
         hasBranding: true,
-        visibleText: null,
         physicalSize: 'medium' as const,
         dominantColors: ['neutral'],
         typicalSetting: 'tabletop',
@@ -750,12 +750,28 @@ export async function adminTestRoutes(app: FastifyInstance): Promise<void> {
             processedBuffer = primary.buffer;
           }
 
-          // One-shot policy (2026-07): OpenAI generation removed from the
-          // product. This dev-only comparison branch is disabled with it.
-          void processedBuffer;
-          throw new Error(
-            `OpenAI models are removed under the one-shot policy — pick a Gemini model (requested: ${imageModel})`,
-          );
+          const gen = await openaiGenerateImage({
+            inputImageBuffer: processedBuffer,
+            prompt,
+            referenceImageBuffers: referenceImageBuffers.length > 0 ? referenceImageBuffers : undefined,
+            model: imageModel as OpenAIModelId,
+          });
+
+          // Upload to Supabase
+          const outputPath = `admin-openai-${imageModel}-${Date.now()}.jpg`;
+          const outputUrl = await uploadFile(Buckets.PROCESSED_IMAGES, outputPath, gen.imageBuffer, 'image/jpeg');
+
+          return {
+            style,
+            outputUrl,
+            tier: 3,
+            model: imageModel,
+            pipeline: `openai-${imageModel}`,
+            costInr: imageModel === 'gpt-image-2' ? 21.00 : 10.00,
+            durationMs: Date.now() - styleStart,
+            prompt,
+            error: null as string | null,
+          };
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);
           app.log.error({ err, style }, 'Admin test: OpenAI generation failed');

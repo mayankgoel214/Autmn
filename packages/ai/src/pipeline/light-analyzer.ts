@@ -47,11 +47,6 @@ export const LightAnalysisSchema = z.object({
   // Collective name for the set (only populated when itemCount > 1).
   // Examples: "bridal jewelry set", "3-piece cosmetics bundle", "gift hamper"
   setDescription: z.string().nullable().catch(null),
-  // One-shot upgrade — exact transcription of any brand/label text visible on
-  // the product. Injected verbatim into the generation prompt so the image
-  // model reproduces it character for character (the "Cadbury → Bolden"
-  // failure mode). null when no readable text.
-  visibleText: z.string().max(400).nullable().catch(null),
 
   // ---------------------------------------------------------------------
   // Phase 21 — edge-case flags. Drive per-category prompt addenda
@@ -105,8 +100,6 @@ Phase 21 — edge-case flags. Set each to true ONLY when clearly true; default f
 14. isLowContrastVsBackground: true if the product is the same value range as its current background (white-on-white, black-on-black) and would risk merging into a similar background in the new ad.
 15. hasTextOrLogo: true if any text, logo, brand name, ingredient list, or printed label is visible on the product surface or packaging.
 16. isTinyProduct: true if physicalSize is "tiny" AND the product fills less than ~30% of the photo frame. Triggers macro composition.
-
-17. visibleText: Transcribe the brand/label text visible on the product or packaging, EXACTLY as written — same spelling, same capitalization, in reading order, segments separated by " | " (e.g. "Cadbury | Dairy Milk | Silk"). Only include text you can actually read clearly; skip tiny illegible print. null if no readable text. Max ~50 words.
 
 Return ONLY valid JSON, no markdown fences.`;
 }

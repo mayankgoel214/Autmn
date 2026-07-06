@@ -102,9 +102,16 @@ export {
   extractNegativesPerStyle,
 } from './instructions/extract-negatives.js';
 
-// One-shot policy (2026-07): the Phase 19 LLM verifier + retry were removed.
-// One Gemini generation per image; the free deterministic defect check is the
-// only gate, and its failure refunds immediately.
+// Phase 19 — verifier.
+export {
+  verifyGeneration,
+  shouldRetry,
+  shouldAccept,
+  DRIFT_THRESHOLD,
+  VerificationResultSchema,
+  type VerificationResult,
+  type VerifyParams,
+} from './qa/verify.js';
 
 // Phase 20 — strict track (segmentation + composite).
 export {
@@ -184,5 +191,8 @@ export { interpretVoiceNote, type VoiceInterpretResult } from './voice/interpret
 // OpenAI image generation (admin A/B testing)
 // ---------------------------------------------------------------------------
 
-// One-shot policy (2026-07): openai-generate (tier 2) removed — one Gemini
-// generation per image, no fallback tier.
+export {
+  openaiGenerateImage,
+  type OpenAIGenerateParams,
+  type OpenAIModelId,
+} from './pipeline/openai-generate.js';
