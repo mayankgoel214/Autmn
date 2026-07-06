@@ -41,12 +41,8 @@ function loadEnv(envPath: string): void {
 
 loadEnv(resolve(import.meta.dirname, '../.env'));
 
-const {
-  VerificationResultSchema,
-  shouldRetry,
-  shouldAccept,
-  DRIFT_THRESHOLD,
-} = await import('../packages/ai/dist/qa/verify.js');
+const { VerificationResultSchema, shouldRetry, shouldAccept, DRIFT_THRESHOLD } =
+  await import('../packages/ai/dist/qa/verify.js');
 
 const { PrismaClient } = await import('../packages/db/src/generated/client/index.js');
 const prisma = new PrismaClient({ log: ['error'] });
@@ -55,8 +51,10 @@ const PHONE = `919955${String(Date.now()).slice(-7)}`;
 
 let failures = 0;
 function assert(cond: unknown, msg: string): void {
-  if (!cond) { console.error(`  ✗ ${msg}`); failures++; }
-  else console.log(`  ✓ ${msg}`);
+  if (!cond) {
+    console.error(`  ✗ ${msg}`);
+    failures++;
+  } else console.log(`  ✓ ${msg}`);
 }
 
 async function cleanup(): Promise<void> {
@@ -64,6 +62,12 @@ async function cleanup(): Promise<void> {
   await prisma.session.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
   await prisma.order.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
   await prisma.user.deleteMany({ where: { phoneNumber: PHONE } }).catch(() => {});
+  // The COST01 shortId is fixed but PHONE is timestamp-random: a run killed
+  // mid-test strands a COST01 order under an old phone that per-phone cleanup
+  // never matches, and every later run then dies on the short_id unique
+  // constraint. Delete by shortId too so the script self-heals.
+  await prisma.imageJob.deleteMany({ where: { order: { shortId: 'COST01' } } }).catch(() => {});
+  await prisma.order.deleteMany({ where: { shortId: 'COST01' } }).catch(() => {});
 }
 
 function pathSchemaParsing(): void {
@@ -105,21 +109,41 @@ function pathShouldRetry(): void {
   const pass = { identityPreserved: true, driftScore: 10, driftReasons: [], negativesViolated: [] };
   assert(shouldRetry(pass) === false, 'low drift + no violations → no retry');
 
-  const heavyDrift = { identityPreserved: false, driftScore: 60, driftReasons: ['wrong color'], negativesViolated: [] };
+  const heavyDrift = {
+    identityPreserved: false,
+    driftScore: 60,
+    driftReasons: ['wrong color'],
+    negativesViolated: [],
+  };
   assert(shouldRetry(heavyDrift) === true, 'drift above threshold → retry');
 
-  const negativeOnly = { identityPreserved: true, driftScore: 5, driftReasons: [], negativesViolated: ['no model'] };
+  const negativeOnly = {
+    identityPreserved: true,
+    driftScore: 5,
+    driftReasons: [],
+    negativesViolated: ['no model'],
+  };
   assert(shouldRetry(negativeOnly) === true, 'low drift but negative violated → retry');
 
   // Exact threshold (30) does NOT retry (strict greater-than).
-  const atThreshold = { identityPreserved: true, driftScore: DRIFT_THRESHOLD, driftReasons: [], negativesViolated: [] };
+  const atThreshold = {
+    identityPreserved: true,
+    driftScore: DRIFT_THRESHOLD,
+    driftReasons: [],
+    negativesViolated: [],
+  };
   assert(shouldRetry(atThreshold) === false, 'drift === threshold → no retry');
 }
 
 function pathShouldAccept(): void {
   console.log('\n== Path V3: shouldAccept policy — hard retry cap ==');
   const pass = { identityPreserved: true, driftScore: 10, driftReasons: [], negativesViolated: [] };
-  const drift = { identityPreserved: false, driftScore: 60, driftReasons: ['x'], negativesViolated: [] };
+  const drift = {
+    identityPreserved: false,
+    driftScore: 60,
+    driftReasons: ['x'],
+    negativesViolated: [],
+  };
   assert(shouldAccept(pass, 1) === true, 'attempt 1 + pass → accept');
   assert(shouldAccept(drift, 1) === false, 'attempt 1 + drift → no accept (retry first)');
   assert(shouldAccept(drift, 2) === true, 'attempt 2 + drift → ACCEPT (hard cap)');
@@ -170,7 +194,9 @@ async function pathActualCostColumn(): Promise<void> {
 }
 
 async function pathStyleResultShape(): Promise<void> {
-  console.log('\n== Path V6: StyleResult type exposes attempts / verification / acceptedDespiteDrift ==');
+  console.log(
+    '\n== Path V6: StyleResult type exposes attempts / verification / acceptedDespiteDrift ==',
+  );
   // TS-only check via runtime tautology — if the build succeeded with the
   // new fields, this passes.
   const mod = await import('../packages/ai/dist/pipeline/production.js');
