@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: autmn
+
+# config.yaml is applied separately and deliberately left out: it carries the
+# Secret template, and applying it would overwrite real credentials with
+# REPLACE_ME. Apply the ConfigMap and the real Secret once, then use this.
+resources:
+  - namespace.yaml
+  - api.yaml
+  - worker.yaml
+  - worker-autoscale.yaml
+
+# The one place the image tag is set. Production overlays override newTag with
+# an immutable build tag; a floating :latest is not reproducible and makes a
+# rollback ambiguous.
+images:
+  - name: autmn-api
+    newTag: latest

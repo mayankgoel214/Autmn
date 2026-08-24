@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autmn-worker
+  namespace: autmn
+  labels: { app: autmn-worker }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: autmn-worker }
+  template:
+    metadata:
+      labels: { app: autmn-worker }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9101"
+    spec:
+      # An image job can run for seven minutes and BullMQ holds a lock for ten.
+      # Killing a pod mid-job means waiting out that lock before the work is
+      # retried, so eviction gets a long grace period to finish what it started.
+      terminationGracePeriodSeconds: 600
+      containers:
+        - name: worker
+          # Overridden per environment by the `images:` block in
+          # kustomization.yaml. IfNotPresent rather than the default: a :latest
+          # tag makes Kubernetes default to Always, which fails against an image
+          # side-loaded into a local cluster and pulls needlessly in production.
+          image: autmn-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "apps/worker/dist/index.js"]
+          ports:
+            - { name: metrics, containerPort: 9101 }
+          envFrom:
+            - configMapRef: { name: autmn-config }
+            - secretRef: { name: autmn-secrets }
+          env:
+            - { name: METRICS_PORT, value: "9101" }
+          # No readiness probe: the worker serves no traffic, so there is
+          # nothing for a Service to route to it. Liveness points at the metrics
+          # port, which is the only thing it listens on.
+          livenessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 4
+          resources:
+            # The generation pipeline holds whole images in memory, so the
+            # memory request is well above the API's.
+            requests: { cpu: 250m, memory: 512Mi }
+            limits:   { memory: 1536Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autmn-worker
+  namespace: autmn
+  labels: { app: autmn-worker }
+spec:
+  clusterIP: None          # headless: only exists so Prometheus can discover pods
+  selector: { app: autmn-worker }
+  ports:
+    - { name: metrics, port: 9101, targetPort: metrics }

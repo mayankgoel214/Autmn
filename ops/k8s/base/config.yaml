@@ -1,0 +1,47 @@
+# Non-secret configuration. Everything credential-bearing lives in the Secret
+# below, which is a template — the real values come from the cluster's secret
+# store, never from this file.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: autmn-config
+  namespace: autmn
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  METRICS_PORT_API: "9100"
+  METRICS_PORT_WORKER: "9101"
+---
+# Applied once by hand or by the secret operator; `kubectl apply` of this file
+# would overwrite real values with placeholders, so it is excluded from the
+# kustomization on purpose.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: autmn-secrets
+  namespace: autmn
+type: Opaque
+stringData:
+  # The complete set the services validate on boot — confirmed by running the
+  # image against a cluster and reading what the env schema rejected, rather
+  # than by reading the schema and hoping.
+  DATABASE_URL: "REPLACE_ME"
+  DIRECT_URL: "REPLACE_ME"
+  REDIS_URL: "REPLACE_ME"
+
+  WHATSAPP_ACCESS_TOKEN: "REPLACE_ME"
+  WHATSAPP_PHONE_NUMBER_ID: "REPLACE_ME"
+  WHATSAPP_APP_SECRET: "REPLACE_ME"
+
+  GOOGLE_AI_API_KEY: "REPLACE_ME"
+  FAL_KEY: "REPLACE_ME"
+  GROQ_API_KEY: "REPLACE_ME"
+
+  RAZORPAY_KEY_ID: "REPLACE_ME"
+  RAZORPAY_KEY_SECRET: "REPLACE_ME"
+
+  SUPABASE_URL: "REPLACE_ME"
+  SUPABASE_SERVICE_ROLE_KEY: "REPLACE_ME"
+
+  REFUND_DECISION_SECRET: "REPLACE_ME"
+  ADMIN_EMAIL: "REPLACE_ME"

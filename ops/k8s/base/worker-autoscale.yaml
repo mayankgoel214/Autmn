@@ -1,0 +1,47 @@
+# Autoscaling the worker on queue depth, not CPU.
+#
+# The obvious HPA here would target CPU, and it would never fire. An image job
+# spends almost all of its seven minutes awaiting Gemini, fal.ai and object
+# storage — the process is I/O-bound, so CPU sits low precisely while the
+# backlog grows. Scaling on CPU would add replicas only once the work had
+# already changed character, which is the wrong signal at the wrong time.
+#
+# The signal that actually tracks the problem is the one already exported for
+# Grafana: autmn_queue_depth. KEDA reads it straight from Prometheus.
+#
+# Requires KEDA in the cluster:
+#   helm repo add kedacore https://kedacore.github.io/charts
+#   helm install keda kedacore/keda --namespace keda --create-namespace
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: autmn-worker
+  namespace: autmn
+spec:
+  scaleTargetRef:
+    name: autmn-worker
+  minReplicaCount: 1
+  maxReplicaCount: 6
+  # A pod must stay idle this long before it is removed. Generous because
+  # spinning a worker down mid-job means waiting out BullMQ's ten-minute lock
+  # before anything else can pick the job up.
+  cooldownPeriod: 600
+  pollingInterval: 30
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          # A backlog is a reason to add capacity quickly.
+          stabilizationWindowSeconds: 30
+        scaleDown:
+          # Shrinking is not urgent, and flapping costs more than an idle pod.
+          stabilizationWindowSeconds: 300
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.monitoring.svc.cluster.local:9090
+        query: sum(autmn_queue_depth{queue="image-processing",state="waiting"})
+        # Each worker runs three jobs concurrently, so three waiting jobs is
+        # roughly one pod's worth of work. This is the number to revisit if the
+        # concurrency setting in apps/worker changes.
+        threshold: "3"
