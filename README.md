@@ -14,7 +14,18 @@ the WhatsApp CTA are disabled there).
 · PostgreSQL + Prisma · Redis-backed queue · WhatsApp Cloud API · Gemini 3 Pro
 Image / OpenAI / fal.ai / Groq · Razorpay · GitHub Actions
 
-**Run it locally:** see [Local Development Setup](#local-development-setup).
+**Run it locally:**
+
+```bash
+docker compose up --build     # API, worker, Postgres and Redis
+```
+
+API on `:3000`, queue dashboard at `/admin/queues`. Postgres and Redis run in
+the compose stack rather than against the hosted Neon and Upstash instances, so
+a local run cannot reach production data. Without AI provider keys in `.env` the
+services start and serve health, but a generation job fails at the first call.
+See [Local Development Setup](#local-development-setup) for running without
+Docker.
 
 ---
 

@@ -1,12 +1,12 @@
 node_modules
 **/node_modules
-dist
-**/.turbo
+**/dist
 .git
 .github
+.next
 *.md
+docs
+Autmn_Logos
+*.zip
 .env
 .env.*
-!.env.example
-**/*.tsbuildinfo
-.DS_Store

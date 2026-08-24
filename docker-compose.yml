@@ -1,0 +1,98 @@
+# The whole Autmn backend locally:
+#
+#   docker compose up --build
+#
+# API           http://localhost:3000
+# Queue board   http://localhost:3000/admin/queues
+#
+# Postgres and Redis run here rather than pointing at the hosted Neon and
+# Upstash instances, so a local run cannot touch production data. Copy
+# .env.example to .env and fill in the AI provider keys; without them the API
+# starts and serves health, but a generation job will fail at the first call.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: autmn
+      POSTGRES_USER: autmn
+      POSTGRES_PASSWORD: autmn
+    ports:
+      - "5433:5432"       # 5433 on the host: 5432 is usually already taken
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autmn -d autmn"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # BullMQ requires this: it uses blocking reads and its own eviction
+    # semantics, and letting Redis evict keys under memory pressure silently
+    # loses jobs.
+    command: ["redis-server", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      target: runtime
+    command: ["node", "apps/api/dist/index.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    environment:
+      # Not production: the app refuses to boot in production mode while any
+      # secret is still a placeholder, which is the correct behaviour and the
+      # reason this local stack does not claim to be production.
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://autmn:autmn@postgres:5432/autmn
+      REDIS_URL: redis://redis:6379
+      # Required by the env schema. These are local-only stand-ins so the stack
+      # boots without credentials; .env overrides them when real ones exist.
+      REFUND_DECISION_SECRET: ${REFUND_DECISION_SECRET:-local-development-only-not-a-real-secret}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@autmn.local}
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "3000:3000"
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    command: ["node", "apps/worker/dist/index.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://autmn:autmn@postgres:5432/autmn
+      REDIS_URL: redis://redis:6379
+      # Required by the env schema. These are local-only stand-ins so the stack
+      # boots without credentials; .env overrides them when real ones exist.
+      REFUND_DECISION_SECRET: ${REFUND_DECISION_SECRET:-local-development-only-not-a-real-secret}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@autmn.local}
+    env_file:
+      - path: .env
+        required: false
+    # The image pipeline is the throughput constraint, so this is the service
+    # to scale: docker compose up --scale worker=3
+    deploy:
+      replicas: 1
+
+volumes:
+  postgres-data:
+  redis-data:
