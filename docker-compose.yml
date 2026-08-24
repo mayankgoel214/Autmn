@@ -43,6 +43,27 @@ services:
       timeout: 3s
       retries: 10
 
+  # Runs once and exits. Without it the database is empty and the webhook
+  # correctly refuses to acknowledge, because it persists the envelope before
+  # acking and cannot.
+  migrate:
+    build:
+      context: .
+      target: runtime
+    # pnpm exec, not npx: npx resolves to the latest published Prisma, and
+    # Prisma 7 removed `url` from the schema datasource, so it rejects a schema
+    # the pinned 6.x accepts.
+    command: ["pnpm", "--filter", "@autmn/db", "exec", "prisma", "migrate", "deploy"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://autmn:autmn@postgres:5432/autmn
+      # The schema declares directUrl so that migrations bypass Neon's pooler in
+      # production. Against a plain local Postgres there is no pooler to bypass,
+      # so it is the same connection.
+      DIRECT_URL: postgresql://autmn:autmn@postgres:5432/autmn
+    restart: "no"
+
   api:
     build:
       context: .
@@ -51,6 +72,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis:    { condition: service_healthy }
+      migrate:  { condition: service_completed_successfully }
     environment:
       # Not production: the app refuses to boot in production mode while any
       # secret is still a placeholder, which is the correct behaviour and the
@@ -68,6 +90,8 @@ services:
         required: false
     ports:
       - "3000:3000"
+      # Metrics deliberately on a separate port from the public API surface.
+      - "9100:9100"
 
   worker:
     build:
@@ -77,6 +101,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis:    { condition: service_healthy }
+      migrate:  { condition: service_completed_successfully }
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://autmn:autmn@postgres:5432/autmn
@@ -88,11 +113,59 @@ services:
     env_file:
       - path: .env
         required: false
+    ports:
+      - "9101:9101"
     # The image pipeline is the throughput constraint, so this is the service
     # to scale: docker compose up --scale worker=3
     deploy:
       replicas: 1
 
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+      - worker
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      # Local stack only. Anonymous admin means the dashboard opens without a
+      # login prompt getting in the way of looking at it.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+  # Not started with the stack. Run on demand:
+  #   docker compose run --rm k6 run /scripts/webhook-load.js
+  k6:
+    image: grafana/k6:0.55.0
+    profiles: ["tools"]
+    volumes:
+      - ./ops/k6:/scripts:ro
+    environment:
+      BASE_URL: http://api:3000
+    depends_on:
+      - api
+
 volumes:
   postgres-data:
   redis-data:
+  prometheus-data:
+  grafana-data:

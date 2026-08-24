@@ -11,14 +11,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/client": "~6.6.0",
     "@autmn/ai": "workspace:*",
     "@autmn/db": "workspace:*",
+    "@autmn/metrics": "workspace:*",
     "@autmn/payment": "workspace:*",
     "@autmn/queue": "workspace:*",
     "@autmn/session": "workspace:*",
     "@autmn/storage": "workspace:*",
     "@autmn/whatsapp": "workspace:*",
+    "@prisma/client": "~6.6.0",
     "bullmq": "^5.0.0",
     "dotenv": "^17.3.1",
     "ioredis": "^5.4.0",

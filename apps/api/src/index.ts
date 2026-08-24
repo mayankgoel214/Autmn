@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { prisma } from '@autmn/db';
 import { initSentry, captureException } from '@autmn/ai';
+import { initMetrics, observeRequest, startMetricsServer } from '@autmn/metrics';
 import { getConfig } from './config.js';
 import { registerRawBodyParser } from './middleware/raw-body.js';
 import { healthRoutes } from './routes/health.js';
@@ -43,6 +44,28 @@ async function main() {
           : undefined,
     },
   });
+
+  initMetrics('api');
+
+  // Timing lives in a hook rather than per-route, so a route added later is
+  // measured without anyone remembering to instrument it.
+  app.addHook('onResponse', async (req, reply) => {
+    observeRequest(
+      req.method,
+      // The route pattern, not the resolved URL: labelling by raw path would
+      // mint a series per order id.
+      req.routeOptions?.url,
+      reply.statusCode,
+      reply.elapsedTime / 1000,
+    );
+  });
+
+  // Metrics listen on their own port rather than as a route on this server.
+  // The public surface here receives WhatsApp and Razorpay webhooks from the
+  // open internet, and queue depths, job timings and route latencies are not
+  // things to hand out there. Prometheus reaches this port over the internal
+  // network only.
+  startMetricsServer(Number(process.env.METRICS_PORT ?? 9100));
 
   // Raw body parser must be registered BEFORE routes
   registerRawBodyParser(app);

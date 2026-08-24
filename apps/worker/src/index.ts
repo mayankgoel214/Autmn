@@ -10,6 +10,7 @@ import {
 } from '@autmn/queue';
 import { prisma } from '@autmn/db';
 import { initSentry, captureException } from '@autmn/ai';
+import { initMetrics, startMetricsServer, instrumentProcessor } from '@autmn/metrics';
 import { getConfig } from './config.js';
 import { processImageJob } from './processors/image-processing.js';
 import { processPaymentCheck } from './processors/payment-check.js';
@@ -57,10 +58,16 @@ async function main() {
     release: process.env.GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA,
   });
 
+  // Started before the workers so the first job is already being counted. The
+  // queue-depth gauge is registered by importing @autmn/metrics; it reads Redis
+  // at scrape time rather than on a timer.
+  initMetrics('worker');
+  startMetricsServer(Number(process.env.METRICS_PORT ?? 9101));
+
   // Each BullMQ Worker MUST have its own Redis connection
   const imageWorker = new Worker(
     QueueNames.IMAGE_PROCESSING,
-    processImageJob,
+    instrumentProcessor(QueueNames.IMAGE_PROCESSING, processImageJob),
     {
       connection: getRedisConnection().duplicate(),
       concurrency: 3,
@@ -71,7 +78,7 @@ async function main() {
 
   const paymentWorker = new Worker(
     QueueNames.PAYMENT_CHECK,
-    processPaymentCheck,
+    instrumentProcessor(QueueNames.PAYMENT_CHECK, processPaymentCheck),
     {
       connection: getRedisConnection().duplicate(),
       concurrency: 5,
@@ -80,7 +87,7 @@ async function main() {
 
   const sessionWorker = new Worker(
     QueueNames.SESSION_TIMEOUT,
-    processSessionTimeout,
+    instrumentProcessor(QueueNames.SESSION_TIMEOUT, processSessionTimeout),
     {
       connection: getRedisConnection().duplicate(),
       concurrency: 10,
@@ -93,7 +100,7 @@ async function main() {
   // calls).
   const storageCleanupWorker = new Worker(
     QueueNames.STORAGE_CLEANUP,
-    processStorageCleanup,
+    instrumentProcessor(QueueNames.STORAGE_CLEANUP, processStorageCleanup),
     {
       connection: getRedisConnection().duplicate(),
       concurrency: 1,

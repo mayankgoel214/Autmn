@@ -31,6 +31,7 @@ COPY packages/ai/package.json       packages/ai/
 COPY packages/db/package.json       packages/db/
 COPY packages/email/package.json    packages/email/
 COPY packages/keypool/package.json  packages/keypool/
+COPY packages/metrics/package.json  packages/metrics/
 COPY packages/payment/package.json  packages/payment/
 COPY packages/queue/package.json    packages/queue/
 COPY packages/session/package.json  packages/session/
