@@ -6,6 +6,16 @@ WhatsApp-native AI product photography for Indian micro-sellers.
 - No app to download. No design skills needed. Works on the phone you already use.
 - Rs 99 per image. First order bilkul free.
 
+**Live:** https://autmn-web.vercel.app — the marketing site, deployed as a
+portfolio build (orders are not being taken, so the business contact details and
+the WhatsApp CTA are disabled there).
+
+**Stack:** TypeScript · pnpm monorepo (3 apps, 9 packages) · Fastify · Next.js 15
+· PostgreSQL + Prisma · Redis-backed queue · WhatsApp Cloud API · Gemini 3 Pro
+Image / OpenAI / fal.ai / Groq · Razorpay · GitHub Actions
+
+**Run it locally:** see [Local Development Setup](#local-development-setup).
+
 ---
 
 ## Table of Contents
