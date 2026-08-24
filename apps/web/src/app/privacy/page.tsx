@@ -90,8 +90,10 @@ export default function Privacy() {
       <p>
         For any privacy questions or requests, contact <V value={site.legal.entityName} /> at{' '}
         <a href={`mailto:${site.email.support}`}>{site.email.support}</a>, or by post at{' '}
-        <V value={site.legal.address} />, <V value={site.legal.city} />,{' '}
-        <V value={site.legal.state} /> <V value={site.legal.pincode} />, {site.legal.country}.
+        {[site.legal.address, site.legal.city, site.legal.state, site.legal.pincode, site.legal.country]
+          .filter(Boolean)
+          .join(', ')}
+        .
       </p>
     </LegalLayout>
   );

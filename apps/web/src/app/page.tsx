@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { site, whatsappLink } from '@/site.config';
+import { site, whatsappLink, PORTFOLIO_MODE } from '@/site.config';
 import { Bloom } from '@/components/Bloom';
 import { Menu } from '@/components/Menu';
 import { WaButton } from '@/components/WaButton';
@@ -56,7 +56,7 @@ export default function Home() {
             rel="noopener noreferrer"
             className="rounded-full border border-gold/50 px-5 py-2 text-sm text-gold transition-colors hover:bg-gold/10"
           >
-            Start on WhatsApp
+            {PORTFOLIO_MODE ? 'View the code' : 'Start on WhatsApp'}
           </a>
         </nav>
         {/* mobile menu */}

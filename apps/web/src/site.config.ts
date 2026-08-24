@@ -1,11 +1,26 @@
 /**
  * Autmn — single source of truth for all business, contact, and pricing details.
  *
+ * PORTFOLIO BUILD. Autmn is not currently accepting orders, so the live
+ * business identity — proprietor name, registered street address and the
+ * operating WhatsApp number — has been removed from this file so it cannot
+ * reach the deployed bundle. The real values live in git history and the
+ * ops runbook; restore them here to go live again.
+ *
  * ⚠️ FILL IN EVERY VALUE MARKED `PLACEHOLDER` BEFORE GOING LIVE.
  * Razorpay and Meta both require real, reachable business + contact info on the
  * public site, so the legal pages (privacy / terms / refund / contact) read from
  * here. Anything left as PLACEHOLDER will render a visible TODO badge on the page.
  */
+
+/** Autmn is showcased as engineering work, not sold, in this build. */
+export const PORTFOLIO_MODE = true;
+
+export const portfolio = {
+  author: 'Mayank Goel',
+  repo: 'https://github.com/mayankgoel214/Autmn',
+  site: 'https://mayank-goel.com',
+} as const;
 
 export const site = {
   // ── Identity ────────────────────────────────────────────────────────────────
@@ -19,7 +34,7 @@ export const site = {
   // ── WhatsApp ──────────────────────────────────────────────────────────────
   // The business WhatsApp number in INTERNATIONAL format, digits only, no +.
   // e.g. '919876543210'. Used for the wa.me click-to-chat CTA everywhere.
-  whatsappNumber: '917439506526', // official Autmn WhatsApp (+91 74395 06526)
+  whatsappNumber: '', // removed for the portfolio build
   whatsappGreeting: 'hi', // pre-filled message in the chat link
 
   // ── Pricing (must match the live pipeline) ──────────────────────────────────
@@ -30,14 +45,14 @@ export const site = {
   // ── Contact ─────────────────────────────────────────────────────────────────
   email: {
     support: 'support@autmn.ai',
-    founder: 'mayank@autmn.ai',
+    founder: 'mayank@autmn.ai', // domain not live in this build
   },
 
   // ── Legal entity (required by Razorpay KYC + DPDP) ──────────────────────────
   legal: {
-    entityName: 'Anshika Jain',
+    entityName: 'Autmn',
     entityType: 'Sole Proprietorship',
-    address: '9B, Lord Sinha Road, Monica Building',
+    address: '', // removed for the portfolio build
     city: 'Kolkata',
     state: 'West Bengal',
     pincode: '700071',
@@ -52,6 +67,7 @@ export const site = {
 
 /** wa.me click-to-chat link with the greeting pre-filled. */
 export function whatsappLink(): string {
+  if (PORTFOLIO_MODE) return portfolio.repo;
   return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(site.whatsappGreeting)}`;
 }
 

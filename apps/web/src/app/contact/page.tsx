@@ -20,9 +20,10 @@ export default function Contact() {
           <strong>Entity type:</strong> <V value={site.legal.entityType} />
         </li>
         <li>
-          <strong>Registered address:</strong> <V value={site.legal.address} />,{' '}
-          <V value={site.legal.city} />, <V value={site.legal.state} />{' '}
-          <V value={site.legal.pincode} />, {site.legal.country}
+          <strong>Registered address:</strong>{' '}
+          {[site.legal.address, site.legal.city, site.legal.state, site.legal.pincode, site.legal.country]
+            .filter(Boolean)
+            .join(', ')}
         </li>
         {site.legal.gstin ? (
           <li>
