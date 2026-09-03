@@ -25,8 +25,8 @@ export const portfolio = {
 export const site = {
   // ── Identity ────────────────────────────────────────────────────────────────
   name: 'Marquee',
-  domain: 'marquee-web.vercel.app', // autmn.ai is retired
-  url: 'https://marquee-web.vercel.app',
+  domain: 'marquee-photo.vercel.app', // autmn.ai is retired
+  url: 'https://marquee-photo.vercel.app',
   tagline: 'Professional product photos, without the studio.',
   description:
     'Send a product photo on WhatsApp. Get a brand-ready ad back in minutes. ₹49 per image — your first one is free.',

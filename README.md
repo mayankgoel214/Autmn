@@ -8,7 +8,7 @@ historical `@autmn` prefix.)
 - No app to download. No design skills needed. Works on the phone you already use.
 - Rs 99 per image. First order bilkul free.
 
-**Live:** https://marquee-web.vercel.app — the marketing site, deployed as a
+**Live:** https://marquee-photo.vercel.app — the marketing site, deployed as a
 portfolio build (orders are not being taken, so the business contact details and
 the WhatsApp CTA are disabled there).
 
@@ -796,7 +796,7 @@ All admin routes require `x-admin-secret` header in production (value must match
 ## Deployment
 
 **Today (portfolio build):** the marketing site (`apps/web`) deploys to Vercel
-at https://marquee-web.vercel.app. The API and worker are not hosted — running
+at https://marquee-photo.vercel.app. The API and worker are not hosted — running
 them requires live WhatsApp Business credentials (Meta business verification)
 and a funded Razorpay account, which is exactly what the service being paused
 means. The full backend runs locally with `docker compose up --build`, storage

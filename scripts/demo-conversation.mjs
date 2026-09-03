@@ -102,11 +102,11 @@ try {
     data: { imageStorageUrls: [INPUT_URL_WORKER], imageMediaIds: ['demo-media-1'] },
   });
 
-  // In AWAITING_PHOTO, free text is captured as creative instructions.
-  await customer(txt('warm golden light, on a marble shelf'));
+  // After "done" the flow offers Start / Add instructions; free text at that
+  // point is captured as creative instructions and advances the order.
   await customer(txt('done'));
-  await customer(btn('process_now', 'Create my ad ✨'));
-  console.log(`state after process_now: ${await state()}`);
+  await customer(txt('warm golden light, on a marble shelf'));
+  console.log(`state after instructions: ${await state()}`);
 
   await customer(lst('style_lifestyle', 'Lifestyle scene'));
   console.log(`state after style pick: ${await state()}`);
