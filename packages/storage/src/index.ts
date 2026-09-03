@@ -10,5 +10,8 @@ export { uploadFile } from "./upload.js";
 export { downloadFile } from "./download.js";
 export { getPublicUrl } from "./url.js";
 
+// Driver selection (STORAGE_DRIVER=local runs without Supabase)
+export { storageDriver, localStorageDir, localFilePath, isOwnStorageUrl } from "./local.js";
+
 // TTL cleanup (DPDP compliance)
 export { cleanupBucketByAge, type CleanupBucketResult } from "./cleanup.js";

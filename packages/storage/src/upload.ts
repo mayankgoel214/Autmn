@@ -1,5 +1,6 @@
 import { getStorageClient } from "./client.js";
 import { getPublicUrl } from "./url.js";
+import { localUpload, storageDriver } from "./local.js";
 
 /**
  * Upload a file buffer to Supabase Storage.
@@ -19,6 +20,10 @@ export async function uploadFile(
   buffer: Buffer,
   contentType: string
 ): Promise<string> {
+  if (storageDriver() === "local") {
+    return localUpload(bucket, path, buffer);
+  }
+
   const client = getStorageClient();
 
   // Video files can be 5-20 MB — give them a longer timeout than images.

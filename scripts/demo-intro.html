@@ -1,0 +1,77 @@
+<!doctype html>
+<!-- Title card for the demo recording. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Marquee — demo intro</title>
+    <style>
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      body {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #0b141a;
+        color: #e9edef;
+        font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+        text-align: center;
+        padding: 40px;
+      }
+      .logo {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #c2410c, #f59e0b);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+        font-weight: 800;
+        color: #fff;
+      }
+      h1 {
+        font-size: 44px;
+        letter-spacing: -0.5px;
+      }
+      p.what {
+        font-size: 21px;
+        color: #aebac1;
+        max-width: 640px;
+        line-height: 1.45;
+      }
+      p.how {
+        font-size: 15px;
+        color: #8696a0;
+        max-width: 640px;
+        line-height: 1.5;
+        border-top: 1px solid #233138;
+        padding-top: 16px;
+      }
+      .stack {
+        font-size: 13.5px;
+        color: #667781;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo">M</div>
+    <h1>Marquee</h1>
+    <p class="what">
+      WhatsApp-native AI product photography for Indian micro-sellers.<br />
+      Send a product photo on WhatsApp — get a brand-ready ad back in minutes.
+    </p>
+    <p class="how">
+      This is the real system running locally — the production state machine, queue worker, Gemini
+      generation and quality gates, live. The WhatsApp transport is simulated (a cold demo needs
+      Meta business verification); everything after the webhook is the real pipeline.
+    </p>
+    <p class="stack">
+      TypeScript · Fastify · BullMQ · Postgres · Gemini 3 Pro Image · Prometheus/Grafana
+    </p>
+  </body>
+</html>

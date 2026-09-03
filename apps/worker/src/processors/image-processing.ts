@@ -9,7 +9,7 @@ import type { Job } from 'bullmq';
 import { prisma } from '@autmn/db';
 import type { ImageJob } from '@autmn/db';
 import { processImageNeverFail, downloadBuffer, classifyFailure, NeverFailRefundRequiredError, type NeverFailResult } from '@autmn/ai';
-import { uploadFile, Buckets } from '@autmn/storage';
+import { uploadFile, Buckets, isOwnStorageUrl } from '@autmn/storage';
 import { WhatsAppClient } from '@autmn/whatsapp';
 // Phase 13 — the worker is now silent between PROCESSING-start (handled by
 // the session layer) and the actual image delivery. msgProgressReadyToSend
@@ -188,7 +188,7 @@ export async function processImageJob(job: Job): Promise<void> {
       // Use pipeline output URL directly if it's already in Supabase storage
       // (the pipeline uploads internally via uploadToStorage)
       outputUrl = result.outputUrl;
-      if (!outputUrl.includes('supabase.co')) {
+      if (!isOwnStorageUrl(outputUrl)) {
         // Only re-upload if it's a temporary URL (fal.ai, data URL, etc.)
         const outputPath = `${data.orderId}/${data.imageJobId}-output.jpg`;
         const outputBuffer = await fetch(outputUrl).then((r) => r.arrayBuffer());
@@ -202,7 +202,7 @@ export async function processImageJob(job: Job): Promise<void> {
 
       // Use cutout URL directly if already in Supabase, otherwise re-upload
       if (result.cutoutUrl && result.cutoutUrl.startsWith('http')) {
-        if (result.cutoutUrl.includes('supabase.co')) {
+        if (isOwnStorageUrl(result.cutoutUrl)) {
           cutoutUrl = result.cutoutUrl;
         } else try {
           const cutoutPath = `${data.orderId}/${data.imageJobId}-cutout.png`;
@@ -275,7 +275,7 @@ export async function processImageJob(job: Job): Promise<void> {
         await prisma.$executeRaw`
           UPDATE "orders"
           SET "actual_cost_inr" = COALESCE("actual_cost_inr", 0) + ${result.costInr}
-          WHERE "id" = ${data.orderId}
+          WHERE "id" = ${data.orderId}::uuid
         `.catch((err) => {
           console.error(JSON.stringify({
             event: 'cost_accumulate_failed',

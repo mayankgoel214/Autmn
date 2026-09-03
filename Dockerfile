@@ -59,6 +59,9 @@ ENV NODE_ENV=production
 # Unprivileged: neither process needs root. node:22-slim already ships a `node`
 # user, so no group juggling is needed.
 COPY --from=build --chown=node:node /app /app
+# Mount point for the local storage driver's shared volume, owned by the
+# runtime user so the first write does not need root.
+RUN mkdir -p /data/storage && chown node:node /data/storage
 USER node
 
 EXPOSE 3000

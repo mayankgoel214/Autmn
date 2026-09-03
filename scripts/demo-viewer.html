@@ -1,0 +1,296 @@
+<!doctype html>
+<!--
+  Renders scripts/results/demo-transcript.json as a WhatsApp-style chat and
+  plays it back message by message, for screen-recording the demo video.
+
+  Serve from the repo root so the JSON and the local storage URLs resolve:
+    python3 -m http.server 8088
+    open http://localhost:8088/scripts/demo-viewer.html
+  Press SPACE to start playback. R restarts.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Marquee — WhatsApp demo replay</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #111b21;
+        font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .phone {
+        width: 420px;
+        height: 92vh;
+        max-height: 860px;
+        background: #0b141a;
+        border-radius: 24px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 12px 60px rgba(0, 0, 0, 0.6);
+      }
+      header {
+        background: #202c33;
+        color: #e9edef;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #c2410c, #f59e0b);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+        font-size: 18px;
+      }
+      header .name {
+        font-weight: 600;
+        font-size: 16px;
+      }
+      header .status {
+        font-size: 12px;
+        color: #8696a0;
+      }
+      .chat {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 12px;
+        background: #0b141a
+          url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" opacity="0.04"><circle cx="30" cy="30" r="1.4" fill="white"/></svg>');
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .bubble {
+        max-width: 78%;
+        padding: 7px 10px;
+        border-radius: 8px;
+        font-size: 14.2px;
+        line-height: 1.35;
+        color: #e9edef;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        animation: pop 0.18s ease-out;
+      }
+      @keyframes pop {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+      .customer {
+        align-self: flex-end;
+        background: #005c4b;
+        border-top-right-radius: 0;
+      }
+      .marquee {
+        align-self: flex-start;
+        background: #202c33;
+        border-top-left-radius: 0;
+      }
+      .bubble img {
+        max-width: 100%;
+        border-radius: 6px;
+        display: block;
+        margin-bottom: 4px;
+      }
+      .btnrow {
+        margin-top: 8px;
+        border-top: 1px solid rgba(134, 150, 160, 0.25);
+      }
+      .wa-btn {
+        color: #53bdeb;
+        text-align: center;
+        padding: 8px 0 2px;
+        font-size: 14px;
+      }
+      .rows {
+        margin-top: 8px;
+        border-top: 1px solid rgba(134, 150, 160, 0.25);
+      }
+      .row-item {
+        padding: 7px 0 3px;
+        color: #53bdeb;
+        font-size: 13.5px;
+      }
+      .footer-note {
+        color: #8696a0;
+        font-size: 11.5px;
+        margin-top: 4px;
+      }
+      .time {
+        font-size: 10.5px;
+        color: #8696a0;
+        text-align: right;
+        margin-top: 3px;
+      }
+      .typing {
+        align-self: flex-start;
+        background: #202c33;
+        border-radius: 8px;
+        padding: 12px 16px;
+        display: none;
+      }
+      .typing span {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #8696a0;
+        margin: 0 1.5px;
+        animation: blink 1.2s infinite;
+      }
+      .typing span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .typing span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes blink {
+        0%,
+        80%,
+        100% {
+          opacity: 0.25;
+        }
+        40% {
+          opacity: 1;
+        }
+      }
+      .genlabel {
+        align-self: center;
+        color: #8696a0;
+        font-size: 12px;
+        background: #182229;
+        border-radius: 8px;
+        padding: 5px 12px;
+        margin: 6px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone">
+      <header>
+        <div class="avatar">M</div>
+        <div>
+          <div class="name">Marquee</div>
+          <div class="status" id="status">online</div>
+        </div>
+      </header>
+      <div class="chat" id="chat">
+        <div class="typing" id="typing"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+    <script>
+      const chat = document.getElementById('chat');
+      const typing = document.getElementById('typing');
+      const status = document.getElementById('status');
+      let data = null;
+
+      fetch('results/demo-transcript.json')
+        .then((r) => r.json())
+        .then((d) => {
+          data = d;
+          status.textContent = 'online — press SPACE to play';
+        })
+        .catch(() => {
+          status.textContent = 'transcript not found';
+        });
+
+      const fmtTime = (iso) =>
+        new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+
+      function render(entry) {
+        const div = document.createElement('div');
+        div.className = 'bubble ' + (entry.from === 'customer' ? 'customer' : 'marquee');
+        let html = '';
+        if (entry.imageUrl) html += `<img src="${entry.imageUrl}" />`;
+        if (entry.body) html += `<div>${entry.body.replace(/</g, '&lt;')}</div>`;
+        if (entry.buttons?.length) {
+          html +=
+            '<div class="btnrow">' +
+            entry.buttons
+              .map(
+                (b) =>
+                  `<div class="wa-btn">${(b.title ?? b).toString().replace(/</g, '&lt;')}</div>`,
+              )
+              .join('') +
+            '</div>';
+        }
+        if (entry.rows?.length) {
+          html +=
+            '<div class="rows">' +
+            entry.rows
+              .slice(0, 6)
+              .map(
+                (r) =>
+                  `<div class="row-item">▸ ${(r.title ?? r.id ?? '').toString().replace(/</g, '&lt;')}</div>`,
+              )
+              .join('') +
+            '</div>';
+        }
+        if (entry.footer)
+          html += `<div class="footer-note">${entry.footer.replace(/</g, '&lt;')}</div>`;
+        html += `<div class="time">${fmtTime(entry.at)}</div>`;
+        div.innerHTML = html;
+        chat.insertBefore(div, typing);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      async function play() {
+        if (!data) return;
+        [...chat.querySelectorAll('.bubble, .genlabel')].forEach((n) => n.remove());
+        for (let i = 0; i < data.transcript.length; i++) {
+          const entry = data.transcript[i];
+          const last = i === data.transcript.length - 1;
+          if (entry.from === 'marquee') {
+            typing.style.display = 'block';
+            status.textContent = 'typing…';
+            chat.scrollTop = chat.scrollHeight;
+            await sleep(last ? 2400 : 900);
+            typing.style.display = 'none';
+            status.textContent = 'online';
+          } else {
+            await sleep(1100);
+          }
+          if (last) {
+            const label = document.createElement('div');
+            label.className = 'genlabel';
+            label.textContent = 'generating your ad — about a minute ⏳';
+            chat.insertBefore(label, typing);
+            chat.scrollTop = chat.scrollHeight;
+            await sleep(2600);
+          }
+          render(entry);
+          await sleep(entry.imageUrl ? 1600 : 400);
+        }
+        status.textContent = `online — order ${data.orderId}, real cost ₹${data.costInr}`;
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          play();
+        }
+        if (e.code === 'KeyR') location.reload();
+      });
+    </script>
+  </body>
+</html>

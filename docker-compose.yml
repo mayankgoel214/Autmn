@@ -18,11 +18,11 @@ services:
       POSTGRES_USER: autmn
       POSTGRES_PASSWORD: autmn
     ports:
-      - "5433:5432"       # 5433 on the host: 5432 is usually already taken
+      - '5433:5432' # 5433 on the host: 5432 is usually already taken
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U autmn -d autmn"]
+      test: ['CMD-SHELL', 'pg_isready -U autmn -d autmn']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -32,13 +32,13 @@ services:
     # BullMQ requires this: it uses blocking reads and its own eviction
     # semantics, and letting Redis evict keys under memory pressure silently
     # loses jobs.
-    command: ["redis-server", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+    command: ['redis-server', '--maxmemory-policy', 'noeviction', '--appendonly', 'yes']
     ports:
-      - "6380:6379"
+      - '6380:6379'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -53,7 +53,7 @@ services:
     # pnpm exec, not npx: npx resolves to the latest published Prisma, and
     # Prisma 7 removed `url` from the schema datasource, so it rejects a schema
     # the pinned 6.x accepts.
-    command: ["pnpm", "--filter", "@autmn/db", "exec", "prisma", "migrate", "deploy"]
+    command: ['pnpm', '--filter', '@autmn/db', 'exec', 'prisma', 'migrate', 'deploy']
     depends_on:
       postgres: { condition: service_healthy }
     environment:
@@ -62,17 +62,17 @@ services:
       # production. Against a plain local Postgres there is no pooler to bypass,
       # so it is the same connection.
       DIRECT_URL: postgresql://autmn:autmn@postgres:5432/autmn
-    restart: "no"
+    restart: 'no'
 
   api:
     build:
       context: .
       target: runtime
-    command: ["node", "apps/api/dist/index.js"]
+    command: ['node', 'apps/api/dist/index.js']
     depends_on:
       postgres: { condition: service_healthy }
-      redis:    { condition: service_healthy }
-      migrate:  { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     environment:
       # Not production: the app refuses to boot in production mode while any
       # secret is still a placeholder, which is the correct behaviour and the
@@ -85,23 +85,30 @@ services:
       # boots without credentials; .env overrides them when real ones exist.
       REFUND_DECISION_SECRET: ${REFUND_DECISION_SECRET:-local-development-only-not-a-real-secret}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@autmn.local}
+      # Local-disk storage on a volume shared with the worker, so the stack
+      # needs no hosted Supabase project. Explicit, never a fallback.
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      STORAGE_LOCAL_DIR: /data/storage
+      STORAGE_PUBLIC_BASE: ${STORAGE_PUBLIC_BASE:-http://localhost:3000/files}
     env_file:
       - path: .env
         required: false
     ports:
-      - "3000:3000"
+      - '3000:3000'
       # Metrics deliberately on a separate port from the public API surface.
-      - "9100:9100"
+      - '9100:9100'
+    volumes:
+      - storage-data:/data/storage
 
   worker:
     build:
       context: .
       target: runtime
-    command: ["node", "apps/worker/dist/index.js"]
+    command: ['node', 'apps/worker/dist/index.js']
     depends_on:
       postgres: { condition: service_healthy }
-      redis:    { condition: service_healthy }
-      migrate:  { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://autmn:autmn@postgres:5432/autmn
@@ -110,11 +117,17 @@ services:
       # boots without credentials; .env overrides them when real ones exist.
       REFUND_DECISION_SECRET: ${REFUND_DECISION_SECRET:-local-development-only-not-a-real-secret}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@autmn.local}
+      # Same storage volume as the API, which serves what this process writes.
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      STORAGE_LOCAL_DIR: /data/storage
+      STORAGE_PUBLIC_BASE: ${STORAGE_PUBLIC_BASE:-http://localhost:3000/files}
     env_file:
       - path: .env
         required: false
     ports:
-      - "9101:9101"
+      - '9101:9101'
+    volumes:
+      - storage-data:/data/storage
     # The image pipeline is the throughput constraint, so this is the service
     # to scale: docker compose up --scale worker=3
     deploy:
@@ -129,7 +142,7 @@ services:
       - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "9090:9090"
+      - '9090:9090'
     depends_on:
       - api
       - worker
@@ -139,16 +152,16 @@ services:
     environment:
       # Local stack only. Anonymous admin means the dashboard opens without a
       # login prompt getting in the way of looking at it.
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
-      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
       GF_USERS_DEFAULT_THEME: light
     volumes:
       - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "3001:3000"
+      - '3001:3000'
     depends_on:
       - prometheus
 
@@ -156,7 +169,7 @@ services:
   #   docker compose run --rm k6 run /scripts/webhook-load.js
   k6:
     image: grafana/k6:0.55.0
-    profiles: ["tools"]
+    profiles: ['tools']
     volumes:
       - ./ops/k6:/scripts:ro
     environment:
@@ -169,3 +182,4 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+  storage-data:

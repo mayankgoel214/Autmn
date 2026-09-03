@@ -1,4 +1,5 @@
 import { getStorageClient } from "./client.js";
+import { localDownload, storageDriver } from "./local.js";
 
 /**
  * Download a file from Supabase Storage and return its contents as a Buffer.
@@ -8,6 +9,10 @@ import { getStorageClient } from "./client.js";
  * @returns       File contents as a Node Buffer
  */
 export async function downloadFile(bucket: string, path: string): Promise<Buffer> {
+  if (storageDriver() === "local") {
+    return localDownload(bucket, path);
+  }
+
   const client = getStorageClient();
 
   const downloadPromise = client.storage.from(bucket).download(path);

@@ -1,4 +1,5 @@
 import { getStorageClient } from "./client.js";
+import { localPublicUrl, storageDriver } from "./local.js";
 
 /**
  * Derive the full public URL for an object in Supabase Storage.
@@ -12,6 +13,10 @@ import { getStorageClient } from "./client.js";
  * @returns       Full public HTTPS URL
  */
 export function getPublicUrl(bucket: string, path: string): string {
+  if (storageDriver() === "local") {
+    return localPublicUrl(bucket, path);
+  }
+
   const client = getStorageClient();
 
   const {
