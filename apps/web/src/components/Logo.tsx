@@ -42,7 +42,7 @@ export function Logo({ size = 40 }: { size?: number }) {
         className="font-heading font-medium tracking-tight text-cream"
         style={{ fontSize: size * 0.62 }}
       >
-        <span className="text-gold">Au</span>
+        <span className="text-gold">{site.name.slice(0, 2)}</span>
         {site.name.slice(2)}
       </span>
     </span>

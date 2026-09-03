@@ -38,7 +38,7 @@ export function Menu() {
     <div className="fixed inset-0 z-50 flex flex-col bg-ink">
       <div className="flex items-center justify-between px-6 py-5">
         <span className="font-heading text-xl text-cream">
-          <span className="text-gold">Au</span>tmn
+          <span className="text-gold">Ma</span>rquee
         </span>
         <button
           onClick={() => setOpen(false)}

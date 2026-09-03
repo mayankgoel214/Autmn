@@ -40,7 +40,7 @@ export default function Home() {
         <Link href="/" className="flex items-center gap-2.5">
           <Bloom size={26} />
           <span className="font-heading text-[22px] font-medium">
-            <span className="text-gold">Au</span>tmn
+            <span className="text-gold">Ma</span>rquee
           </span>
         </Link>
         {/* desktop nav */}
@@ -166,7 +166,7 @@ export default function Home() {
           <div className="flex items-center gap-2.5">
             <Bloom size={22} />
             <span className="font-heading text-lg">
-              <span className="text-gold">Au</span>tmn
+              <span className="text-gold">Ma</span>rquee
             </span>
           </div>
           <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-sand-dim">
