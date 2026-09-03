@@ -27,7 +27,7 @@ import {
 } from 'fs';
 import { createRequire } from 'module';
 import { processStyleProduction } from '../packages/ai/dist/index.js';
-const require = createRequire('/Users/mayankgoel/projects/Autmn/packages/ai/');
+const require = createRequire('/Users/mayankgoel/projects/Marquee/packages/ai/');
 const sharp = require('sharp');
 
 const IN = 'content/input';

@@ -1567,7 +1567,7 @@ export function msgEarlyPhotoAck(lang: Lang): string {
 export function styleDisplayName(styleId: string, lang: Lang): string {
   const names: Record<string, { hinglish: string; en: string }> = {
     style_smart: { hinglish: '✨ Smart Style', en: '✨ Smart Style' },
-    style_autmn_special: { hinglish: 'Autmn Special ✨', en: 'Autmn Special ✨' },
+    style_autmn_special: { hinglish: 'Marquee Special ✨', en: 'Marquee Special ✨' },
     style_clean_white: { hinglish: 'Saaf Safed Background', en: 'Clean White Background' },
     style_lifestyle: { hinglish: 'Lifestyle Setting', en: 'Lifestyle Setting' },
     style_gradient: { hinglish: 'Dark Luxury', en: 'Dark Luxury' },
@@ -1608,7 +1608,7 @@ export function categoryDisplayName(categoryId: string, lang: Lang): string {
  * Sent alongside three buttons: हिंदी / English / Hinglish.
  */
 export function msgAskLanguage(): string {
-  return 'Welcome to Autmn 🙏 / नमस्ते\n\nChoose your language / भाषा चुनें:';
+  return 'Welcome to Marquee 🙏 / नमस्ते\n\nChoose your language / भाषा चुनें:';
 }
 
 export function msgAskBrandName(lang: Lang): string {

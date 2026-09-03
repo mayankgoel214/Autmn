@@ -14,7 +14,7 @@ const ITEMS = [
 ];
 
 /**
- * Quiet, always-moving band of the product categories Autmn already shoots.
+ * Quiet, always-moving band of the product categories Marquee already shoots.
  * Doubled inline so the loop is seamless. Edges fade into the ink.
  */
 export function CategoryMarquee() {

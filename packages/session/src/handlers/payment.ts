@@ -390,7 +390,7 @@ export async function sendPaymentLink(
       customerPhone: phoneNumber,
       customerName: user.name ?? undefined,
       amount: order.amount, // paise — always from DB, never client-provided
-      description: `Autmn - ${order.imageCount} photo(s), 3 creatives`,
+      description: `Marquee - ${order.imageCount} photo(s), 3 creatives`,
       expiresInMinutes: 30,
     });
 

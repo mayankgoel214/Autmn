@@ -84,12 +84,12 @@ export function faqResponse(intent: FaqIntent, lang: Language): string {
     case 'what':
       switch (lang) {
         case 'hi':
-          return 'Autmn आपके product की photo को WhatsApp पर professional creative image में बदलता है।';
+          return 'Marquee आपके product की photo को WhatsApp पर professional creative image में बदलता है।';
         case 'hinglish':
-          return 'Autmn aapke product ki photo ko WhatsApp pe professional creative image mein badal deta hai.';
+          return 'Marquee aapke product ki photo ko WhatsApp pe professional creative image mein badal deta hai.';
         case 'en':
         default:
-          return 'Autmn turns your product photos into professional creative images, right inside WhatsApp.';
+          return 'Marquee turns your product photos into professional creative images, right inside WhatsApp.';
       }
   }
 }

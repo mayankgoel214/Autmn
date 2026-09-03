@@ -1,7 +1,7 @@
 /**
- * Autmn — single source of truth for all business, contact, and pricing details.
+ * Marquee — single source of truth for all business, contact, and pricing details.
  *
- * PORTFOLIO BUILD. Autmn is not currently accepting orders, so the live
+ * PORTFOLIO BUILD. Marquee is not currently accepting orders, so the live
  * business identity — proprietor name, registered street address and the
  * operating WhatsApp number — has been removed from this file so it cannot
  * reach the deployed bundle. The real values live in git history and the
@@ -13,20 +13,20 @@
  * here. Anything left as PLACEHOLDER will render a visible TODO badge on the page.
  */
 
-/** Autmn is showcased as engineering work, not sold, in this build. */
+/** Marquee is showcased as engineering work, not sold, in this build. */
 export const PORTFOLIO_MODE = true;
 
 export const portfolio = {
   author: 'Mayank Goel',
-  repo: 'https://github.com/mayankgoel214/Autmn',
+  repo: 'https://github.com/mayankgoel214/Marquee',
   site: 'https://mayank-goel.com',
 } as const;
 
 export const site = {
   // ── Identity ────────────────────────────────────────────────────────────────
-  name: 'Autmn',
-  domain: 'autmn.ai',
-  url: 'https://autmn.ai',
+  name: 'Marquee',
+  domain: 'marquee-web.vercel.app', // autmn.ai is retired
+  url: 'https://marquee-web.vercel.app',
   tagline: 'Professional product photos, without the studio.',
   description:
     'Send a product photo on WhatsApp. Get a brand-ready ad back in minutes. ₹49 per image — your first one is free.',
@@ -44,13 +44,13 @@ export const site = {
 
   // ── Contact ─────────────────────────────────────────────────────────────────
   email: {
-    support: 'support@autmn.ai',
-    founder: 'mayank@autmn.ai', // domain not live in this build
+    support: 'mayankgoel214@gmail.com', // the autmn.ai mailboxes are retired
+    founder: 'mayankgoel214@gmail.com',
   },
 
   // ── Legal entity (required by Razorpay KYC + DPDP) ──────────────────────────
   legal: {
-    entityName: 'Autmn',
+    entityName: 'Marquee',
     entityType: 'Sole Proprietorship',
     address: '', // removed for the portfolio build
     city: 'Kolkata',

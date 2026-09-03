@@ -67,7 +67,7 @@ export function renderRefundDecisionPage(data: RefundDecisionPageData): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${escapeHtml(title)} — Autmn</title>
+  <title>${escapeHtml(title)} — Marquee</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif; color: #111; background: #f9fafb; margin: 0; padding: 48px 24px;">
   <main style="max-width: 480px; margin: 0 auto; background: white; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">

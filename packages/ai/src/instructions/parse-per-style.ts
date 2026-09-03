@@ -27,7 +27,7 @@ function getStyleDisplayName(style: string): string {
     case 'style_festive':        return 'Festive';
     case 'style_minimal':        return 'Minimal';
     case 'style_with_model':     return 'With Model';
-    case 'style_autmn_special':  return 'Autmn Special';
+    case 'style_autmn_special':  return 'Marquee Special';
     default:                     return style;
   }
 }
@@ -98,7 +98,7 @@ Rules:
 1. If a clause explicitly names a style (e.g. "for the model style", "in the colored studio one", "autmn special mein", "the creative one"), assign the full clause (including all sub-clauses scoped under it) to that style.
 2. "Model style" / "with model" / "model shot" / "model wala" → style_with_model
 3. "Colored studio" / "studio shot" / "color backdrop" / "studio wala" → style_studio
-4. "Autmn special" / "creative one" / "special one" / "autumn special" → style_autmn_special
+4. "Marquee special" / "creative one" / "special one" / "autumn special" → style_autmn_special
 5. "Clean white" / "white background" → style_clean_white
 6. "Lifestyle" → style_lifestyle (unless "with model" is also mentioned, then style_with_model)
 7. "Gradient" / "dark" / "moody" → style_gradient

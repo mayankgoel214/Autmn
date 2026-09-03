@@ -38,7 +38,7 @@ function humaniseStyle(style: string): string {
     case 'style_festive':           return 'Festive Indian';
     case 'style_minimal':           return 'Minimal';
     case 'style_with_model':        return 'With Model';
-    case 'style_autmn_special':     return 'Autmn Special (art-directed)';
+    case 'style_autmn_special':     return 'Marquee Special (art-directed)';
     case 'style_anything_you_want': return 'Custom (user-described)';
     default:                        return style.replace(/^style_/, '').replace(/_/g, ' ');
   }

@@ -8,7 +8,7 @@
  * Env vars:
  *   RESEND_API_KEY  — required at send time (lazy-checked). Without it,
  *                     sendEmail throws so the caller can fall back / alert.
- *   FROM_EMAIL      — defaults to "Autmn <noreply@autmn.app>". Domain must
+ *   FROM_EMAIL      — defaults to "Marquee <noreply@marquee.app>". Domain must
  *                     be verified in Resend (SPF + DKIM + DMARC).
  *   APP_URL         — base URL for magic links in templates.
  *   ADMIN_EMAIL     — founder address that receives refund-request emails.

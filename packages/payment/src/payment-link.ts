@@ -6,7 +6,7 @@ import type { CreatePaymentLinkParams } from './types.js';
 // WhatsApp and their UPI app without rage-quitting; short enough that a
 // stale link doesn't sit around if the user abandoned the flow.
 const DEFAULT_EXPIRES_IN_MINUTES = 60;
-const DEFAULT_DESCRIPTION = 'Autmn - Professional Product Photo';
+const DEFAULT_DESCRIPTION = 'Marquee - Professional Product Photo';
 
 const CreatePaymentLinkSchema = z.object({
   orderId: z.string().min(1, 'orderId is required'),
@@ -117,7 +117,7 @@ export function buildPaymentLinkPayload(
  *
  * - Sets reference_id to orderId for idempotent deduplication.
  * - Enables upi_link for UPI-first experience (best conversion in India).
- * - Skips SMS/email notifications — Autmn delivers the link via WhatsApp.
+ * - Skips SMS/email notifications — Marquee delivers the link via WhatsApp.
  * - Amount is NEVER taken from the client; always pass from verified server state.
  */
 export async function createPaymentLink(

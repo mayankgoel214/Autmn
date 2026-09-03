@@ -1,5 +1,5 @@
 /**
- * The Autmn aperture-bloom mark. Flower + camera shutter, 6 spun blades with a
+ * The Marquee aperture-bloom mark. Flower + camera shutter, 6 spun blades with a
  * peek-through pinhole. `tone` controls fill; the pinhole is transparent so it
  * works on any background.
  */

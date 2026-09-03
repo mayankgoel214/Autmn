@@ -20,8 +20,8 @@ const GALLERY = [
 ];
 
 const STEPS = [
-  { n: '1', t: 'Send a photo', d: 'Snap your product and send it to Autmn on WhatsApp. The phone you already use.' },
-  { n: '2', t: 'Pick a style', d: 'Choose a look, or let Autmn art-direct it for you. Add a note if you like.' },
+  { n: '1', t: 'Send a photo', d: 'Snap your product and send it to Marquee on WhatsApp. The phone you already use.' },
+  { n: '2', t: 'Pick a style', d: 'Choose a look, or let Marquee art-direct it for you. Add a note if you like.' },
   { n: '3', t: 'Get your ads', d: 'Brand-ready ads come back in minutes. Post them, list them, sell.' },
 ];
 
@@ -77,7 +77,7 @@ export default function Home() {
         </h1>
         <p className="mt-5 max-w-md text-[15px] leading-relaxed text-sand">
           No app. No designer. Just WhatsApp. Snap your product, pick a style, and
-          Autmn returns a brand-ready ad. Your first one is free.
+          Marquee returns a brand-ready ad. Your first one is free.
         </p>
         <div className="mt-12">
           <SampleShowcase />
@@ -107,7 +107,7 @@ export default function Home() {
           </h2>
           <p className="mt-4 max-w-xl text-sand lg:text-lg">
             Real products, shot on a phone. Tap any card to flip from the raw
-            snapshot to the finished Autmn ad.
+            snapshot to the finished Marquee ad.
           </p>
         </Reveal>
         <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:mt-16 lg:gap-7">

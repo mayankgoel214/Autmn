@@ -1,16 +1,18 @@
-# Autmn
+# Marquee
 
-WhatsApp-native AI product photography for Indian micro-sellers.
+WhatsApp-native AI product photography for Indian micro-sellers. (Formerly
+named Autmn — the repo, site and copy were renamed; package scopes keep the
+historical `@autmn` prefix.)
 
 - Send a photo of your product on WhatsApp. Get a professional ad image back in minutes.
 - No app to download. No design skills needed. Works on the phone you already use.
 - Rs 99 per image. First order bilkul free.
 
-**Live:** https://autmn-web.vercel.app — the marketing site, deployed as a
+**Live:** https://marquee-web.vercel.app — the marketing site, deployed as a
 portfolio build (orders are not being taken, so the business contact details and
 the WhatsApp CTA are disabled there).
 
-**Stack:** TypeScript · pnpm monorepo (3 apps, 9 packages) · Fastify · Next.js 15
+**Stack:** TypeScript · pnpm monorepo (3 apps, 10 packages) · Fastify · Next.js 15
 · PostgreSQL + Prisma · Redis-backed queue · WhatsApp Cloud API · Gemini 3 Pro
 Image / OpenAI / fal.ai / Groq · Razorpay · GitHub Actions
 
@@ -107,17 +109,21 @@ WhatsApp User receives ad image + Ken Burns video
 ### Monorepo Structure
 
 ```
-autmn/
+marquee/
 ├── apps/
 │   ├── api/          @autmn/api    — Fastify HTTP server, webhooks, session routing
+│   ├── web/          @autmn/web    — Next.js marketing site (deployed to Vercel)
 │   └── worker/       @autmn/worker — BullMQ workers for image, payment, session jobs
 └── packages/
-    ├── ai/           @autmn/ai     — Full AI image pipeline (V3 + fallbacks)
+    ├── ai/           @autmn/ai     — Full AI image pipeline (generation, QA gates, briefs)
     ├── db/           @autmn/db     — Prisma client + PostgreSQL schema
+    ├── email/        @autmn/email  — Resend transport + refund-decision pages
+    ├── keypool/      @autmn/keypool — Round-robin API key pool across AI providers
+    ├── metrics/      @autmn/metrics — Prometheus metrics for both processes
     ├── payment/      @autmn/payment — Razorpay payment link creation + verification
     ├── queue/        @autmn/queue  — BullMQ queue definitions + Redis connection
     ├── session/      @autmn/session — Conversation state machine + message handlers
-    ├── storage/      @autmn/storage — Supabase Storage upload/download helpers
+    ├── storage/      @autmn/storage — Storage drivers: Supabase, or local disk (STORAGE_DRIVER=local)
     └── whatsapp/     @autmn/whatsapp — WhatsApp Cloud API client + HMAC verification
 ```
 
@@ -789,26 +795,21 @@ All admin routes require `x-admin-secret` header in production (value must match
 
 ## Deployment
 
-Autmn runs as two separate Railway services from the same repo. Both share the same environment variables.
+**Today (portfolio build):** the marketing site (`apps/web`) deploys to Vercel
+at https://marquee-web.vercel.app. The API and worker are not hosted — running
+them requires live WhatsApp Business credentials (Meta business verification)
+and a funded Razorpay account, which is exactly what the service being paused
+means. The full backend runs locally with `docker compose up --build`, storage
+included (local driver), and the Kubernetes manifests under `ops/k8s` are the
+deployment shape it ran against a real cluster with.
 
-### Service 1: API
+**When it ran as a business,** the API and worker ran as two services from this
+repo (originally Railway):
 
-| Setting | Value |
-|---|---|
-| Build command | `pnpm build` |
-| Start command | `node apps/api/dist/index.js` |
-| Health check path | `/health` |
-| Port | `3000` (set via `PORT` env var) |
-| Scale | 1 instance (stateless, can scale horizontally) |
-
-### Service 2: Worker
-
-| Setting | Value |
-|---|---|
-| Build command | `pnpm build` |
-| Start command | `node apps/worker/dist/index.js` |
-| Health check | None needed (Railway restarts on crash) |
-| Scale | 1 instance (increase concurrency settings before scaling to 2) |
+| Service | Start command | Notes |
+|---|---|---|
+| API | `node apps/api/dist/index.js` | health at `/health`, port 3000, stateless |
+| Worker | `node apps/worker/dist/index.js` | scale by queue depth, not CPU — see `ops/k8s` |
 
 ### Build order
 
@@ -858,7 +859,7 @@ The `PAYMENT_BYPASS=true` flag is checked at startup in both `api` and `worker`.
 
 ### CORS disabled
 
-`@fastify/cors` is registered with `{ origin: false }`. Autmn is an API-only service — no browser clients, no CORS needed.
+`@fastify/cors` is registered with `{ origin: false }`. The API is an API-only service — no browser clients, no CORS needed.
 
 ### Amount never from client
 

@@ -5,7 +5,7 @@
 //
 //   node --env-file=.env --import tsx scripts/internal-flow-test.mjs
 const { PrismaClient } =
-  await import('/Users/mayankgoel/projects/Autmn/packages/db/src/generated/client/index.js');
+  await import('/Users/mayankgoel/projects/Marquee/packages/db/src/generated/client/index.js');
 const { handleIncomingMessage } = await import('../packages/session/dist/index.js');
 
 const prisma = new PrismaClient({ log: ['error'] });

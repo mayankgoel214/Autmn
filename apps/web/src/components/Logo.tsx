@@ -1,7 +1,7 @@
 import { site } from '@/site.config';
 
 /**
- * Autmn logo — the aperture-bloom mark (a flower that doubles as a camera
+ * Marquee logo — the aperture-bloom mark (a flower that doubles as a camera
  * shutter) in a rounded ink tile + wordmark. The icon alone is the WhatsApp
  * avatar / favicon / corner watermark, so it must read at tiny sizes:
  * 6 spun blades, gold on ink, with a peek-through pinhole center.

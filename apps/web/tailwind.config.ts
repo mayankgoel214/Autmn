@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * Autmn brand tokens. Ink + Gold premium palette.
+ * Marquee brand tokens. Ink + Gold premium palette.
  *   ink   = near-black canvas
  *   gold  = the one confident accent (the bloom, CTAs, "Au")
  *   cream = light surfaces / text on ink

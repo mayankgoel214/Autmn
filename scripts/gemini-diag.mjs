@@ -1,7 +1,7 @@
 // Pinpoint whether the Gemini 429 is key-wide quota or model-specific access.
 // node --env-file=.env scripts/gemini-diag.mjs
 import { createRequire } from 'module';
-const require = createRequire('/Users/mayankgoel/projects/Autmn/packages/ai/');
+const require = createRequire('/Users/mayankgoel/projects/Marquee/packages/ai/');
 const { GoogleGenAI, Modality } = require('@google/genai');
 
 const key =

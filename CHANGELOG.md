@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Autmn are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/spec/v2.0.0.html).
+All notable changes to Marquee (formerly Autmn) are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/spec/v2.0.0.html).
 
 Per-package release notes are managed via [Changesets](https://github.com/changesets/changesets) under `.changeset/`; this file is the repo-level rollup.
 

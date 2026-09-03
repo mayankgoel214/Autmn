@@ -60,7 +60,7 @@ export default function Privacy() {
       <H2>Sharing your information</H2>
       <p>
         We do not sell your personal data. We share data only with service providers who help us run
-        Autmn — payment processing (Razorpay), messaging (WhatsApp / Meta), AI generation, cloud
+        Marquee — payment processing (Razorpay), messaging (WhatsApp / Meta), AI generation, cloud
         storage, and error monitoring — and only to the extent needed to provide the service, or
         when required by law.
       </p>
@@ -82,7 +82,7 @@ export default function Privacy() {
 
       <H2>Children</H2>
       <p>
-        Autmn is a business tool intended for sellers aged 18 and over. We do not knowingly collect
+        Marquee is a business tool intended for sellers aged 18 and over. We do not knowingly collect
         data from children.
       </p>
 

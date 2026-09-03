@@ -230,7 +230,7 @@ export class KeyPool {
    * Report the outcome of the most-recent getKeySync() call. Best-effort:
    * the pool records success/failure against whichever key was last handed
    * out. This is racy under concurrency, but for single-request handler
-   * scopes (the Autmn pipeline model) it's accurate.
+   * scopes (the Marquee pipeline model) it's accurate.
    */
   reportLastOutcome(outcome: ReleaseOutcome): void {
     const hint = this.lastSyncKeyHint;

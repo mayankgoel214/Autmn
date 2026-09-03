@@ -82,7 +82,7 @@ export function allHealth(): Record<Provider, ProviderHealth | null> {
 
 /**
  * Synchronous single-shot key accessor for a provider.
- * Rotates round-robin, skips cool-down keys. For Autmn's existing
+ * Rotates round-robin, skips cool-down keys. For Marquee's existing
  * AI call sites that pull the key inline and aren't easily refactored
  * to acquire/release lifecycles.
  *
@@ -96,7 +96,7 @@ export function getProviderKey(provider: Provider): string {
 
 /**
  * Report the outcome of the most-recent `getProviderKey(provider)` call.
- * Best-effort — accurate when handlers are single-request-scoped (Autmn's
+ * Best-effort — accurate when handlers are single-request-scoped (Marquee's
  * worker processor model is).
  */
 export function reportProviderResult(

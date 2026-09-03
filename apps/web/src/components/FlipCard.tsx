@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Bloom } from './Bloom';
 
 /**
- * Cue card. Front = the raw phone photo, back = the Autmn ad. Click to flip
+ * Cue card. Front = the raw phone photo, back = the Marquee ad. Click to flip
  * (3D), click again to flip back. The interactive proof: one tap turns a
  * snapshot into a studio ad.
  */
@@ -23,7 +23,7 @@ export function FlipCard({
     <button
       type="button"
       onClick={() => setFlipped((f) => !f)}
-      aria-label={`${label}: tap to ${flipped ? 'see the photo' : 'reveal the Autmn ad'}`}
+      aria-label={`${label}: tap to ${flipped ? 'see the photo' : 'reveal the Marquee ad'}`}
       className={`group block w-full [perspective:1600px] ${className}`}
       style={{ aspectRatio: '4 / 5' }}
     >
@@ -52,17 +52,17 @@ export function FlipCard({
           </div>
         </div>
 
-        {/* BACK — Autmn ad */}
+        {/* BACK — Marquee ad */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl border border-gold/60 shadow-gold [backface-visibility:hidden] [transform:rotateY(180deg)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/gallery/${slug}/after.jpg`}
-            alt={`Autmn ad for ${label.toLowerCase()}`}
+            alt={`Marquee ad for ${label.toLowerCase()}`}
             draggable={false}
             className="h-full w-full object-cover"
           />
           <span className="absolute left-4 top-4 rounded-full bg-ink/70 px-3 py-1 text-xs uppercase tracking-[0.12em] text-gold backdrop-blur">
-            Autmn ad
+            Marquee ad
           </span>
           <span className="absolute bottom-4 right-4">
             <Bloom size={22} fill="rgba(247,242,233,0.9)" />

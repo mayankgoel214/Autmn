@@ -86,8 +86,8 @@ export async function postProcessFinal(imageBuffer: Buffer, style?: string): Pro
     .jpeg({ quality: 95, mozjpeg: true })
     .withExifMerge({
       IFD0: {
-        Software: 'Autmn AI',
-        ImageDescription: 'AI-generated product advertisement by Autmn',
+        Software: 'Marquee AI',
+        ImageDescription: 'AI-generated product advertisement by Marquee',
       },
     })
     .toBuffer();
@@ -97,7 +97,7 @@ export async function postProcessFinal(imageBuffer: Buffer, style?: string): Pro
 }
 
 /**
- * Composite the Autmn logo watermark onto the image.
+ * Composite the Marquee logo watermark onto the image.
  */
 export async function addAILabel(imageBuffer: Buffer): Promise<Buffer> {
   let workingBuffer = imageBuffer;

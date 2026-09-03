@@ -59,7 +59,7 @@ function checkAuth(req: FastifyRequest, reply: FastifyReply): boolean {
 // ---------------------------------------------------------------------------
 
 const STYLES = [
-  { id: 'style_autmn_special', label: 'Autmn Special' },
+  { id: 'style_autmn_special', label: 'Marquee Special' },
   { id: 'style_clean_white',   label: 'Clean White Background' },
   { id: 'style_lifestyle',     label: 'Lifestyle Setting' },
   { id: 'style_gradient',      label: 'Dark Luxury' },
@@ -82,7 +82,7 @@ function buildHtml(adminKey: string): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Autmn Admin — Pipeline Test</title>
+  <title>Marquee Admin — Pipeline Test</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
@@ -102,7 +102,7 @@ function buildHtml(adminKey: string): string {
 <div class="max-w-5xl mx-auto px-4 py-8">
   <!-- Header -->
   <div class="mb-8">
-    <h1 class="text-2xl font-bold text-gray-900">Autmn Pipeline Tester</h1>
+    <h1 class="text-2xl font-bold text-gray-900">Marquee Pipeline Tester</h1>
     <p class="text-sm text-gray-500 mt-1">Upload 1–5 photos, pick 3 styles, run the production pipeline. Beta prompt + Pro → NB2 → GPT Image 2.</p>
   </div>
 

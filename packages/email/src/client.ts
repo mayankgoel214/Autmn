@@ -31,7 +31,7 @@ export class EmailSendError extends Error {
   }
 }
 
-const DEFAULT_FROM = 'Autmn <noreply@autmn.app>';
+const DEFAULT_FROM = 'Marquee <noreply@marquee.app>';
 
 /**
  * Send a transactional email via Resend.

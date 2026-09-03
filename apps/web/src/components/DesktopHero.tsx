@@ -32,7 +32,7 @@ export function DesktopHero() {
         </h1>
         <p className="mt-8 max-w-md text-xl leading-relaxed text-sand">
           No app. No designer. Just WhatsApp. Snap your product, pick a style, and
-          Autmn returns a brand-ready ad. Your first one is free.
+          Marquee returns a brand-ready ad. Your first one is free.
         </p>
 
         <div className="mt-10 flex items-center gap-5">

@@ -13,6 +13,8 @@ import { healthRoutes } from './routes/health.js';
 import { adminRoutes } from './routes/admin.js';
 import { adminTestRoutes } from './routes/admin/test.js';
 import { adminKeypoolRoutes } from './routes/admin/keypool.js';
+import { storageDriver } from '@autmn/storage';
+import { localFileRoutes } from './routes/files.js';
 import { whatsappWebhookRoutes } from './routes/webhooks/whatsapp.js';
 import { razorpayWebhookRoutes } from './routes/webhooks/razorpay.js';
 import { registerBullBoard } from './plugins/bull-board.js';
@@ -99,6 +101,13 @@ async function main() {
   await app.register(whatsappWebhookRoutes);
   await app.register(razorpayWebhookRoutes);
 
+  // Local storage driver: serve the objects the worker writes to the shared
+  // volume. Under Supabase this route does not exist — bucket URLs serve files.
+  if (storageDriver() === 'local') {
+    await app.register(localFileRoutes);
+    app.log.info('Local storage driver active — serving /files from disk');
+  }
+
   // Bull Board (queue monitoring UI)
   try {
     await registerBullBoard(app);
@@ -120,7 +129,7 @@ async function main() {
 
   // Start
   await app.listen({ port: config.PORT, host: '0.0.0.0' });
-  app.log.info(`Autmn API running on port ${config.PORT} (${config.NODE_ENV})`);
+  app.log.info(`Marquee API running on port ${config.PORT} (${config.NODE_ENV})`);
 }
 
 main().catch((err) => {

@@ -17,7 +17,7 @@ const SAMPLES: Sample[] = [
 ];
 
 /**
- * The interactive proof. Two cards (your photo, Autmn ad) for one product.
+ * The interactive proof. Two cards (your photo, Marquee ad) for one product.
  * Tapping the centre bloom cycles to the next product, and the new pair blooms
  * in. This is the page's "try me" moment.
  */
@@ -31,7 +31,7 @@ export function SampleShowcase() {
       <div className="mb-5 flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-sand">
         <span>Your photo</span>
         <span className="text-gold">→</span>
-        <span>Autmn ad</span>
+        <span>Marquee ad</span>
       </div>
 
       {/* the pair — re-keyed so each new sample blooms in */}
@@ -60,7 +60,7 @@ export function SampleShowcase() {
           <div className="relative aspect-[3/4]">
             <Image
               src={`/gallery/${s.slug}/after.jpg`}
-              alt={`Autmn-generated ad for ${s.category.toLowerCase()}`}
+              alt={`Marquee-generated ad for ${s.category.toLowerCase()}`}
               fill
               sizes="(min-width: 640px) 260px, 60vw"
               className="object-cover"
@@ -68,7 +68,7 @@ export function SampleShowcase() {
             />
           </div>
           <span className="absolute left-3 top-2.5 text-[10px] uppercase tracking-[0.1em] text-gold-dark">
-            Autmn ad
+            Marquee ad
           </span>
           <span className="absolute bottom-2.5 right-2.5">
             <Bloom size={20} fill="rgba(23,18,14,0.55)" />

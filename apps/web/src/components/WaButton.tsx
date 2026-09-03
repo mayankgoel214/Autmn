@@ -2,7 +2,7 @@ import { whatsappLink, PORTFOLIO_MODE } from '@/site.config';
 
 /**
  * Click-to-WhatsApp CTA. Opens the user's WhatsApp with "hi" pre-filled to the
- * Autmn number, which starts the bot pipeline. No backend, no template.
+ * Marquee number, which starts the bot pipeline. No backend, no template.
  */
 export function WaButton({
   label = 'Begin your first ad',

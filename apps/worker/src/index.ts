@@ -47,7 +47,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Autmn Worker starting (${config.NODE_ENV})`);
+  console.log(`Marquee Worker starting (${config.NODE_ENV})`);
 
   // V1 compromise #4 — Sentry transport for alert.* + uncaught errors.
   // No-op when SENTRY_DSN is unset.

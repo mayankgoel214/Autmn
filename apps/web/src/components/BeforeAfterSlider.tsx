@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bloom } from './Bloom';
 
 /**
- * Draggable before/after comparison. The Autmn ad fills the frame; the raw
+ * Draggable before/after comparison. The Marquee ad fills the frame; the raw
  * phone photo is revealed on the left up to the divider. Drag the gold handle
  * (mouse or touch) to wipe between them. Desktop centerpiece.
  */
@@ -53,12 +53,12 @@ export function BeforeAfterSlider({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`/gallery/${slug}/after.jpg`}
-        alt="Autmn-generated ad"
+        alt="Marquee-generated ad"
         draggable={false}
         className="absolute inset-0 h-full w-full object-cover"
       />
       <span className="absolute right-4 top-4 rounded-full bg-ink/70 px-3 py-1 text-xs uppercase tracking-[0.12em] text-gold backdrop-blur">
-        Autmn ad
+        Marquee ad
       </span>
 
       {/* before (clipped to the left of the divider) */}
