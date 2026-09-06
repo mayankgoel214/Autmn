@@ -12,6 +12,14 @@ historical `@autmn` prefix.)
 portfolio build (orders are not being taken, so the business contact details and
 the WhatsApp CTA are disabled there).
 
+**Demo:** [docs/marquee-demo.mp4](docs/marquee-demo.mp4) — 66 seconds. A real
+customer conversation driven through the production state machine, the real
+queue worker generating the ad with Gemini, then the queue dashboard and
+Grafana. The WhatsApp transport is simulated — a cold demo of the real
+transport requires Meta business verification — and everything after the
+webhook is the production code path; the ₹27 cost shown is measured, not
+scripted.
+
 **Stack:** TypeScript · pnpm monorepo (3 apps, 10 packages) · Fastify · Next.js 15
 · PostgreSQL + Prisma · Redis-backed queue · WhatsApp Cloud API · Gemini 3 Pro
 Image / OpenAI / fal.ai / Groq · Razorpay · GitHub Actions
@@ -19,13 +27,15 @@ Image / OpenAI / fal.ai / Groq · Razorpay · GitHub Actions
 **Run it locally:**
 
 ```bash
-docker compose up --build     # API, worker, Postgres and Redis
+docker compose up --build     # API, worker, Postgres, Redis, Prometheus, Grafana
 ```
 
-API on `:3000`, queue dashboard at `/admin/queues`. Postgres and Redis run in
-the compose stack rather than against the hosted Neon and Upstash instances, so
-a local run cannot reach production data. Without AI provider keys in `.env` the
-services start and serve health, but a generation job fails at the first call.
+API on `:3000`, queue dashboard at `/admin/queues`, Grafana at `:3001`.
+Postgres and Redis run in the compose stack rather than against hosted
+instances, and generated images land on a local volume served by the API
+(`STORAGE_DRIVER=local`), so a clean clone needs **no hosted services at all**.
+Without AI provider keys in `.env` the services start and serve health, but a
+generation job fails at the first call — loudly, by design.
 See [Local Development Setup](#local-development-setup) for running without
 Docker.
 

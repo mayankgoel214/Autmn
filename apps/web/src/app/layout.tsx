@@ -18,14 +18,12 @@ const body = Inter({
 });
 
 export const metadata: Metadata = {
-  // On a preview/portfolio deploy the canonical domain may not resolve, and a
-  // broken metadataBase means a broken link-preview card.
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ??
-      (process.env.VERCEL_PROJECT_PRODUCTION_URL
-        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-        : site.url),
-  ),
+  // The canonical domain is pinned in site.config — Vercel's own
+  // VERCEL_PROJECT_PRODUCTION_URL must NOT take precedence: after the project
+  // rename it still reports the original autmn-web.vercel.app domain, which
+  // put the old name on every share card. NEXT_PUBLIC_SITE_URL remains as a
+  // deliberate override for previews.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? site.url),
   title: {
     default: `${site.name} — ${site.tagline}`,
     template: `%s — ${site.name}`,
