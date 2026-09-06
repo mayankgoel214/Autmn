@@ -1,6 +1,14 @@
-# Claude — Read this first when continuing work on Autmn
+# Claude — historical handoff doc (April 2026, project then named Autmn)
 
-This is a session-handoff doc. Read it once, then use `CLAUDE.md` (root) and `~/.claude/CLAUDE.md` (Studio Charter) for ongoing reference.
+> **STALE — kept as the record of the V1.2.1 launch-era decisions.** The
+> project is now **Marquee**, a portfolio build: orders paused, marketing site
+> live at https://marquee-photo.vercel.app, the full stack runs locally via
+> `docker compose up --build` with a local storage driver. Current state lives
+> in the README and in the Portfolio repo's `docs/SESSIONS.md`. The
+> **locked-decisions table below is still authoritative** (Beta prompt over
+> SCHEMA, no blocking QA gate, no NB2 middle tier) — those decisions were
+> re-confirmed from the code on 2026-09-03. Cost/margin figures and the
+> deploy-recommendation table reflect April and are not current.
 
 Last updated: **2026-04-28** (after V1.2.1 merged to main, before production deploy)
 
